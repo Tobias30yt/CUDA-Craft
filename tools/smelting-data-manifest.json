@@ -1,0 +1,11 @@
+{
+  "version": "1.21.11",
+  "server_sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+  "inner_server_sha256": "ec47239a8de246335e1d54f6ac319bd35641778eb4b6a6da06372840d02fcebc",
+  "items_sha256": "0031a948bf8210aaf68d4964499cb2c31f2c3bf5d7339439540ca82a9eb28686",
+  "mapped_fuel_reference_sha256": "77e665c6391dc8a1222a44f3ffb354ba8b5f1f1eb775ca437887e4fca5cc280c",
+  "recipe_count": 107,
+  "expanded_recipes": 227,
+  "fuel_items": 280,
+  "generated_sha256": "31e439e6d3f69005a8580c3f0e813cd9a44b69f30d65e00290482f0e737694c0"
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "cudacraft_client",
+  "version": "${version}",
+  "name": "CUDA Craft Singleplayer",
+  "description": "Vanilla Minecraft frontend with a supervised native CUDA Craft backend.",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.cudacraft.client.CudaCraftClient"] },
+  "mixins": ["cudacraft.client.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": ">=0.141.6+1.21.11"
+  }
+}

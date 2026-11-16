@@ -1,0 +1,45 @@
+{
+  "core/src/df_eval.c": [
+    {
+      "offset": 9093,
+      "length": 0,
+      "base64": "ICAgIGNhc2UgSENfREZfV0VJUkRfU0NBTEVEX1NBTVBMRVI6IHsKICAgICAgICBkb3VibGUgaW5wdXQgPSBzY1tuZC0+YV07CiAgICAgICAgZG91YmxlIHNjYWxlID0gbmQtPmF1eDIgPT0gMQogICAgICAgICAgICA/IChpbnB1dCA8IC0wLjUgPyAwLjc1IDogaW5wdXQgPCAwLjAgPyAxLjAgOiBpbnB1dCA8IDAuNSA/IDEuNSA6IDIuMCkKICAgICAgICAgICAgOiAoaW5wdXQgPCAtMC43NSA/IDAuNSA6IGlucHV0IDwgLTAuNSA/IDAuNzUgOiBpbnB1dCA8IDAuNSA/IDEuMCA6IGlucHV0IDwgMC43NSA/IDIuMCA6IDMuMCk7CiAgICAgICAgcmV0dXJuIHNjYWxlICogZmFicyhoY19ub3JtYWxfbm9pc2VfdmFsdWUoJmctPm5vaXNlc1tuZC0+YXV4XSwgeCAvIHNjYWxlLCB5IC8gc2NhbGUsIHogLyBzY2FsZSkpOwogICAgfQo="
+    },
+    {
+      "offset": 33996,
+      "length": 0,
+      "base64": "ICAgICAgICBjYXNlIEhDX0RGX1dFSVJEX1NDQUxFRF9TQU1QTEVSOgo="
+    }
+  ],
+  "core/include/hc_df.h": [
+    {
+      "offset": 3020,
+      "length": 0,
+      "base64": "ICAgIEhDX0RGX1dFSVJEX1NDQUxFRF9TQU1QTEVSLCAvKiBDVURBIENyYWZ0OiAxLjIxLjExIGNhdmUgc2FtcGxlci4gYT1pbnB1dCwgYXV4PW5vaXNlLCBhdXgyPW1hcHBlciAqLwo="
+    }
+  ],
+  "core/src/df_compile.c": [
+    {
+      "offset": 20665,
+      "length": 0,
+      "base64": "ICAgICAgICB9IGVsc2UgaWYgKHR5cGVfaXModCwgIndlaXJkX3NjYWxlZF9zYW1wbGVyIikpIHsKICAgICAgICAgICAgLyogQ1VEQSBDcmFmdDogcHJlLTI2LjIgcmFyaXR5LXNjYWxlZCBjYXZlIG5vaXNlLiAqLwogICAgICAgICAgICBjb25zdCBoY19qc29uX3QgKmlucHV0ID0gZ2V0X2ZpZWxkKGMsIGV4cHIsICJpbnB1dCIpOwogICAgICAgICAgICBjb25zdCBoY19qc29uX3QgKm1hcHBlciA9IGdldF9maWVsZChjLCBleHByLCAicmFyaXR5X3ZhbHVlX21hcHBlciIpOwogICAgICAgICAgICBoY19kZl9ub2RlX3QgbmQgPSBta25vZGUoSENfREZfV0VJUkRfU0NBTEVEX1NBTVBMRVIpOwogICAgICAgICAgICBpZiAoIWlucHV0IHx8ICFtYXBwZXIpIHsgciA9IC0xOyBnb3RvIG91dDsgfQogICAgICAgICAgICBuZC5hdXgyID0gaGNfanNvbl9zdHJlcShtYXBwZXIsICJ0eXBlXzEiKSA/IDEgOiBoY19qc29uX3N0cmVxKG1hcHBlciwgInR5cGVfMiIpID8gMiA6IDA7CiAgICAgICAgICAgIGlmICghbmQuYXV4MikgeyByID0gZmFpbChjLCAidW5rbm93biByYXJpdHkgbWFwcGVyIik7IGdvdG8gb3V0OyB9CiAgICAgICAgICAgIG5kLmEgPSBoY19kZl9jb21waWxlX2V4cHIoYywgaW5wdXQpOwogICAgICAgICAgICBuZC5hdXggPSBub2lzZV9maWVsZChjLCBleHByLCAibm9pc2UiKTsKICAgICAgICAgICAgciA9IG5kLmEgPCAwIHx8IG5kLmF1eCA8IDAgPyAtMSA6IGVtaXQoYywgJm5kKTsK"
+    }
+  ],
+  "core/src/biome_zoom.c": [
+    {
+      "offset": 68,
+      "length": 0,
+      "base64": "I2luY2x1ZGUgPG1hdGguaD4K"
+    },
+    {
+      "offset": 5414,
+      "length": 81,
+      "base64": "ICAgIGRvdWJsZSAgYmVzdF9kaXN0ID0gSFVHRV9WQUw7IC8qICtJbmY7IHBvcnRhYmxlIGNvbnN0YW50IGZvciBNU1ZDIEMxMS4gKi8K"
+    },
+    {
+      "offset": 6465,
+      "length": 79,
+      "base64": "ICAgICAgICByLT50ZW1wZXJhdHVyZVtpXSA9IE5BTjsgLyogUG9ydGFibGUgdW5zZXQtY2xpbWF0ZSBzZW50aW5lbC4gKi8K"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "cuda-local",
+      "displayName": "Project-local CUDA / Ninja / MSVC",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/cuda",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CUDACRAFT_CUDA": "ON",
+        "CMAKE_CUDA_COMPILER": "${sourceDir}/.tools/cuda/bin/nvcc.exe",
+        "CUDAToolkit_ROOT": "${sourceDir}/.tools/cuda",
+        "CMAKE_CUDA_ARCHITECTURES": "89",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows x64 / Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/windows",
+      "cacheVariables": { "CUDACRAFT_CUDA": "AUTO", "BUILD_TESTING": "ON" }
+    },
+    {
+      "name": "windows-cuda",
+      "inherits": "windows",
+      "binaryDir": "${sourceDir}/build/windows-cuda",
+      "cacheVariables": { "CUDACRAFT_CUDA": "ON" }
+    },
+    {
+      "name": "ninja",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CUDACRAFT_CUDA": "AUTO", "BUILD_TESTING": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "cuda-local", "configurePreset": "cuda-local" },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release" },
+    { "name": "windows-cuda", "configurePreset": "windows-cuda", "configuration": "Release" },
+    { "name": "ninja", "configurePreset": "ninja" }
+  ],
+  "testPresets": [
+    { "name": "cuda-local", "configurePreset": "cuda-local", "output": { "outputOnFailure": true } },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "windows-cuda", "configurePreset": "windows-cuda", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "ninja", "configurePreset": "ninja", "output": { "outputOnFailure": true } }
+  ]
+}

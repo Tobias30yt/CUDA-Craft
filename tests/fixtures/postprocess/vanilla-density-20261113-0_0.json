@@ -1,0 +1,107 @@
+{
+  "version": "1.21.11",
+  "server_sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+  "seed": 20261113,
+  "status": "minecraft:full",
+  "source": "Unmodified official binary; default overworld noise/surface/carvers; generate-structures=false; biome features replaced with empty lists",
+  "features_disabled": true,
+  "structures_disabled": true,
+  "chunks": [
+    {
+      "x": -2,
+      "z": -2,
+      "file": "vanilla-density-20261113--2_-2.u32le.zlib",
+      "sha256": "3cffac216f4afda016ee85e7a85e59bb5f412c3a59f1e47f16f394f5de8bc3fd"
+    },
+    {
+      "x": -1,
+      "z": -2,
+      "file": "vanilla-density-20261113--1_-2.u32le.zlib",
+      "sha256": "d7cec48b766198541ecbed1f8dba34d59f671abab63ac3b3b496e5bb21541cd5"
+    },
+    {
+      "x": 0,
+      "z": -2,
+      "file": "vanilla-density-20261113-0_-2.u32le.zlib",
+      "sha256": "fb64c4e186b80f0d33d9a47e0d0becd8575468e1f2b055250dcea84a98f87f6e"
+    },
+    {
+      "x": 1,
+      "z": -2,
+      "file": "vanilla-density-20261113-1_-2.u32le.zlib",
+      "sha256": "2dca5060e3f3f593ecd9f24571414e5780cf01258af7efe03a4d8e96055d2e3f"
+    },
+    {
+      "x": -2,
+      "z": -1,
+      "file": "vanilla-density-20261113--2_-1.u32le.zlib",
+      "sha256": "4bdccd990b591bba7e2fb2b5c7c036d9febd5af9e37dc41d68eb179fdd3822a0"
+    },
+    {
+      "x": -1,
+      "z": -1,
+      "file": "vanilla-density-20261113--1_-1.u32le.zlib",
+      "sha256": "58799b9f285d7d7e6c0fd118c37f884b97ce2c55f2b2ea5fd1c105c10a51488c"
+    },
+    {
+      "x": 0,
+      "z": -1,
+      "file": "vanilla-density-20261113-0_-1.u32le.zlib",
+      "sha256": "d2091f1517dfe2dfd8d222db3ba85ad5dfd57658b5e5c2808bd23f0da8da320a"
+    },
+    {
+      "x": 1,
+      "z": -1,
+      "file": "vanilla-density-20261113-1_-1.u32le.zlib",
+      "sha256": "3811eb69bbc2bd032dd78e4f417964b6d8a4192603d9b4ae316751965a016f09"
+    },
+    {
+      "x": -2,
+      "z": 0,
+      "file": "vanilla-density-20261113--2_0.u32le.zlib",
+      "sha256": "36348babe44cb73ef049d484f6cc486f994979f8ddf14e58e4b0c0556cc6e6db"
+    },
+    {
+      "x": -1,
+      "z": 0,
+      "file": "vanilla-density-20261113--1_0.u32le.zlib",
+      "sha256": "d15d7af784212786b5316e3aeaba2c869769865d9f1e5d83e8e4610ac781a474"
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "file": "vanilla-density-20261113-0_0.u32le.zlib",
+      "sha256": "962eb495c61caa9a9e851baf5de4cdee5036a942a6342e161c3985c44e05b783"
+    },
+    {
+      "x": 1,
+      "z": 0,
+      "file": "vanilla-density-20261113-1_0.u32le.zlib",
+      "sha256": "12d3256bb15b34086448c2db2da9daba3c4869ef8abe008812cb93f0dc14bc79"
+    },
+    {
+      "x": -2,
+      "z": 1,
+      "file": "vanilla-density-20261113--2_1.u32le.zlib",
+      "sha256": "0613d2ce3afe59d4b662cb679a0e1c21432bf9066ea5d2e8ea0f1d03e7516848"
+    },
+    {
+      "x": -1,
+      "z": 1,
+      "file": "vanilla-density-20261113--1_1.u32le.zlib",
+      "sha256": "59be1b613453b3f34af5c48951dc0e77da80ba5afcc5eeb47ba111763ca122dd"
+    },
+    {
+      "x": 0,
+      "z": 1,
+      "file": "vanilla-density-20261113-0_1.u32le.zlib",
+      "sha256": "5709e380d1452a35009b0ca16ce49046edb5a1527667a139c859a2f82169b65a"
+    },
+    {
+      "x": 1,
+      "z": 1,
+      "file": "vanilla-density-20261113-1_1.u32le.zlib",
+      "sha256": "4638a76073a0b456b5d1feacd239a6e5457faa3de194941811179edd32eeb31a"
+    }
+  ]
+}

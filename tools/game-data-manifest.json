@@ -1,0 +1,11 @@
+{
+  "version": "1.21.11",
+  "protocol": 774,
+  "repository": "PrismarineJS/minecraft-data",
+  "commit": "9b995542ab4a17837dee785439954e43d031b33e",
+  "files": {
+    "items.json": "0031a948bf8210aaf68d4964499cb2c31f2c3bf5d7339439540ca82a9eb28686",
+    "loginPacket.json": "ef319e46094d65c50767fe11bf3cef711395615b92cc9bab6fd0b01a29cce77f",
+    "blocks.json": "894b926701b73047f1e24ad9650356d8d6f4c1a6d79f65143facbc9c58598a47"
+  }
+}

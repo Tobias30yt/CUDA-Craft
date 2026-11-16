@@ -1,0 +1,124 @@
+{
+  "version": "1.21.11",
+  "server_sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+  "seed": 1234567890,
+  "status": "minecraft:carvers",
+  "chunks": [
+    {
+      "x": 773,
+      "z": -517,
+      "file": "vanilla-density-carvers-1234567890-773_-517.u32le.zlib",
+      "sha256": "fed69254f8b37a8676677103d3752f1dcaf2f8aaf70f1522ce4c5601511926a4",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -516,
+      "file": "vanilla-density-carvers-1234567890-773_-516.u32le.zlib",
+      "sha256": "22bc5bbf58d3b3c81b3c60f347a3c6b269087231ad8c920db3b45e8952c9a84f",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -515,
+      "file": "vanilla-density-carvers-1234567890-773_-515.u32le.zlib",
+      "sha256": "0b23b12187342a4a8d6b426cb2aed5bfb29d30299dff9ba82d0a8cf82dfe99b4",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -514,
+      "file": "vanilla-density-carvers-1234567890-773_-514.u32le.zlib",
+      "sha256": "984163917a447cf59a4410274f5e4a64a1c60fd6604f1978bcdd4fd182b6379c",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -513,
+      "file": "vanilla-density-carvers-1234567890-773_-513.u32le.zlib",
+      "sha256": "46a1de26511aadfb7609bd7661ca10a868e8d39c83517558874b8fea1fb9049d",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -512,
+      "file": "vanilla-density-carvers-1234567890-773_-512.u32le.zlib",
+      "sha256": "be8b51b4c952487c37903e39cb290cc099307a171e2009ec7c891b5207613e81",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -511,
+      "file": "vanilla-density-carvers-1234567890-773_-511.u32le.zlib",
+      "sha256": "bdf3c4847c3775c5ea51cbda1087c58dfaeb9cbb890e63ba607abe9bd394d66f",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -510,
+      "file": "vanilla-density-carvers-1234567890-773_-510.u32le.zlib",
+      "sha256": "0590fd2ab9e2d539e874951bb121ee5938a5f40d6962ac4bb4a2eb20259e58cb",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -509,
+      "file": "vanilla-density-carvers-1234567890-773_-509.u32le.zlib",
+      "sha256": "793b4b70a46b22122e5e279ee4ac85d8969b259f78ce95f2e2311d777e1a27b4",
+      "structures": []
+    },
+    {
+      "x": 773,
+      "z": -508,
+      "file": "vanilla-density-carvers-1234567890-773_-508.u32le.zlib",
+      "sha256": "18fcc57f9b76ba8858b78a6d4ea1f6f23df6700405f485dd1426221de2622546",
+      "structures": []
+    },
+    {
+      "x": 763,
+      "z": -507,
+      "file": "vanilla-density-carvers-1234567890-763_-507.u32le.zlib",
+      "sha256": "444ee02098ef12236801c8499ad3d0f7180e31a156a0505713bbfc191d4df7c2",
+      "structures": []
+    },
+    {
+      "x": 764,
+      "z": -507,
+      "file": "vanilla-density-carvers-1234567890-764_-507.u32le.zlib",
+      "sha256": "58c385a88cc553c733ef475a138c37f5c95d062e3241b37740d28a310aba6888",
+      "structures": []
+    },
+    {
+      "x": 765,
+      "z": -507,
+      "file": "vanilla-density-carvers-1234567890-765_-507.u32le.zlib",
+      "sha256": "a429d40ece1da5559ecea1dde5c5bf8193ed8837a7bbc0c2dc4c6ad95ef3326e",
+      "structures": []
+    },
+    {
+      "x": 766,
+      "z": -507,
+      "file": "vanilla-density-carvers-1234567890-766_-507.u32le.zlib",
+      "sha256": "63d77f52061f500b34c6e62c0a232b3f8def04bc1fbe01d14877512cab0cbc29",
+      "structures": []
+    },
+    {
+      "x": 767,
+      "z": -507,
+      "file": "vanilla-density-carvers-1234567890-767_-507.u32le.zlib",
+      "sha256": "6513de308a4023bef775e5d1c5bc4fbef508ece69c7c7e2c15cd3b29a3fe77c4",
+      "structures": []
+    },
+    {
+      "x": 768,
+      "z": -507,
+      "file": "vanilla-density-carvers-1234567890-768_-507.u32le.zlib",
+      "sha256": "24084a43eb97ce7e5104caa7c8edff6674d02db9eb05aaea867915eaa3ec20a5",
+      "structures": []
+    }
+  ],
+  "features_disabled": true,
+  "structures_disabled": true,
+  "carvers_disabled": false,
+  "source": "Official 1.21.11 binary; features empty, generate-structures=false; saved BEFORE chunk promotion and fluid postprocessing"
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1.21.11",
+  "server_sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+  "inner_jar_sha256": "ec47239a8de246335e1d54f6ac319bd35641778eb4b6a6da06372840d02fcebc",
+  "blocks_report_sha256": "293ff1dbba615e5dd8f7d9b9e60adc26e040962fd6113b1f4e820060e2c8ba8b",
+  "wire_registry_sha256": "ef319e46094d65c50767fe11bf3cef711395615b92cc9bab6fd0b01a29cce77f",
+  "header_sha256": "82dd41e89daeaddcb94db7c6c82fe954656d18a3399b2b2c3cc1c4b4315e46b4",
+  "records": 368
+}

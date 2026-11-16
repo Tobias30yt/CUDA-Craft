@@ -1,0 +1,2 @@
+# Required only by the independent login encryption tests.
+cryptography>=43

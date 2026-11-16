@@ -1,0 +1,2 @@
+# Preserve exact bytes: generated data and vendored sources have pinned hashes.
+* -text

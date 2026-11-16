@@ -1,0 +1,215 @@
+# Validation record
+
+Date: 2026-11-16. CUDA Craft 0.10.0. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.10 additions
+
+- Final native Release gate after the knockback fix: **17/17 CTest suites passed
+  in 96.66 seconds**. The regular `client-instance` is updated to 0.10.0; its
+  native executable matches the tested build by SHA-256 and only one CUDA Craft
+  mod is installed. Launch with `Start CUDA Client.cmd`.
+- 704 container checks cover persistence, break drops, entity-capacity preflight,
+  invalid saves and all 227 furnace input/type mappings, including exact cooking
+  completion ticks and resuming a partially cooked item after loading.
+- Five encrypted container wire tests cover simultaneous viewers, stale clicks,
+  double-chest layout, reopening, range checks and furnace output protection.
+- 483 simulation checks include six storage/furnace crafting recipes through
+  real menu packets, consuming each ingredient exactly once. Empty recipe cells
+  now correctly match instead of being interpreted as the registry's air item.
+- Nonlethal melee hits now apply mob knockback. Regression cases cover direction,
+  cooldown, AI ticks, drag, floor/wall/ceiling collision, overlapping positions and
+  saved momentum. An independent encrypted client observes nonzero motion and
+  increasing position after a survival punch.
+- Fabric build and all three JUnit tests pass. A real Fabric 1.21.11 survival
+  client opened a chest and furnace, transferred 17 diamonds and one freshly
+  smelted iron ingot, then crafted a chest from eight planks at a workbench.
+  The client and backend exited cleanly; the final save contains those exact
+  inventory quantities, no remaining planks and no duplicated container contents.
+  Logs/world pointer: `.tools/fabric-smoke`.
+- Generated data records 107 original 1.21.11 smelting recipes, 227 expanded
+  input/type mappings and 280 fuel items with pinned provenance hashes.
+
+Full vanilla parity is still open: furnace XP, hoppers, additional inventories,
+loot/NBT, automatic structures and complete mob/redstone behavior are not covered.
+
+## Prior 0.9 additions (2026-11-15)
+
+- Final native Release gate: **15/15 CTest suites passed in 82.92 seconds**.
+- Fabric Loader 0.20.1, API 0.141.6+1.21.11, Loom 1.14.10, Gradle 9.2.1.
+  Java 21 target compiled with JDK 23. The mod builds and all three JUnit tests pass.
+- Real Fabric client sessions entered both flat and density native worlds. The
+  final density smoke test ran for 20 seconds after joining, exited with code 0,
+  checked native shutdown and found the local UUID in the persisted player state.
+  Logs and the world pointer are in `.tools/fabric-smoke`.
+- Five independent private-session wire tests cover encrypted login/configuration,
+  owner binding, HMAC failure/replay, rejection of public bind/missing secrets,
+  pause and saving/exit on parent EOF. Normal online-login regression tests remain.
+- 395,969 registry/structure checks cover registered item placement, property
+  round trips, orientation, multipart placement/removal, neighbor connections,
+  waterlogged flow, atomic template bounds checks and path rejection.
+- Gameplay wire tests independently decode a section with 300 different states,
+  exercising the 15-bit global block palette. The admin wire test places 40,960
+  blocks and receives the refreshed chunk without exhausting the output queue.
+- All 1,202 locally imported original templates were independently checked:
+  19,502 palette entries exactly match the official Mojang block report.
+- The simulation suite now contains 406 checks, including protocol-driven slab
+  merging, door creation/removal and survival bucket fill/extraction.
+- A Windows graceful-close issue found during testing was fixed by draining peer
+  input and half-closing output before bounded cleanup, preserving kick reasons.
+
+Full vanilla structure assembly, automatic placement, block-entity payloads,
+loot and all block/item behaviors are not covered by these passing checks.
+At that milestone the regular `client-instance` contained the 0.9 mod, Fabric API,
+native executable and locally imported templates.
+
+## Environment
+
+Windows x64, MSVC 19.42.34436 / VS 2022 Build Tools, SDK 10.0.22621.0,
+CMake 4.2.3 / Ninja, Python 3.10.11 with cryptography. RTX 4060, driver 595.95,
+local CUDA 12.8.1, architecture 89, static runtime. zlib 1.4, nlohmann/json 3.12.0,
+CNG/WinHTTP. Cubiomes and adapted Hyperchunk are static C11 dependencies with
+original and patched source hashes.
+
+## Prior 0.8 automated checks
+
+Release build: **13/13 CTest suites passed in 75.68 seconds**, without compiler
+warnings. This includes the new console, permissions and telemetry suites.
+In the prior 0.6 validation all four starters bound temporary loopback ports
+and exited cleanly; SHA256 checks confirmed existing flat/0.4/0.5 saves unchanged.
+The adapted dependency was reproduced and every pinned hash verified in that run.
+The starter reports version 0.8.0. The production executable was also exercised
+through an actual interactive Windows console: `monitor on 1`, `perf`, `help tp`,
+`monitor off`, `perf export`, `save-all`, `stop`. It exited with code 0. Its empty
+flat test world measured approximately 20 TPS, a 119 MiB working set and zero
+dropped tick slots; these are an idle smoke sample, not a load benchmark.
+The exported snapshot is `.tools/console-smoke-0.8/performance.json`.
+After a real-client test exposed two missing packet paths, recipe-book settings
+and the 1.21.11 gamemode-hotkey packet were added. Hotkey and signed-command
+requests use the same session-UUID OP checks. Unsupported adventure/spectator
+requests resynchronize the current mode without disconnecting the client.
+The five affected suites passed again in 9.48 seconds after the final correction.
+
+| Check | Scope |
+| --- | --- |
+| Protocol | 83 checks |
+| Network | 12 integration tests |
+| Crypto/auth/compression | 58 checks |
+| Login wire | 7 integration tests |
+| Gameplay wire | 8 integration tests: all four generators, multiplayer, 49-chunk streaming, building, save/reload, seed protection, legacy migration and keepalive |
+| Simulation unit | 400 checks: water range/recession/falling/chunk boundary/source regeneration/cooling, redstone decay/off/repeater delay/lock/torch inversion, finite inventory, mining timing, drops, crafting, mob combat, eating, zombie attacks, drowning, buckets, falls, death/respawn, pending ticks and player/mob/crafting persistence |
+| Simulation wire | 3 independent encrypted tests: survival injection rejection/crafting/mob drop metadata/death/respawn; water bucket flow/recession; lever/wire/lamp on/off |
+| Admin/performance unit | 31 checks: wall-time TPS, timing quantiles/expiry, OP denial/grant/deop, UUID identity/rename/restart, tp bounds/NaN/relative coordinates, give limits, command effects and JSON export |
+| Admin wire/console | 5 independent encrypted/pipe tests: command-tree parsing/filtering, live role changes, HUD, OP restart persistence, process/network values, oversized input/EOF, recipe-book notifications, kick/stop, and hotkey/signed-command permission enforcement |
+| Terrain unit | 393,216 legacy CPU/CUDA comparisons; signed seeds/coordinates; new density decoration order, spawn and edits |
+| Vanilla biome reference | 73,728 cells in 48 unmodified official chunks, 3 seeds, exact equality and zoom hash |
+| Vanilla terrain reference | 6,291,456 states in 64 controlled stage-matched chunks, zero tolerance |
+| CUDA smoke | Actual RTX 4060 kernel, streams and memory copies |
+
+Gameplay tests independently decode encrypted/compressed packets, check received
+biomes and seed hashes, build on the actual spawn floor, observe autosave, restart,
+and verify the edit and adjusted spawn. Conflicting explicit seed/generator options
+leave save bytes unchanged. Old worlds never adopt a different generator implicitly.
+
+## What the terrain comparison establishes
+
+Official server bundle SHA-1: `64bb6d763bed0a9f1d632ec347938594144943ed`.
+The binary is unchanged. A test datapack empties biome feature lists and
+`generate-structures=false` isolates the implemented stages. Noise, surface, biome,
+aquifer, ore-vein and carver configurations remain unchanged.
+
+- 48 chunks saved at CARVERS, before promotion/fluid postprocessing: 16 each for
+  seeds 20261113, -1 and 1234567890. The last set is near chunk (768,-512).
+- 16 additional noise/surface-only chunks, seed 20261113, with carvers disabled.
+- All 64 match every block: **6,291,456 / 6,291,456**.
+
+The adapter adds the 1.21.11 `weird_scaled_sampler` to the upstream 26.2 graph.
+An input-dependency bug discovered during integration was fixed while preserving
+expected output. These are actual state comparisons, not heightmap/occupancy checks.
+They demonstrate sampled stage parity, not every seed or complete world generation.
+
+## Retained failing later-stage diagnostic
+
+The original 48 FULL-stage captures remain under `tests/fixtures/postprocess`.
+`--postprocess` still correctly returns failure on two cells: vanilla promotion
+placed flowing water (state 87), while the native stage result is air. Seed
+1234567890: (12286,22,-8196), (12285,22,-8195). The other 4,718,590 states match.
+This gap is not masked with a tolerance. Full fluid behavior must close this gate.
+
+Normal CTest compares equal stages. CARVERS chunks from ordinary decorated worlds
+were unsuitable as stage goldens because neighboring features had already written
+ore and vegetation into them; controlled worlds prevent that contamination.
+
+## Real-client smoke
+
+On 2026-11-15 the final 0.8 build was tested with the unchanged installed 1.21.11
+client and an isolated synthetic GuiTester session. Console OP/gamemode/give/tp/heal
+worked. After restarting the fixture, the saved operator joined in the saved
+creative mode; live deop/op refreshed the client and console gamemode/say messages
+appeared in the client log. The player remained connected until `save-all`/`stop`.
+The fixture exited with code 0 and the client logged the explicit reason
+`Server stopping`. The final save retained GuiTester's OP entry, survival mode
+and tick 4142. The verified isolated client was closed afterward.
+
+The initial attempts exposed unsupported recipe-book packet 0x2d and gamemode
+hotkey packet 0x04. Both are fixed and covered by independent wire regressions,
+including permission denial after deop and unsupported spectator-mode recovery.
+Current client log: `.tools/gui-client/console.log`; earlier failure logs are
+`console-0.8-before-recipe-fix.log` and `console-0.8-before-hotkey-fix.log`.
+The native console transcript is in the tool session; the tested world path is
+recorded in `.tools/simulation-client-world.path` with its performance JSON export.
+The normal starter was also checked with `--version` and exits successfully.
+
+Historical 0.7 smoke:
+
+The installed unchanged 1.21.11 client joined an isolated 0.7 survival fixture
+using Java 21 and synthetic GuiTester identity. The prepared flat world contained
+a pig, a sheltered zombie, item drops, a damaged pickaxe, food, a water source
+and a lever/wire/lamp circuit. Logs show survival entry and chunk rendering;
+no registry/chunk/entity/inventory decode errors were observed. At tick 1144,
+the autosave contained 6 entities, 112 water edits and one lit lamp, with player
+mode 0. This is a log/protocol smoke test, not manual UI gameplay validation.
+The prior 0.6 client smoke also entered the density world successfully.
+Account/Realms HTTP 401 warnings are expected for the synthetic identity.
+Production still requires official online authentication.
+
+Historical logs: `.tools/simulation-client-server.log`, `.tools/simulation-client-server-error.log`,
+`.tools/gui-client/console-0.7.log`. Previous density log: `console-0.6.log`.
+Only the verified test client and fixture processes were stopped afterward.
+No screenshot or mouse/keyboard automation was performed. Earlier denied Java
+window access was not retried or bypassed. The user confirmed the prior playable
+build; independent positive real-account authentication evidence remains absent.
+The official authentication rejection path was previously validated.
+
+## Reproduce
+
+```powershell
+& '.\tools\build-cuda.cmd'
+py -3 tests/terrain_reference_test.py build/cuda/terrain-probe.exe
+py -3 tests/biome_reference_test.py build/cuda/biome-probe.exe
+& '.\tools\fetch-hyperchunk.ps1' -DestinationDirectory '.tools/hyperchunk-repro'
+# Deliberately failing until fluid promotion is implemented:
+py -3 tests/terrain_reference_test.py build/cuda/terrain-probe.exe --postprocess
+```
+
+Optional capture with the separately verified official JAR and Java 21:
+
+```powershell
+py -3 tools/capture-vanilla-biomes.py --java 'PATH-TO-JAVA.exe' --terrain-only --seed 20261113
+py -3 tools/capture-vanilla-terrain.py --controlled --seed 20261113 --limit 16
+py -3 tools/capture-vanilla-biomes.py --java 'PATH-TO-JAVA.exe' --terrain-only --no-carvers --seed 20261113
+```
+
+Fixtures store 98,304 uint32 little-endian states per chunk (x, z, y), zlib-compressed,
+with SHA256 over the raw bytes. Configuration/registry provenance is recorded in
+`tools/density-data-manifest.json`. JARs, full worlds and reports stay ignored.
+CTest and the native runtime never start Java or require the reference server.
+
+## Limits
+
+Precise generation currently uses the CPU. Legacy CUDA terrain remains available.
+The playable density world applies approximate vegetation afterward. Placed ores,
+other features, automatic structures, exact fluid promotion, dynamic light, complete survival
+progression/recipes/loot, further block entities, full AI, pistons/advanced redstone, Anvil
+and GPU gameplay remain absent. The new simulation is an initial CPU implementation;
+its tests do not compare traces against vanilla. See GAMEPLAY.md for the supported
+subset. Passing checks and the version bump do not claim complete vanilla compatibility.

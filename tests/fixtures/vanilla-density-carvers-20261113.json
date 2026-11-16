@@ -1,0 +1,124 @@
+{
+  "version": "1.21.11",
+  "server_sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+  "seed": 20261113,
+  "status": "minecraft:carvers",
+  "chunks": [
+    {
+      "x": 5,
+      "z": -5,
+      "file": "vanilla-density-carvers-20261113-5_-5.u32le.zlib",
+      "sha256": "e781bd180f3afdff8b8c88adac930f6fd1c5c90132c2b0d887f348dc9762db67",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": -4,
+      "file": "vanilla-density-carvers-20261113-5_-4.u32le.zlib",
+      "sha256": "86051ed5abf181a27fde592f7986a933733fb72a1b024974bfa0432a37d86e30",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": -3,
+      "file": "vanilla-density-carvers-20261113-5_-3.u32le.zlib",
+      "sha256": "c8685d437ede316014b0893d389fdcc365ea77520b1d92f226975ee86685b649",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": -2,
+      "file": "vanilla-density-carvers-20261113-5_-2.u32le.zlib",
+      "sha256": "da76240694a617f2905581dd5c8e593a82575309ad52cb759e5f01b2aad777e5",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": -1,
+      "file": "vanilla-density-carvers-20261113-5_-1.u32le.zlib",
+      "sha256": "1ad137ae3e973af0b5c0819c047f83116fea690a0b66a12744b43aaa03967514",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": 0,
+      "file": "vanilla-density-carvers-20261113-5_0.u32le.zlib",
+      "sha256": "5e80746348f1af4946ba5064b363ede43e967ab2aa6e3536f1b4d88f8c94aef6",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": 1,
+      "file": "vanilla-density-carvers-20261113-5_1.u32le.zlib",
+      "sha256": "448137df8970ff74d2bd6a67804f60fa5e1e4c051f06c7da53ca976256840215",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": 2,
+      "file": "vanilla-density-carvers-20261113-5_2.u32le.zlib",
+      "sha256": "dfed081aebe2269083ab15fe1509f04fcf8400835fd7febddf37a9f9ef0893b4",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": 3,
+      "file": "vanilla-density-carvers-20261113-5_3.u32le.zlib",
+      "sha256": "90e66f4a23d1712d8c9259aaac312cee6d37b62fafba31972b3c80b726e318a5",
+      "structures": []
+    },
+    {
+      "x": 5,
+      "z": 4,
+      "file": "vanilla-density-carvers-20261113-5_4.u32le.zlib",
+      "sha256": "5ac52c4c0652d00f22b580562daf99ae570991b1fa91005f18f45f92d0f1ff4d",
+      "structures": []
+    },
+    {
+      "x": -5,
+      "z": 5,
+      "file": "vanilla-density-carvers-20261113--5_5.u32le.zlib",
+      "sha256": "dadcc8f69a8105d85cb32d22969ddeb1766633d26423127d6d33beafe2011e5a",
+      "structures": []
+    },
+    {
+      "x": -4,
+      "z": 5,
+      "file": "vanilla-density-carvers-20261113--4_5.u32le.zlib",
+      "sha256": "cbc26d1b8ab22610f00c1e97b361e9fe2b990d395390457273da6974b7b738ba",
+      "structures": []
+    },
+    {
+      "x": -3,
+      "z": 5,
+      "file": "vanilla-density-carvers-20261113--3_5.u32le.zlib",
+      "sha256": "6c4c3c44bdb8301bc704df87975de2b80f0982ed2ef74d7b5f689d953bf9dcdb",
+      "structures": []
+    },
+    {
+      "x": -2,
+      "z": 5,
+      "file": "vanilla-density-carvers-20261113--2_5.u32le.zlib",
+      "sha256": "132752a7e6af5cabd8c0bb27176b2137dd1660c14de7dd9095c4db8e4d488b61",
+      "structures": []
+    },
+    {
+      "x": -1,
+      "z": 5,
+      "file": "vanilla-density-carvers-20261113--1_5.u32le.zlib",
+      "sha256": "2e62fd707a84af2ab05e82f3421eed18e710445585c5eceef5fa1b7b98bcdcfb",
+      "structures": []
+    },
+    {
+      "x": 0,
+      "z": 5,
+      "file": "vanilla-density-carvers-20261113-0_5.u32le.zlib",
+      "sha256": "64667fd6c82ac6afb74bb33a3df954a7859c7fe4b4848e0a1223fb3bd8a17dd3",
+      "structures": []
+    }
+  ],
+  "features_disabled": true,
+  "structures_disabled": true,
+  "carvers_disabled": false,
+  "source": "Official 1.21.11 binary; features empty, generate-structures=false; saved BEFORE chunk promotion and fluid postprocessing"
+}

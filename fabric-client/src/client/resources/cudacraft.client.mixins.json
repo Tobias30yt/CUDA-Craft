@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "dev.cudacraft.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["LoginConnectionAccessor"],
+  "injectors": { "defaultRequire": 1 }
+}
