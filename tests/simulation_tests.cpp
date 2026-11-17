@@ -3,6 +3,7 @@
 #include "cudacraft/simulation.hpp"
 #include "cudacraft/simulation_data.hpp"
 #include "cudacraft/admin.hpp"
+#include "cudacraft/mob_data.hpp"
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -216,4 +217,59 @@ void knockback_tests() {
     low.attack(ceiling.player,zombie);ceiling.world.advance_ticks(2);
     check(low.mobs.at(zombie).y+1.95<=66,"upward knockback respects ceiling");
 }
-int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+void expansion_tests() {
+    Session s;s.begin();s.command("clear");s.creative(36,sd::item_id("diamond"),7);
+    for(const auto& type:mobdata::types) {
+        const int id=s.world.simulation().spawn(type.id,2,80,2);
+        check(id!=0,"every mob type can spawn");check(s.world.simulation().mobs.at(id).health==type.health,"mob starts with profile health");
+    }
+    World restored;restored.simulation().load(s.world.simulation().save());
+    check(restored.simulation().mobs.size()==std::size(mobdata::types),"every mob type survives persistence");
+    s.world.set({1,65,1},1);s.player.change_dimension(1);
+    auto& nether=s.player.world();check(nether.dimension_id()==1&&nether.biome(0,64,0)==34,"Nether dimension and biome");
+    check(nether.block({0,63,0})!=0&&nether.block({0,64,0})==0,"Nether safe arrival");
+    check(s.saved().inventory[36].count==7&&s.saved().dimension==1,"travel preserves inventory and saves dimension");
+    nether.set({1,65,1},World::item_state(sd::item_id("glass")));s.player.change_dimension(2);
+    check(s.player.world().biome(100,49,0)==56&&s.player.world().block({100,48,0})==sd::obsidian_state,"End biome and arrival platform");
+    s.player.change_dimension(0);check(s.world.block({1,65,1})==1&&nether.block({1,65,1})==World::item_state(sd::item_id("glass")),"dimension edits stay isolated");
+    check(s.saved().inventory[36].count==7,"round trip preserves inventory");
+    World blocks;auto state=[](std::string_view name){for(const auto& b:sd::blocks)if(name==b.name)return b.state;return 0;};
+    blocks.set({0,68,0},state("sand"));blocks.advance_ticks(4);check(blocks.block({0,64,0})==state("sand")&&blocks.block({0,68,0})==0,"sand falls and settles without duplication");
+    blocks.set({2,64,0},state("blue_concrete_powder"));blocks.set({3,64,0},sd::water_state);blocks.advance_ticks(1);check(blocks.block({2,64,0})==state("blue_concrete"),"powder hardens beside water");
+    blocks.set({5,63,0},state("farmland"));blocks.set({5,64,0},state("wheat"));blocks.set({6,63,0},sd::water_state);blocks.advance_ticks(20);
+    check(sd::property_value(blocks.block({5,63,0}),"moisture")=="7","farmland hydrates");
+    check(blocks.simulation().fertilize({5,64,0}),"bone meal grows crop");
+    check(sd::property_value(blocks.block({5,64,0}),"age")!="0","crop age advances");
+    blocks.set({8,64,0},state("stone_button"));blocks.simulation().interact({8,64,0});check(sd::property_value(blocks.block({8,64,0}),"powered")=="true","button activates");
+    blocks.advance_ticks(20);check(sd::property_value(blocks.block({8,64,0}),"powered")=="false","stone button releases after 20 ticks");
+}
+void portal_and_dimension_save_tests() {
+    Session portal;portal.begin();portal.creative(36,sd::item_id("flint_and_steel"),1);
+    for(int x=2;x<=5;++x)for(int y=63;y<=67;++y)if(x==2||x==5||y==63||y==67)portal.world.set({x,y,2},sd::obsidian_state);
+    auto light=[&]{portal.player.handle(Packet(0x3f).var(0).pos({3,63,2}).var(1).f32(.5).f32(1).f32(.5).u8(0).u8(0).var(1).data);};
+    portal.world.set({4,67,2},0);light();check(std::string_view(sd::block(portal.world.block({3,64,2})).name)!="nether_portal","incomplete frame does not ignite");
+    portal.world.set({4,67,2},sd::obsidian_state);light();
+    for(int x=3;x<=4;++x)for(int y=64;y<=66;++y)check(std::string_view(sd::block(portal.world.block({x,y,2})).name)=="nether_portal","complete frame fills portal interior");
+    portal.player.x=3.5;portal.player.y=64;portal.player.z=2.5;portal.world.advance_ticks(1);
+    check(portal.player.world().dimension_id()==1,"standing in portal transfers creative player");
+    auto path=std::filesystem::temp_directory_path()/std::filesystem::path("cuda-dimensions-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    int last=0;
+    {
+        World root(path);root.dimension(1).set({1,65,1},1);root.dimension(2).set({1,70,1},1);
+        root.dimension(1).simulation().spawn(mobdata::find("piglin")->id,0,64,0);
+        root.dimension(2).advance_ticks(2);
+        last=root.dimension(2).simulation().spawn(mobdata::find("warden")->id,100,49,0);
+        PlayerState player;player.dimension=2;player.x=100.5;player.y=49;player.inventory[36]={sd::item_id("diamond"),7,0};
+        root.simulation().saved_players[std::string(32,'0')]=player;root.mark_dirty();root.save();
+    }
+    {
+        World root(path);check(root.dimension(1).block({1,65,1})==1&&root.dimension(2).block({1,70,1})==1,"both dimension edit files reload");
+        check(root.dimension(2).simulation().mobs.at(last).health==500,"high-health mob persists in End");
+        check(root.next_entity>last,"loaded dimension entities reserve global identifiers");
+        check(root.dimension(2).simulation().tick>=root.dimension(2).simulation().mobs.at(last).born,"loading does not rewind dimension clock behind mob birth");
+        const auto& player=root.simulation().saved_players.at(std::string(32,'0'));check(player.dimension==2&&player.inventory[36].count==7,"player dimension and inventory persist");
+    }
+    for(const auto* name:{"DIM-1","DIM1"}){std::filesystem::remove(path/name/"blocks.json");std::filesystem::remove(path/name);}
+    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path);
+}
+int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

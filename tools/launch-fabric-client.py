@@ -31,7 +31,7 @@ def prepare(game):
         hash_path.write_text(sha)
         libraries.append(str(path))
     mods=game/'mods'; mods.mkdir(parents=True,exist_ok=True)
-    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.10.0.jar'
+    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.0.jar'
     if not mod.exists(): raise RuntimeError('Build the Fabric mod first: tools/build-fabric-client.cmd')
     destination=mods/'cuda-craft-client.jar'
     for old in mods.glob('cuda-craft-client*.jar'):
@@ -65,7 +65,9 @@ def prepare(game):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--name',default='CudaPlayer');parser.add_argument('--smoke',action='store_true');parser.add_argument('--smoke-containers',action='store_true');parser.add_argument('--smoke-generator',choices=['flat','density'],default='flat');parser.add_argument('--prepare-only',action='store_true')
+    parser.add_argument('--smoke-dimensions',action='store_true')
     args=parser.parse_args()
+    if args.smoke_dimensions and (not args.smoke or args.smoke_generator!='flat' or args.smoke_containers):parser.error('--smoke-dimensions requires --smoke, flat generator and no container scenario')
     if args.smoke_containers and (not args.smoke or args.smoke_generator!='flat'):parser.error('--smoke-containers requires --smoke and the flat generator')
     if not re.fullmatch('[A-Za-z0-9_]{1,16}',args.name):parser.error('Profile name: 1..16 letters, numbers or underscores')
     game=ROOT/('.tools/fabric-smoke' if args.smoke else 'client-instance');game.mkdir(parents=True,exist_ok=True)
@@ -90,7 +92,7 @@ def main():
             paths.append(str(path))
     paths.append(str(mc/f'versions/{MC}/{MC}.jar'))
     natives=game/'natives';natives.mkdir(exist_ok=True)
-    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.10.0','classpath':os.pathsep.join(paths)}
+    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.0','classpath':os.pathsep.join(paths)}
     command=[str(java),'-Xmx2G','-Xms512M']
     for item in version['arguments']['jvm']:
         if isinstance(item,dict):
@@ -100,7 +102,8 @@ def main():
     if args.smoke:
         world_id=str(uuid.uuid4());world=game/'cuda-worlds'/world_id;world.mkdir(parents=True)
         (world/'cuda-world.properties').write_text('format=1\nname=Fabric integration test\nseed=20261115\ngenerator='+args.smoke_generator+'\ncreative='+('false' if args.smoke_containers else 'true')+'\n')
-        command += ['-Dcudacraft.quickPlayWorld='+world_id,'-Dcudacraft.smokeSeconds='+('30' if args.smoke_containers else '20')]
+        command += ['-Dcudacraft.quickPlayWorld='+world_id,'-Dcudacraft.smokeSeconds='+('45' if args.smoke_dimensions else '30' if args.smoke_containers else '20')]
+        if args.smoke_dimensions:command+=['-Dcudacraft.smokeDimensions=true']
         if args.smoke_containers:
             blocks={b['name']:b for b in json.loads((ROOT/'.tools/reference/blocks.json').read_text())}
             chest=[[0,0,0] for _ in range(27)];chest[0]=[898,17,0];chest[1]=[36,8,0]
@@ -137,6 +140,13 @@ def main():
                 if c['position']==[2,64,2] and any(s[0] for s in c['items']):raise RuntimeError('Chest contents duplicated')
                 if c['position']==[4,64,2] and c['items'][2][0]:raise RuntimeError('Furnace output duplicated')
             print('Real vanilla chest/furnace/crafting menus and item transfers verified against the server save.')
+        if args.smoke_dimensions:
+            for marker in ['Nether received','End received','all 89 mob types received','dimension round trip verified']:
+                if 'CUDA Craft smoke: '+marker not in text:raise RuntimeError('Dimension integration did not finish: '+marker)
+            if saved['simulation']['players'][identity.hex].get('dimension',0)!=0:raise RuntimeError('Return dimension was not saved')
+            for folder in ['DIM-1','DIM1']:
+                if not (world/folder/'blocks.json').is_file():raise RuntimeError('Dimension save missing: '+folder)
+            print('Real Fabric client received both dimensions and all 89 mob types; round trip and saves verified.')
         print('Real Fabric client received the native world and shut down cleanly.')
 
 if __name__=='__main__':main()

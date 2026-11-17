@@ -10,13 +10,14 @@ Target protocol: **774**, pinned to the independent
 | Online authentication | Signed SHA-1 session hash, official HTTPS hasJoined, verified UUID/name/properties |
 | Compression | zlib threshold 256; exact lengths, trailing-data and size checks |
 | Configuration | Brand, vanilla feature flag, empty known-packs offer, 23 registries with NBT data, limited tags, finish/ack |
-| World entry | Survival or creative overworld, player info, abilities, health, daytime, border, spawn, inventory, command tree, teleport/ack |
-| Chunks | 24 sections, y=-64..319; 1.21.11 block and biome palettes without array-length prefixes; heightmaps and initial sky/block light arrays |
+| World entry | Survival or creative, three dimension names, saved dimension, player info, abilities, health, daytime, border, spawn, inventory, command tree, teleport/ack |
+| Dimension travel | Respawn packet with matching dimension-type registry ID; isolated chunks/entities and preserved inventory; prototype portals and operator command |
+| Chunks | Overworld: 24 sections, y=-64..319; Nether/End: 16 sections, y=0..255. 1.21.11 palettes, dimension-sized light arrays and heightmaps |
 | Streaming | Radius 3, 49 chunks; 2 chunks per 50 ms batch, unloads and view-center changes |
 | Movement | Position/rotation validation, teleport recovery, peer position and head-rotation updates |
 | Building | All 1,166 registered block types / 29,671 states; default block-item placement and common orientation properties, indirect/global palettes, reach/bounds checks, sequence ack, peer updates; incomplete special behavior |
 | Inventory | Authoritative counts, damage component, left/right/number/shift/drop clicks, 2x2/3x3 crafting subset; unsupported click modes resynchronized |
-| Survival/entities | Health/food/air, eating, damage, death/respawn, spawn and metadata, position, item collection and removal |
+| Survival/entities | Health/food/air, eating, damage, death/respawn, 89 mob spawn types and health metadata, motion/knockback, item collection and removal; shared approximate AI |
 | Chat/commands | Shared console/chat dispatcher; permissions-filtered Brigadier tree, greedy string arguments, server suggestions, UUID OP/deop; command reference in ADMIN.md |
 | Monitoring/admin | System-chat actionbar live monitor, console/perf JSON, permission status updates, targeted teleport/give/heal/kick, graceful save/stop |
 | Containers | Vanilla chest/barrel/furnace menus, shared inventories, per-viewer revisions, stale-window rejection, double chests, persisted contents/timers, furnace property packets and protected result slots |

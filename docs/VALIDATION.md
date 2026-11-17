@@ -1,8 +1,40 @@
 # Validation record
 
-Date: 2026-11-16. CUDA Craft 0.10.0. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-17. CUDA Craft 0.11.0. Minecraft Java 1.21.11 / protocol 774.
 
-## Version 0.10 additions
+## Version 0.11 additions
+
+- Full native release gate: **17/17 CTest suites passed in 98.89 seconds**.
+  The final dimension-clock guard also has a targeted regression: loading a child
+  dimension cannot rewind its clock behind the birth times of saved entities.
+  The three affected suites passed again in 6.96 seconds after that guard.
+- 688 simulation checks cover the previous gameplay plus every mob profile's
+  creation/persistence, dimension isolation, inventory on round trips, independent
+  dimension reloads, entity-ID reservation and high-health mobs. Frame tests reject
+  incomplete Nether portals, fill complete ones and exercise actual portal travel.
+- New block checks cover falling sand, concrete hardening, hydrated farmland,
+  bone-meal growth and button release timing.
+- Independent encrypted clients decode Nether/End 16-section chunks and their
+  biome IDs, verify all three respawn transitions and unchanged item quantities.
+- A real Fabric 1.21.11 client entered Nether and End, received **all 89 mob
+  types**, returned to the Overworld and exited cleanly. All three dimension save
+  files and the persisted return dimension were checked. The scenario is available
+  through `--smoke --smoke-dimensions`; source fixture names are generated from the
+  pinned entity registry. All three Fabric JUnit tests pass.
+- The real-client chest/furnace/workbench scenario also passed against 0.11,
+  with exact final item quantities checked in the server save.
+- The regular `client-instance` now contains the 0.11 mod and native backend;
+  the installed EXE matches the tested build by SHA-256. The 0.11 Windows `.mrpack`
+  was rebuilt and its ZIP contents compared against the release files.
+- Creative positions now persist on movement and reconnect, including when the
+  original spawn floor was modified. The wire regression checks the last saved
+  position instead of forcing creative players back to spawn.
+
+These checks do not establish the requested >90% complete-block-behavior target,
+vanilla Nether/End generation or complete species-specific AI/game mechanics.
+See EXPANSION_0_11.md, MOBS.md and block-coverage.csv.
+
+## Prior version 0.10 additions (2026-11-16)
 
 - Final native Release gate after the knockback fix: **17/17 CTest suites passed
   in 96.66 seconds**. The regular `client-instance` is updated to 0.10.0; its

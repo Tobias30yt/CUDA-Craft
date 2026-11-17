@@ -58,16 +58,16 @@ void Simulation::container_changed(BlockPos p,int before,int after) {
 }
 bool GameSession::container_valid() const {
     if(container_positions_.empty()||!alive()||!reachable(container_anchor_))return false;
-    if(world_.simulation().container_positions(container_positions_.front())!=container_positions_)return false;
-    for(auto p:container_positions_)if(Simulation::container_type(world_.block(p))!=container_type_||!world_.simulation().container(p))return false;
+    if(world_->simulation().container_positions(container_positions_.front())!=container_positions_)return false;
+    for(auto p:container_positions_)if(Simulation::container_type(world_->block(p))!=container_type_||!world_->simulation().container(p))return false;
     return true;
 }
 bool GameSession::open_container(BlockPos p) {
-    auto positions=world_.simulation().container_positions(p);if(positions.empty())return false;
-    const std::string_view name=simdata::block(world_.block(p)).name;
-    if(name=="chest"||name=="trapped_chest")for(auto q:positions)if(world_.solid({q.x,q.y+1,q.z})){tell("The chest lid is blocked.");return true;}
-    for(auto q:positions)if(!world_.simulation().container(q,true)){tell("Container storage capacity reached.");return true;}
-    close_crafting();container_positions_=std::move(positions);container_anchor_=p;container_type_=Simulation::container_type(world_.block(p));
+    auto positions=world_->simulation().container_positions(p);if(positions.empty())return false;
+    const std::string_view name=simdata::block(world_->block(p)).name;
+    if(name=="chest"||name=="trapped_chest")for(auto q:positions)if(world_->solid({q.x,q.y+1,q.z})){tell("The chest lid is blocked.");return true;}
+    for(auto q:positions)if(!world_->simulation().container(q,true)){tell("Container storage capacity reached.");return true;}
+    close_crafting();container_positions_=std::move(positions);container_anchor_=p;container_type_=Simulation::container_type(world_->block(p));
     container_window_=next_container_window_;next_container_window_=next_container_window_==100?2:next_container_window_+1;
     const int kind=Simulation::furnace_kind(container_type_);
     send(Packet(0x39).var(container_window_).var(kind==1?14:kind==2?10:kind==3?22:container_positions_.size()==2?5:2).text(kind==1?"Furnace":kind==2?"Blast Furnace":kind==3?"Smoker":name=="barrel"?"Barrel":container_positions_.size()==2?"Large Chest":"Chest"));
@@ -83,7 +83,7 @@ void GameSession::container_click(int index,int button,int mode) {
     const int kind=Simulation::furnace_kind(container_type_),per_container=Simulation::container_slots(container_type_);
     const int slots=static_cast<int>(container_positions_.size())*per_container;
     if(index<0||index>=slots+36){inventory_sync();return;}
-    auto at=[&](int i)->ItemStack& {if(i<slots)return world_.simulation().container(container_positions_[i/per_container])->items[i%per_container];return inventory_[9+i-slots];};
+    auto at=[&](int i)->ItemStack& {if(i<slots)return world_->simulation().container(container_positions_[i/per_container])->items[i%per_container];return inventory_[9+i-slots];};
     auto accepts=[&](int i,ItemStack item){return !item.item||!kind||i>=slots||i==0||(i==1&&(smelting::fuel(item.item)>0||item.item==simdata::bucket_item));};
     auto capacity=[&](int i,ItemStack item){return kind&&i==1&&item.item==simdata::bucket_item?1:simdata::item(item.item)->stack;};
     auto& dst=at(index);
@@ -117,15 +117,15 @@ void GameSession::container_click(int index,int button,int mode) {
             }
         }
     } else if(mode==4&&button<=1&&dst.item) {
-        const int count=button?dst.count:1;if(world_.simulation().spawn(71,x,y+1,z,{dst.item,count,dst.damage})){dst.count-=count;if(!dst.count)dst={};}
+        const int count=button?dst.count:1;if(world_->simulation().spawn(71,x,y+1,z,{dst.item,count,dst.damage})){dst.count-=count;if(!dst.count)dst={};}
     }
-    world_.mark_dirty();
+    world_->mark_dirty();
     // Each viewer receives its own new revision; stale clicks are resynchronized.
-    for(auto* peer:world_.players)if(peer->container_positions_==container_positions_)peer->inventory_sync();
+    for(auto* peer:world_->players)if(peer->container_positions_==container_positions_)peer->inventory_sync();
 }
 void GameSession::container_properties() {
     if(container_positions_.empty()||!Simulation::furnace_kind(container_type_))return;
-    auto* container=world_.simulation().container(container_positions_.front());if(!container)return;
+    auto* container=world_->simulation().container(container_positions_.front());if(!container)return;
     const int values[]={container->burn_left,container->burn_total,container->cook_progress,container->cook_total};
     for(int i=0;i<4;++i)send(Packet(0x13).var(container_window_).u16(static_cast<std::uint16_t>(i)).u16(static_cast<std::uint16_t>(values[i])));
 }

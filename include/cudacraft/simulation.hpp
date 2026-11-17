@@ -18,12 +18,13 @@ struct PlayerState {
     double x=0,y=64,z=0;
     float health=20,saturation=5,exhaustion=0;
     int food=20,mode=1;
+    int dimension=0;
 };
 struct Mob {
     int id=0,type=100;
     double x=0,y=64,z=0,vx=0,vy=0,vz=0;
     float health=10,yaw=0;
-    std::uint64_t born=0,next_attack=0,knockback_until=0;
+    std::uint64_t born=0,next_attack=0,knockback_until=0,angry_until=0;
     ItemStack drop{};
 };
 class Simulation {
@@ -33,6 +34,8 @@ public:
     void step();
     void activate(int cx,int cz,const std::vector<std::uint32_t>& blocks);
     bool interact(BlockPos p);
+    bool fertilize(BlockPos p);
+    static bool ticking_block(int state);
     int placement(int item,int face,float yaw) const;
     bool place_block(BlockPos position,int state);
     bool break_block(BlockPos position);
@@ -58,6 +61,9 @@ private:
     std::map<BlockPos,std::uint64_t> water_;
     std::set<BlockPos> circuits_;
     std::set<BlockPos> shape_updates_;
+    std::set<BlockPos> ticking_blocks_;
+    BlockPos block_cursor_{};
+    std::map<BlockPos,std::uint64_t> button_releases_;
     struct Event { std::uint64_t due; int state; };
     std::map<BlockPos,Event> devices_;
     bool redstone_dirty_=false;
@@ -66,6 +72,7 @@ private:
     void redstone();
     void update_shapes();
     void tick_furnaces();
+    void tick_blocks();
     void entities();
 };
 }

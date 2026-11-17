@@ -261,7 +261,7 @@ void run_server(const ServerConfig& config, const volatile std::sig_atomic_t& st
             if (!in_play && !client->closing && Clock::now() - client->started >= std::chrono::milliseconds(deadline_ms)) { client->dead = true; continue; }
             auto advertised_status=config.status;
 #ifdef CUDACRAFT_LOGIN
-            advertised_status.online_players=static_cast<std::int32_t>(world.players.size());
+            advertised_status.online_players=static_cast<std::int32_t>(world.all_players().size());
 #endif
             if (FD_ISSET(client->socket.get(), &reads)) receive(*client, advertised_status
 #ifdef CUDACRAFT_LOGIN
@@ -323,7 +323,7 @@ void run_server(const ServerConfig& config, const volatile std::sig_atomic_t& st
 #endif
     }
 #ifdef CUDACRAFT_LOGIN
-    for(auto* p:world.players)p->kick("Server stopping");
+    for(auto* p:world.all_players())p->kick("Server stopping");
     for(auto& client:clients)if(client->login){try{client->login->poll();collect_login(*client);}catch(const protocol::Error&){client->dead=true;}}
     const auto drain_until=Clock::now()+std::chrono::milliseconds(200);
     while(Clock::now()<drain_until){bool pending=false;for(auto& client:clients)if(!client->dead&&!client->output.empty()){world.performance.bytes_sent+=transmit(*client);pending|=!client->output.empty();}if(!pending)break;std::this_thread::sleep_for(std::chrono::milliseconds(1));}

@@ -26,6 +26,7 @@ public final class CudaCraftClient implements ClientModInitializer {
     private boolean quickPlayed;
     private long smokeStarted;
     private final ContainerSmoke containerSmoke = new ContainerSmoke();
+    private final DimensionSmoke dimensionSmoke = new DimensionSmoke();
     public static WorldCatalog catalog() { return new WorldCatalog(Minecraft.getInstance().gameDirectory.toPath()); }
     public static Path executable() {
         return Path.of(System.getProperty("cudacraft.backend", Minecraft.getInstance().gameDirectory.toPath().resolve("cudacraft/native/cuda-craft.exe").toString()));
@@ -57,6 +58,7 @@ public final class CudaCraftClient implements ClientModInitializer {
             if (smokeSeconds > 0 && client.level != null && client.player != null && BACKEND.state() == BackendSession.State.CONNECTED) {
                 if (smokeStarted == 0) { smokeStarted = System.nanoTime(); org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: world received"); }
                 containerSmoke.tick(client);
+                dimensionSmoke.tick(client);
                 if (System.nanoTime() - smokeStarted > Math.min(smokeSeconds, 120) * 1_000_000_000L) client.stop();
             }
             BACKEND.pause(client.screen != null && client.screen.isPauseScreen());

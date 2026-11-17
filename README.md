@@ -5,7 +5,14 @@ Zielversion: **Minecraft Java 1.21.11, Protokoll 774**.
 
 Modrinth App: [Paket importieren oder manuell installieren](docs/MODRINTH.md).
 
-**Stand 0.10.0: gespeicherte Truhen, Doppeltruhen, Faesser und funktionierende Oefen.**
+**Stand 0.11.0: Dimensionswechsel, 89 Mobtypen und weitere Blockmechaniken.**
+Nether und End besitzen getrennte Saves und eigene Chunk-Uebertragung. Portale,
+Fallen von Sand/Kies, Betonpulver, Ackerbau, Knochenmehl, Knoepfe und Druckplatten
+haben erste Implementierungen. [Umfang und Grenzen](docs/EXPANSION_0_11.md),
+[Mob-Unterstuetzung](docs/MOBS.md). Dies erreicht noch keine 90 % vollstaendigen
+Vanilla-Blockmechaniken. Die Dimensionsterraine und Mob-KI sind Prototypen.
+
+Seit 0.10: gespeicherte Truhen, Doppeltruhen, Faesser und funktionierende Oefen.
 Container unterstuetzen gemeinsame Inventare, Shift-Transfer und Hotbar-Tausch.
 Ofen, Schmelzofen und Raeucherofen verarbeiten die originalen 1.21.11-Rezepte;
 Inhalte und Brenn-/Garfortschritt bleiben beim Neustart erhalten.

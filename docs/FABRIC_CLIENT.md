@@ -1,4 +1,4 @@
-# CUDA Craft Singleplayer 0.10
+# CUDA Craft Singleplayer 0.11
 
 Minecraft Java **1.21.11**, Fabric Loader **0.20.1**, Fabric API
 **0.141.6+1.21.11**. Der Vanilla-Client rendert Welt, Inventar und Oberflaeche.
@@ -27,7 +27,7 @@ Spielerstand. Online-Mehrspieler erfordert einen normal angemeldeten Launcher.
 Der Starter liest keine Kontotokens; entsprechende Session-Key-401-Meldungen
 im Vanilla-Log sind beim lokalen Profil zu erwarten.
 
-Alternativ den gebauten Mod `fabric-client/build/libs/cuda-craft-client-0.10.0.jar`
+Alternativ den gebauten Mod `fabric-client/build/libs/cuda-craft-client-0.11.0.jar`
 und die passende Fabric API in einen eigenen Fabric-1.21.11-Launcher eintragen.
 Die native EXE gehoert unter `<Spielordner>/cudacraft/native/cuda-craft.exe`,
 die importierten Vorlagen unter `cudacraft/native/data/structures`.

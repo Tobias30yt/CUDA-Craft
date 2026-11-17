@@ -2,6 +2,7 @@
 #include "cudacraft/simulation_data.hpp"
 #include "cudacraft/world.hpp"
 #include "cudacraft/game.hpp"
+#include "cudacraft/mob_data.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cmath>
@@ -42,9 +43,14 @@ void Simulation::schedule_water(BlockPos p,std::uint64_t delay) {
     world_.mark_dirty();
 }
 void Simulation::changed(BlockPos p,int before,int after) {
+    const auto name=std::string_view(simdata::block(after).name);
+    if(name.ends_with("_button")&&simdata::property_value(after,"powered")=="true")button_releases_[p]=tick+(name=="stone_button"||name=="polished_blackstone_button"?20:30);
+    else button_releases_.erase(p);
+    if(ticking_block(after)&&ticking_blocks_.size()<65536)ticking_blocks_.insert(p);else ticking_blocks_.erase(p);
     container_changed(p,before,after);
     devices_.erase(p);
     if(simdata::circuit(after)) circuits_.insert(p); else circuits_.erase(p);
+    if(name.ends_with("_button")||name.ends_with("_pressure_plate")){circuits_.insert(p);redstone_dirty_=true;}
     if(simdata::circuit(before)||simdata::circuit(after)||!circuits_.empty()) redstone_dirty_=true;
     if(simdata::water(fluid_state(after))) schedule_water(p);
     for(auto d:dirs) { auto n=add(p,d); if(World::valid(n)&&simdata::water(fluid_state(world_.block(n)))) schedule_water(n); }
@@ -55,6 +61,7 @@ void Simulation::activate(int cx,int cz,const std::vector<std::uint32_t>& blocks
     // Activate exposed water, not every cell of an ocean. Edits also wake neighbors.
     for(int y=-63;y<320;++y) for(int z=0;z<16;++z) for(int x=0;x<16;++x) {
         const auto index=(y+64)*256+z*16+x;const int s=fluid_state(static_cast<int>(blocks[index]));
+        if(ticking_block(s)&&ticking_blocks_.size()<65536)ticking_blocks_.insert({cx*16+x,y,cz*16+z});
         if(!simdata::water(s)) continue;
         bool exposed=s!=86;
         for(auto d:dirs) {
@@ -153,6 +160,7 @@ int Simulation::placement(int item,int face,float yaw) const {
 }
 bool Simulation::interact(BlockPos p) {
     int state=world_.block(p);
+    if(std::string_view(simdata::block(state).name).ends_with("_button"))return world_.set(p,simdata::with_property(state,"powered","true"));
     if(simdata::lever(state)) return world_.set(p,simdata::lever_first+((state-simdata::lever_first)^1));
     if(simdata::repeater(state)) { int offset=state-simdata::repeater_first; return world_.set(p,simdata::repeater_first+((offset/16+1)%4)*16+offset%16); }
     const std::string_view name=simdata::block(state).name;
@@ -240,6 +248,11 @@ void Simulation::redstone() {
     auto emitted=[&](BlockPos from,BlockPos to,bool wires) {
         int s=world_.block(from);
         if(s==redstone_block_state)return 15;
+        const auto name=std::string_view(block(s).name);
+        if(name.ends_with("_button")||name.ends_with("_pressure_plate")) {
+            if(property_value(s,"powered")=="true")return 15;
+            const auto value=property_value(s,"power");if(!value.empty())return std::stoi(std::string(value));return 0;
+        }
         if(lever(s))return (s-lever_first)%2==0?15:0;
         if(torch(s))return (s-redstone_torch_first)%2==0&&to!=support(from,s)?15:0;
         if(repeater(s))return (s-repeater_first)%2==0&&to==add(from,opposite(facing[((s-repeater_first)%16)/4]))?15:0;
@@ -314,9 +327,10 @@ void Simulation::redstone() {
     redstone_dirty_=false;
 }
 int Simulation::spawn(int type,double x,double y,double z,ItemStack drop) {
-    if(mobs.size()>=4096||!inside(x,y,z)||(type!=71&&type!=100&&type!=150)) return 0;
+    const auto* kind=mobdata::find(type);
+    if(mobs.size()>=4096||!inside(x,y,z)||y<world_.min_y()||y>=world_.min_y()+world_.height()||(type!=71&&!kind)) return 0;
     if(type!=71&&std::count_if(mobs.begin(),mobs.end(),[](const auto& e){return e.second.type!=71;})>=128)return 0;
-    Mob m; m.id=world_.next_entity++;m.type=type;m.x=x;m.y=y;m.z=z;m.health=type==150?20.f:10.f;m.born=tick;m.drop=drop;
+    Mob m; m.id=world_.root().next_entity++;m.type=type;m.x=x;m.y=y;m.z=z;m.health=kind?kind->health:10.f;m.born=tick;m.drop=drop;
     mobs.emplace(m.id,m);world_.mark_dirty();return m.id;
 }
 void Simulation::attack(GameSession& player,int entity) {
@@ -325,6 +339,7 @@ void Simulation::attack(GameSession& player,int entity) {
     if(dx*dx+dy*dy+dz*dz>16||!player.sees(static_cast<int>(std::floor(m.x/16)),static_cast<int>(std::floor(m.z/16))))return;
     const float damage=player.attack_damage();if(damage<=0)return;
     m.health-=damage;
+    m.angry_until=tick+200;
     if(m.health>0) {
         double length=std::hypot(dx,dz);
         if(length<1e-6) {const double angle=player.yaw*3.141592653589793/180;dx=-std::sin(angle);dz=std::cos(angle);length=1;}
@@ -335,13 +350,16 @@ void Simulation::attack(GameSession& player,int entity) {
     for(auto* p:world_.players)p->mob_hurt(m.id);
     if(m.health<=0) {
         const auto dead=m;mobs.erase(found);
-        spawn(71,dead.x,dead.y+.4,dead.z,{dead.type==100?simdata::porkchop_item:simdata::rotten_flesh_item,dead.type==100?2:1,0});
+        if(const auto* kind=mobdata::find(dead.type);kind&&*kind->drop)spawn(71,dead.x,dead.y+.4,dead.z,{simdata::item_id(kind->drop),dead.type==100?2:1,0});
     }
     world_.mark_dirty();
 }
 void Simulation::entities() {
     std::vector<int> remove;
     for(auto& [id,m]:mobs) {
+        const auto* kind=mobdata::find(m.type);
+        const bool hostile=kind&&(kind->hostile||(kind->neutral&&tick<m.angry_until));
+        const bool wet=simdata::water(world_.block({static_cast<int>(std::floor(m.x)),static_cast<int>(std::floor(m.y)),static_cast<int>(std::floor(m.z))}));
         GameSession* target=nullptr;double nearest=32*32;
         bool active=false;
         for(auto* p:world_.players) {
@@ -360,27 +378,28 @@ void Simulation::entities() {
                 if(!left) {remove.push_back(id);break;}
             }
         } else {
-            double dx=0,dz=0,speed=m.type==150?.1:.035;
-            if(m.type==150&&target&&nearest>1) {double length=std::sqrt(nearest);dx=(target->x-m.x)/length;dz=(target->z-m.z)/length;}
-            else if(m.type==100 && (tick/80+id)%3!=0) {double angle=static_cast<double>((tick/100*73+id*137)%360)*3.141592653589793/180;dx=std::sin(angle);dz=std::cos(angle);}
+            double dx=0,dz=0,speed=hostile?.1:.035;
+            if(hostile&&target&&nearest>1) {double length=std::sqrt(nearest);dx=(target->x-m.x)/length;dz=(target->z-m.z)/length;}
+            else if(kind&&std::string_view(kind->name)!="shulker"&&(tick/80+id)%3!=0) {double angle=static_cast<double>((tick/100*73+id*137)%360)*3.141592653589793/180;dx=std::sin(angle);dz=std::cos(angle);}
             if(tick<m.knockback_until){dx=0;dz=0;}
             double nx=m.x+dx*speed,nz=m.z+dz*speed;
             int iy=static_cast<int>(std::floor(m.y));
             BlockPos next{static_cast<int>(std::floor(nx)),iy,static_cast<int>(std::floor(nz))};
-            if(World::valid(next)&&!simdata::water(world_.block(next))&&!simdata::lava(world_.block(next))) {
+            if(World::valid(next)&&(kind->aquatic?simdata::water(world_.block(next)):!simdata::water(world_.block(next)))&&!simdata::lava(world_.block(next))) {
                 if(world_.solid(next)&&!world_.solid({next.x,iy+1,next.z})&&!world_.solid({next.x,iy+2,next.z}))m.y=iy+1;
                 if(!world_.solid({next.x,static_cast<int>(std::floor(m.y)),next.z})&&!world_.solid({next.x,static_cast<int>(std::floor(m.y+ (m.type==150?1.8:.8))),next.z})) {m.x=nx;m.z=nz;}
                 if(dx||dz)m.yaw=static_cast<float>(std::atan2(-dx,dz)*180/3.141592653589793);
             }
-            if(m.type==150&&target&&nearest<2.5&&std::abs(m.y-target->y)<1.5&&tick>=m.next_attack) {target->damage(3,"a zombie");m.next_attack=tick+20;}
-            if(m.type==150&&day_time%24000<12000&&tick%20==0) {
+            if(hostile&&target&&nearest<2.5&&std::abs(m.y-target->y)<1.5&&tick>=m.next_attack) {target->damage(3,kind->name);m.next_attack=tick+20;}
+            const std::string_view name=kind->name;
+            if(world_.dimension_id()==0&&(name=="zombie"||name=="zombie_villager"||name=="skeleton"||name=="stray"||name=="phantom")&&day_time%24000<12000&&tick%20==0) {
                 bool roof=false;for(int y=static_cast<int>(m.y)+2;y<320;++y) if(world_.solid({static_cast<int>(std::floor(m.x)),y,static_cast<int>(std::floor(m.z))})){roof=true;break;}
                 if(!roof)m.health-=1;
             }
             if(m.health<=0)remove.push_back(id);
         }
         // Sweep each axis in short steps, including the full body and ceiling.
-        const double radius=m.type==71?.125:m.type==100?.45:.3,height=m.type==71?.25:m.type==100?.9:1.95;
+        const double radius=kind?kind->width/2:.125,height=kind?kind->height:.25;
         auto clear=[&](double x,double y,double z) {
             if(x-radius< -1024||x+radius>1024||z-radius< -1024||z+radius>1024||y+height>320)return false;
             for(int bx=static_cast<int>(std::floor(x-radius+1e-7));bx<=static_cast<int>(std::floor(x+radius-1e-7));++bx)
@@ -397,10 +416,12 @@ void Simulation::entities() {
             }
         };
         move(0,m.vx);move(2,m.vz);
-        m.vy=std::max(-1.0,(m.vy-.08)*.98);move(1,m.vy);
+        if(kind&&(kind->flying||(kind->aquatic&&wet))&&tick>=m.knockback_until)m.vy=std::sin((tick+id)*.08)*.025;
+        else m.vy=std::max(-1.0,(m.vy-.08)*.98);
+        move(1,m.vy);
         const double friction=m.vy==0?.6:.91;m.vx*=friction;m.vz*=friction;
         if(std::abs(m.vx)<.003)m.vx=0;if(std::abs(m.vz)<.003)m.vz=0;
-        if(m.y< -64)remove.push_back(id);
+        if(m.y<world_.min_y()-1)remove.push_back(id);
     }
     for(int id:remove)mobs.erase(id);
     if(!world_.players.empty()&&tick%200==0&&mobs.size()<32) {
@@ -409,7 +430,11 @@ void Simulation::entities() {
         int z=static_cast<int>(std::floor(player->z))+static_cast<int>((tick*29)%31)-15;
         if(player->sees(static_cast<int>(std::floor(x/16.0)),static_cast<int>(std::floor(z/16.0)))) {
             for(int y=std::min(318,static_cast<int>(player->y)+8);y>std::max(-63,static_cast<int>(player->y)-16);--y)
-                if(world_.solid({x,y-1,z})&&world_.block({x,y,z})==0&&world_.block({x,y+1,z})==0) {spawn(day_time%24000>=13000?150:100,x+.5,y,z+.5);break;}
+                if(world_.solid({x,y-1,z})&&world_.block({x,y,z})==0&&world_.block({x,y+1,z})==0) {
+                    constexpr const char* day[]={"pig","cow","sheep","chicken"};constexpr const char* night[]={"zombie","skeleton","spider","creeper"};constexpr const char* nether[]={"zombified_piglin","piglin","magma_cube","ghast"};
+                    const char* name=world_.dimension_id()==2?"enderman":world_.dimension_id()==1?nether[(tick/200)%4]:(day_time%24000>=13000?night:day)[(tick/200)%4];
+                    spawn(mobdata::find(name)->id,x+.5,y,z+.5);break;
+                }
         }
     }
     if(!mobs.empty()&&!world_.players.empty())world_.mark_dirty();
@@ -418,6 +443,7 @@ void Simulation::step() {
     ++tick;++day_time;
     update_shapes();
     tick_furnaces();
+    tick_blocks();
     std::vector<BlockPos> due;
     for(const auto& [p,t]:water_)if(t<=tick&&due.size()<2048)due.push_back(p);
     for(auto p:due) {water_.erase(p);world_.mark_dirty();flow(p);}
@@ -425,7 +451,7 @@ void Simulation::step() {
     for(const auto& [p,e]:devices_)if(e.due<=tick)events.emplace_back(p,e.state);
     for(auto [p,s]:events) {devices_.erase(p);if(simdata::circuit(world_.block(p)))world_.set(p,s);}
     redstone();entities();
-    for(auto* player:world_.players)player->simulation_tick();
+    const auto players=world_.players;for(auto* player:players)if(&player->world()==&world_)player->simulation_tick();
 }
 std::string Simulation::save() const {
     nlohmann::json j{{"version",1},{"tick",tick},{"time",day_time},{"water",nlohmann::json::array()},{"devices",nlohmann::json::array()},
@@ -442,6 +468,7 @@ std::string Simulation::save() const {
         auto& p=j["players"][uuid];p={{"position",{s.x,s.y,s.z}},{"health",s.health},{"food",s.food},{"saturation",s.saturation},{"exhaustion",s.exhaustion},{"mode",s.mode},{"items",nlohmann::json::array()}};
         for(auto stack:s.inventory)p["items"].push_back(stack_json(stack));
         p["cursor"]=stack_json(s.cursor);p["crafting"]=nlohmann::json::array();
+        p["dimension"]=s.dimension;
         for(auto stack:s.crafting)p["crafting"].push_back(stack_json(stack));
     }
     for(const auto& [id,m]:mobs)j["mobs"].push_back({{"id",id},{"type",m.type},{"position",{m.x,m.y,m.z}},{"velocity",{m.vx,m.vy,m.vz}},{"health",m.health},{"born",m.born},{"drop",stack_json(m.drop)}});
@@ -477,6 +504,7 @@ void Simulation::load(std::string_view text) {
         if(!inside(s.x,s.y,s.z)||!std::isfinite(s.health)||s.health<0||s.health>20||s.food<0||s.food>20||!std::isfinite(s.saturation)||s.saturation<0||s.saturation>20||!std::isfinite(s.exhaustion)||s.exhaustion<0||s.exhaustion>40||(s.mode!=0&&s.mode!=1)||p.at("items").size()!=46)throw std::runtime_error("Invalid saved player state");
         for(int i=0;i<46;++i)s.inventory[i]=read_stack(p["items"][i]);
         if(p.contains("cursor"))s.cursor=read_stack(p.at("cursor"));
+        s.dimension=p.value("dimension",0);if(s.dimension<0||s.dimension>2)throw std::runtime_error("Invalid saved dimension");
         if(p.contains("crafting")){if(p.at("crafting").size()!=9)throw std::runtime_error("Invalid saved crafting grid");for(int i=0;i<9;++i)s.crafting[i]=read_stack(p.at("crafting").at(i));}
         saved_players.emplace(uuid,s);
     }
@@ -487,8 +515,9 @@ void Simulation::load(std::string_view text) {
             m.vx=v[0];m.vy=v[1];m.vz=v[2];
             if(!std::isfinite(m.vx)||!std::isfinite(m.vy)||!std::isfinite(m.vz)||std::abs(m.vx)>4||std::abs(m.vy)>4||std::abs(m.vz)>4)throw std::runtime_error("Invalid mob velocity");
         }
-        if(m.id<1||m.id>100000000||!inside(m.x,m.y,m.z)||(m.type!=71&&m.type!=100&&m.type!=150)||!std::isfinite(m.health)||m.health<=0||m.health>20||m.born>tick||(m.type==71&&!m.drop.item)||mobs.contains(m.id))throw std::runtime_error("Invalid saved mob");
-        mobs.emplace(m.id,m);world_.next_entity=std::max(world_.next_entity,m.id+1);
+        const auto* kind=mobdata::find(m.type);
+        if(m.id<1||m.id>100000000||!inside(m.x,m.y,m.z)||(m.type!=71&&!kind)||!std::isfinite(m.health)||m.health<=0||m.health>(kind?kind->health:20)||m.born>tick||(m.type==71&&!m.drop.item)||mobs.contains(m.id))throw std::runtime_error("Invalid saved mob");
+        mobs.emplace(m.id,m);world_.root().next_entity=std::max(world_.root().next_entity,m.id+1);
     }
     redstone_dirty_=true;
 }

@@ -61,6 +61,11 @@ dies ist keine vollstaendige Physik- oder Anti-Cheat-Implementierung.
 
 ## Mobs
 
+Seit 0.11 sind alle 89 Mobtypen per `/summon` und passende Spawn-Eier registriert.
+Gemeinsame Bewegungs-/Kampfprofile sind noch keine vollstaendige artspezifische KI.
+Der aktuelle Umfang steht in [MOBS.md](MOBS.md); Dimensionen, Portale, Ackerbau
+und weitere Blockmechaniken in [EXPANSION_0_11.md](EXPANSION_0_11.md).
+
 Schweine wandern, Zombies verfolgen und greifen Survival-Spieler an.
 Ueberlebte Nahkampftreffer stossen beide Mobarten vom Angreifer weg und heben
 sie kurz an. Der Impuls bleibt ueber KI-Ticks erhalten, klingt durch Reibung ab

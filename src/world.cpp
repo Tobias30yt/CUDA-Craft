@@ -22,10 +22,10 @@
 #endif
 
 namespace cudacraft {
-World::World(std::filesystem::path directory,TerrainOptions options) : directory_(std::move(directory)), options_(std::move(options)) {
+World::World(std::filesystem::path directory,TerrainOptions options,World* parent,int dimension) : parent_(parent),dimension_(dimension),directory_(std::move(directory)), options_(std::move(options)) {
     simulation_=std::make_unique<Simulation>(*this);
-    admin_=std::make_unique<Administration>(*this,directory_);
-    if(options_.generator!="flat" && options_.generator!="overworld" && options_.generator!="climate" && options_.generator!="density") throw std::runtime_error("Unknown generator (use flat, overworld, climate or density)");
+    if(!parent_)admin_=std::make_unique<Administration>(*this,directory_);
+    if(options_.generator!="flat" && options_.generator!="overworld" && options_.generator!="climate" && options_.generator!="density" && options_.generator!="nether" && options_.generator!="end") throw std::runtime_error("Unknown generator");
     const auto file=directory_.empty()?std::filesystem::path{}:directory_/"blocks.json";
     if (directory_.empty() || !std::filesystem::exists(file)) {
         if(options_.generator=="flat") base_=gpu::flat_terrain();
@@ -40,7 +40,7 @@ World::World(std::filesystem::path directory,TerrainOptions options) : directory
     const int format=document.at("format").get<int>();
     if ((format!=1 && format!=2) || document.at("protocol")!=774) throw std::runtime_error("Unsupported world edit format/version");
     const auto identity=document.at("generator").get<std::string>();
-    const std::string generator=identity=="cuda-craft-flat-v1"?"flat":identity=="cuda-craft-overworld-v1"?"overworld":identity=="cuda-craft-climate-v1"?"climate":identity=="cuda-craft-density-v1"?"density":"";
+    const std::string generator=identity=="cuda-craft-flat-v1"?"flat":identity=="cuda-craft-overworld-v1"?"overworld":identity=="cuda-craft-climate-v1"?"climate":identity=="cuda-craft-density-v1"?"density":identity=="cuda-craft-nether-v1"?"nether":identity=="cuda-craft-end-v1"?"end":"";
     if(generator.empty() || (format==1 && generator!="flat")) throw std::runtime_error("Unsupported saved generator identity");
     std::int64_t saved_seed=0;
     if(format==2) {
@@ -60,11 +60,12 @@ World::World(std::filesystem::path directory,TerrainOptions options) : directory
         if (!e.is_array() || e.size()!=4) throw std::runtime_error("Invalid world edit");
         BlockPos p{e[0].get<int>(),e[1].get<int>(),e[2].get<int>()};
         const int state=e[3].get<int>();
-        if (!valid(p) || p.y==-64 || !simdata::valid_state(state)) throw std::runtime_error("Invalid saved block state");
+        if (!valid(p) || p.y<=min_y()||p.y>=min_y()+height() || !simdata::valid_state(state)) throw std::runtime_error("Invalid saved block state");
         edits_[p]=state;
     }
     for(const auto& [p,state]:edits_)simulation_->changed(p,0,state);
     if(document.contains("simulation")) simulation_->load(document.at("simulation").dump());
+    if(!parent_)for(int id:{1,2})if(std::filesystem::exists(directory_/(id==1?"DIM-1":"DIM1")/"blocks.json"))this->dimension(id);
 }
 World::~World() { try { save(); } catch(const std::exception& e) { std::cerr<<"World save failed: "<<e.what()<<'\n'; } }
 bool World::valid(BlockPos p) { return p.x>=-1024 && p.x<1024 && p.z>=-1024 && p.z<1024 && p.y>=-64 && p.y<320; }
@@ -84,7 +85,7 @@ int World::state_item(int state) {
     return simdata::block(state).item;
 }
 int World::block(BlockPos p) const {
-    if (!valid(p)) return 0;
+    if (!valid(p)||p.y<min_y()||p.y>=min_y()+height()) return 0;
     const auto found=edits_.find(p);
     if(found!=edits_.end()) return found->second;
     return base_block(p);
@@ -98,7 +99,7 @@ const TerrainChunk& World::terrain(int cx,int cz) const {
         terrain_cache_.erase(oldest);
     }
     const auto generation_start=Performance::Clock::now();
-    auto generated=noise_terrain_?noise_terrain_->decorated_chunk(cx,cz):biome_source_?generate_climate_overworld(*biome_source_,cx,cz):generate_overworld(options_.seed,cx,cz);
+    auto generated=dimension_?generate_dimension(options_.seed,cx,cz,dimension_):noise_terrain_?noise_terrain_->decorated_chunk(cx,cz):biome_source_?generate_climate_overworld(*biome_source_,cx,cz):generate_overworld(options_.seed,cx,cz);
     ++performance.chunks_generated;performance.last_generation_ms=Performance::elapsed(generation_start);performance.max_generation_ms=std::max(performance.max_generation_ms,performance.last_generation_ms);
     return terrain_cache_.emplace(key,CachedChunk{std::move(generated),++cache_clock_}).first->second.terrain;
 }
@@ -114,6 +115,8 @@ int World::biome(int x,int y,int z) const {
         static_cast<std::size_t>((std::clamp(y,-64,319)+64)/4*16+((z&15)/4)*4+(x&15)/4)];
 }
 BlockPos World::spawn() const {
+    if(dimension_==1)return {0,64,0};
+    if(dimension_==2)return {100,49,0};
     using namespace terrain_ids;
     int sx=0,sz=0;
     if(options_.generator!="flat") {
@@ -132,7 +135,7 @@ BlockPos World::spawn() const {
     return {sx,64,sz};
 }
 bool World::set(BlockPos p,int state) {
-    if(!valid(p) || p.y==-64 || !simdata::valid_state(state)) return false;
+    if(!valid(p) || p.y<=min_y()||p.y>=min_y()+height() || !simdata::valid_state(state)) return false;
     const int previous=block(p);
     if(previous==state) return true;
     const auto drops=simulation_->container_drops(p,state);
@@ -149,7 +152,7 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
     struct Change {BlockPos p;int before,after,base;};
     std::vector<Change> changes;std::set<BlockPos> unique;auto count=edits_.size();std::size_t drops=0;
     for(const auto& [p,state]:blocks) {
-        if(!valid(p)||p.y==-64||!simdata::valid_state(state)||!unique.insert(p).second)return false;
+        if(!valid(p)||p.y<=min_y()||p.y>=min_y()+height()||!simdata::valid_state(state)||!unique.insert(p).second)return false;
         const int base=base_block(p);const bool exists=edits_.contains(p);
         if(exists&&state==base)--count;else if(!exists&&state!=base)++count;
         changes.push_back({p,block(p),state,base});
@@ -161,6 +164,7 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
     return true;
 }
 void World::save() {
+    for(auto& [id,world]:dimensions_)world->save();
     if(!dirty_ || directory_.empty()) return;
     const auto save_start=Performance::Clock::now();
     nlohmann::json data{{"format",2},{"protocol",774},{"generator","cuda-craft-"+options_.generator+"-v1"},
@@ -198,7 +202,7 @@ std::string World::place_template(std::string name,BlockPos origin,int variant) 
         const auto v=row.get<std::vector<int>>();
         if(v.size()!=4||v[0]<0||v[0]>=size[0]||v[1]<0||v[1]>=size[1]||v[2]<0||v[2]>=size[2]||v[3]<0||static_cast<std::size_t>(v[3])>=palette.size())throw std::runtime_error("Invalid template block");
         BlockPos p{origin.x+v[0],origin.y+v[1],origin.z+v[2]};
-        if(!valid(p)||p.y==-64)throw std::runtime_error("Entire template must fit inside world bounds");
+        if(!valid(p)||p.y<=min_y()||p.y>=min_y()+height())throw std::runtime_error("Entire template must fit inside world bounds");
         const int state=palette[v[3]],before=block(p);
         drops+=simulation_->container_drops(p,state);
         if(!changed.emplace(p,std::pair(before,state)).second)throw std::runtime_error("Duplicate template position");
@@ -220,7 +224,7 @@ void World::tick() {
     if(now-last_tick_>std::chrono::milliseconds(250)){performance.dropped_tick_slots+=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now-last_tick_).count()/50);last_tick_=now;}
     if(now-last_save_>=std::chrono::seconds(1)) { save(); last_save_=now; }
 }
-void World::advance_ticks(int count) {for(int i=0;i<count;++i){auto start=Performance::Clock::now();simulation_->step();performance.tick(Performance::elapsed(start));}}
+void World::advance_ticks(int count) {for(int i=0;i<count;++i){auto start=Performance::Clock::now();simulation_->step();for(auto& [id,world]:dimensions_)world->advance_ticks(1);performance.tick(Performance::elapsed(start));}}
 long World::tick_wait_microseconds() const {return static_cast<long>(std::clamp<std::int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(last_tick_+std::chrono::milliseconds(50)-std::chrono::steady_clock::now()).count(),0,50000));}
 bool World::solid(BlockPos p) const {int s=block(p);return simdata::block(s).solid&&!simdata::repeater(s);}
 void World::activate_chunk(int cx,int cz) {
@@ -238,13 +242,13 @@ protocol::Bytes World::chunk(int cx,int cz) const {
     for(int z=0;z<16;++z) for(int x=0;x<16;++x) {
         int top=319;
         while(top> -64 && get(x,top,z)==0) --top;
-        heights[static_cast<std::size_t>(z*16+x)]=top+65;
+        heights[static_cast<std::size_t>(z*16+x)]=std::clamp(top-min_y()+1,0,height());
         while(top> -64) {
             const int state=get(x,top,z);
             if(state!=terrain_ids::short_grass && state!=terrain_ids::dandelion && state!=terrain_ids::poppy) break;
             --top;
         }
-        motion_heights[static_cast<std::size_t>(z*16+x)]=top+65;
+        motion_heights[static_cast<std::size_t>(z*16+x)]=std::clamp(top-min_y()+1,0,height());
     }
     result.var(2);
     for(int type:{1,4}) {
@@ -256,7 +260,7 @@ protocol::Bytes World::chunk(int cx,int cz) const {
         }
     }
     Packet sections;
-    for(int sy=0;sy<24;++sy) {
+    for(int sy=(min_y()+64)/16;sy<(min_y()+64+height())/16;++sy) {
         std::array<unsigned,4096> indices{};
         std::vector<int> palette;
         int nonair=0;
@@ -318,7 +322,7 @@ protocol::Bytes World::chunk(int cx,int cz) const {
     std::vector<int> queue; queue.reserve(blocks.size());
     for(int i=0;i<static_cast<int>(blocks.size());++i) damping[static_cast<std::size_t>(i)]=static_cast<std::uint8_t>(opacity(static_cast<int>(blocks[static_cast<std::size_t>(i)])));
     for(int column=0;column<256;++column) {
-        int sunlight=15;
+        int sunlight=dimension_?0:15;
         for(int y=383;y>=0;--y) {
             const auto i=static_cast<std::size_t>(y*256+column);
             sunlight=std::max(0,sunlight-damping[i]); sky[i]=static_cast<std::uint8_t>(sunlight);
@@ -343,16 +347,17 @@ protocol::Bytes World::chunk(int cx,int cz) const {
         if(emitted){light[static_cast<std::size_t>(i)]=static_cast<std::uint8_t>(emitted);queue.push_back(i);}
     }
     spread(light);
-    constexpr std::uint64_t light_mask=(1ull<<26)-1;
+    const int light_sections=height()/16+2;
+    const std::uint64_t light_mask=(1ull<<light_sections)-1;
     result.var(1).u64(light_mask).var(1).u64(light_mask).var(0).var(0);
     for(const auto* values:{&sky,&light}) {
-        result.var(26);
-        for(int section=0;section<26;++section) {
+        result.var(light_sections);
+        for(int section=0;section<light_sections;++section) {
             result.var(2048);
             for(int i=0;i<4096;i+=2) {
-                if(section==0 || section==25) result.u8(section==25 && values==&sky?255:0);
+                if(section==0 || section==light_sections-1) result.u8(!dimension_&&section==light_sections-1 && values==&sky?255:0);
                 else {
-                    const auto index=static_cast<std::size_t>((section-1)*4096+i);
+                    const auto index=static_cast<std::size_t>((section-1+(min_y()+64)/16)*4096+i);
                     result.u8(static_cast<std::uint8_t>((*values)[index]|((*values)[index+1]<<4)));
                 }
             }

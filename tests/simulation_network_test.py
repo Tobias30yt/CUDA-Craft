@@ -61,7 +61,8 @@ class Player(game.Player):
                 values[index]=value
             self.metadata[entity]=values;r.end()
         elif pid==0x50:
-            assert r.varint()==0 and r.string()=='minecraft:overworld'
+            dimension_type=r.varint();dimension=r.string()
+            assert dimension_type=={'minecraft:overworld':0,'minecraft:the_nether':3,'minecraft:the_end':2}[dimension]
             r.read(8);r.read(4);assert r.read(1)==b'\0';r.varint();r.varint();r.read(1);r.end();self.respawns+=1
         elif pid==0x42:self.dead=True
         return data
@@ -112,6 +113,25 @@ class SimulationNetworkTests(unittest.TestCase):
             position,velocity=p.motion[pig]
             self.assertGreater(position[0],1.5);self.assertGreater(position[1],64)
             self.assertGreater(velocity[0],0)
+        finally:p.close()
+    def test_dimensions_inventory_and_chunk_layout(self):
+        p=Player(self.server)
+        try:
+            p.mode_set(1);p.give(1,9);p.mode_set(0)
+            for name,chunk in [('nether',(0,0)),('end',(6,0)),('overworld',(0,0))]:
+                expected='minecraft:'+('the_'+name if name!='overworld' else name)
+                p.command('dimension '+name)
+                p.until(lambda:p.dimension==expected and p.teleported and chunk in p.chunks,timeout=15)
+                self.assertEqual(len(p.chunks[chunk][0]),16*16*(384 if name=='overworld' else 256))
+                self.assertEqual(p.inventory[36],(1,9,0))
+                if name=='nether':
+                    self.assertNotEqual(p.block(0,63,0),0)
+                    self.assertEqual(set(p.biomes[chunk]),{34})
+                if name=='end':
+                    self.assertNotEqual(p.block(100,48,0),0)
+                    self.assertEqual(p.block(100,49,0),0)
+                    self.assertEqual(set(p.biomes[chunk]),{56})
+            self.assertEqual(p.respawns,3)
         finally:p.close()
     def test_water_bucket_flow_and_recession(self):
         p=Player(self.server)

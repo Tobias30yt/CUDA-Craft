@@ -18,6 +18,7 @@ struct TerrainChunk {
     std::array<std::uint16_t, 1536> biomes{};
 };
 TerrainChunk generate_overworld(std::int64_t seed, int cx, int cz);
+TerrainChunk generate_dimension(std::int64_t seed,int cx,int cz,int dimension);
 class BiomeSource;
 TerrainChunk generate_climate_overworld(const BiomeSource& source,int cx,int cz);
 }

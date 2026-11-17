@@ -14,7 +14,7 @@ class Simulation;
 class Administration;
 class World {
 public:
-    explicit World(std::filesystem::path directory = {}, TerrainOptions options = {});
+    explicit World(std::filesystem::path directory = {}, TerrainOptions options = {}, World* parent=nullptr, int dimension=0);
     ~World();
     int block(BlockPos p) const;
     bool set(BlockPos p, int state);
@@ -25,7 +25,15 @@ public:
     void tick();
     long tick_wait_microseconds() const;
     void advance_ticks(int count);
-    Administration& admin(){return *admin_;}
+    Administration& admin(){return root().admin_?*root().admin_:*admin_;}
+    World& root(){return parent_?*parent_:*this;}
+    World& dimension(int id);
+    int dimension_id() const{return dimension_;}
+    int dimension_type() const{return dimension_==1?3:dimension_==2?2:0;}
+    const char* dimension_name() const{return dimension_==1?"minecraft:the_nether":dimension_==2?"minecraft:the_end":"minecraft:overworld";}
+    int min_y() const{return dimension_?0:-64;}
+    int height() const{return dimension_?256:384;}
+    std::vector<GameSession*> all_players();
     mutable Performance performance;
     bool local_session=false,paused=false;
     std::size_t cached_chunks() const{return terrain_cache_.size();}
@@ -45,6 +53,9 @@ public:
     int biome(int x, int y, int z) const;
     std::uint64_t seed_hash() const;
 private:
+    World* parent_=nullptr;
+    int dimension_=0;
+    std::map<int,std::unique_ptr<World>> dimensions_;
     std::filesystem::path directory_;
     std::map<BlockPos,int> edits_;
     std::vector<std::uint32_t> base_;

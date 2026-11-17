@@ -1,0 +1,7 @@
+{
+  "minecraft": "1.21.11",
+  "registry_sha256": "df64b1ab9851cfaecf624cc5644c3611d2bfd064e4f2f0ddd1eafd38551f7e64",
+  "mobs": 89,
+  "generated_sha256": "4a5ef8f2d7506923be04660c8ba6c3d379c7186643c1683c6cd05428f7bc5c82",
+  "behavior": "Approximate profiles; no claim of vanilla AI or complete loot tables."
+}

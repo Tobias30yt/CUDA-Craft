@@ -1,6 +1,11 @@
 # Incremental implementation plan
 
-Each milestone must produce runnable code and automated checks. Version 0.10.0 adds
+Each milestone must produce runnable code and automated checks. Version 0.11.0 adds
+separate Nether/End saves and travel, prototype dimension terrain, portal activation,
+all 89 mob types with shared approximate profiles, falling blocks, crop growth,
+bone meal, buttons and pressure plates. The 90% complete-block-behavior target and
+complete mob/game mechanics are **not reached**. See EXPANSION_0_11.md, MOBS.md and
+block-coverage.csv for the implemented boundary. Version 0.10.0 adds
 persistent chests, double chests, barrels, furnaces, blast furnaces and smokers,
 with original 1.21.11 smelting/fuel data and authoritative vanilla menus. Shared
 viewers, stale clicks, output-slot protection, break drops and restart persistence

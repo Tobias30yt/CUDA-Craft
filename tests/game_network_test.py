@@ -21,7 +21,7 @@ def unpack(value):
     x=value>>38;z=(value>>12)&0x3ffffff;y=value&4095
     return (x-(0x4000000 if x&0x2000000 else 0),y-(4096 if y&2048 else 0),z-(0x4000000 if z&0x2000000 else 0))
 
-def decode_chunk(r,biomes_out=None):
+def decode_chunk(r,biomes_out=None,section_count=24):
     cx,cz=struct.unpack('>ii',r.read(8))
     heightmaps={}
     for _ in range(r.varint()):
@@ -31,7 +31,7 @@ def decode_chunk(r,biomes_out=None):
     body=login.Buffer(r.array())
     states=[]
     biomes=[]
-    for _ in range(24):
+    for _ in range(section_count):
         nonair=struct.unpack('>H',body.read(2))[0]
         bits=body.read(1)[0]
         if bits==0: section=[body.varint()]*4096
@@ -67,7 +67,7 @@ def decode_chunk(r,biomes_out=None):
 class Player(login.Client):
     def __init__(self,server,name='CudaTester'):
         super().__init__(server)
-        self.chunks={};self.biomes={};self.changes={};self.acks=set();self.spawned=set();self.keepalives=0;self.teleported=False;self.messages=[]
+        self.chunks={};self.biomes={};self.changes={};self.acks=set();self.spawned=set();self.keepalives=0;self.teleported=False;self.messages=[];self.dimension='minecraft:overworld';self.min_y=-64
         identity=bytes(range(15))+b'\x10' if name=='SecondTester' else bytes(range(16))
         self.begin(name,uuid=identity);self.success(name);self.configure()
         self.until(lambda:self.teleported and (math.floor(self.position[0]/16),math.floor(self.position[2]/16)) in self.chunks,timeout=15)
@@ -79,12 +79,15 @@ class Player(login.Client):
             r.read(1)
             for _ in range(r.varint()):r.string()
             for _ in range(3):r.varint()
-            r.read(3);r.varint();r.string()
+            r.read(3);r.varint();self.dimension=r.string();self.min_y=-64 if self.dimension=='minecraft:overworld' else 0
             self.seed_hash=struct.unpack('>Q',r.read(8))[0]
+        elif pid==0x50:
+            r.varint();self.dimension=r.string();self.min_y=-64 if self.dimension=='minecraft:overworld' else 0
+            self.chunks.clear();self.biomes.clear();self.changes.clear();self.spawned.clear();self.teleported=False
         elif pid==0x46:
             teleport=r.varint();self.position=struct.unpack('>ddd',r.read(24));self.send(b'\0'+vi(teleport));self.teleported=True
         elif pid==0x2c:
-            key,states,maps=decode_chunk(r,self.biomes);self.chunks[key]=(states,maps)
+            key,states,maps=decode_chunk(r,self.biomes,24 if self.min_y==-64 else 16);self.chunks[key]=(states,maps)
         elif pid==0x0b:self.send(b'\x0a'+struct.pack('>f',20))
         elif pid==0x2b:self.send(b'\x1b'+r.read(8));self.keepalives+=1
         elif pid==0x08:
@@ -105,7 +108,7 @@ class Player(login.Client):
     def block(self,x,y,z):
         if (x,y,z) in self.changes:return self.changes[x,y,z]
         states,_=self.chunks[x//16,z//16]
-        return states[(y+64)*256+(z&15)*16+(x&15)]
+        return states[(y-self.min_y)*256+(z&15)*16+(x&15)]
 
 class GameTests(unittest.TestCase):
     def setUp(self):
@@ -228,7 +231,7 @@ class GameTests(unittest.TestCase):
             p=Player(self.server)
             try:
                 self.assertEqual(p.block(x,y,z),1)
-                self.assertEqual(p.position,(x+.5,y+1,z+.5))
+                self.assertEqual(p.position,(x+4.5,y,z+.5),'Creative reconnect retains its saved position, not the changed spawn floor')
                 self.assertEqual(p.biomes[key],original_biomes)
             finally:p.close();self.server.close()
             before=path.read_bytes()
