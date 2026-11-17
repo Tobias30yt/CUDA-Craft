@@ -272,4 +272,22 @@ void portal_and_dimension_save_tests() {
     for(const auto* name:{"DIM-1","DIM1"}){std::filesystem::remove(path/name/"blocks.json");std::filesystem::remove(path/name);}
     std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path);
 }
-int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+void portal_invalidation_tests() {
+    int portal_state=0;for(const auto& b:sd::blocks)if(std::string_view(b.name)=="nether_portal")portal_state=b.state;
+    for(bool along_x:{false,true})for(int damage=0;damage<5;++damage) {
+        World w;auto at=[&](int u,int y){return BlockPos{10+(along_x?u:0),64+y,10+(along_x?0:u)};};
+        const int portal=sd::with_property(portal_state,"axis",along_x?"x":"z");
+        for(int u=-1;u<=2;++u)for(int y=-1;y<=3;++y)w.set(at(u,y),(u==-1||u==2||y==-1||y==3)?sd::obsidian_state:portal);
+        w.advance_ticks(1);check(w.block(at(0,0))==portal,"valid portal survives validation in both orientations");
+        for(int u:{-1,2})for(int y:{-1,3})w.set(at(u,y),0);
+        w.advance_ticks(1);check(w.block(at(0,0))==portal,"optional frame corners do not invalidate portal");
+        const BlockPos broken[]={at(0,-1),at(0,3),at(-1,1),at(2,1),at(0,1)};
+        w.set(broken[damage],0);w.advance_ticks(1);
+        for(int u=0;u<2;++u)for(int y=0;y<3;++y)check(w.block(at(u,y))==0,"damaged frame or interior clears entire portal");
+    }
+    Session s;s.begin();
+    for(int x=2;x<=5;++x)for(int y=63;y<=67;++y)s.world.set({x,y,2},x==2||x==5||y==63||y==67?sd::obsidian_state:sd::with_property(portal_state,"axis","x"));
+    s.player.x=3.5;s.player.y=64;s.player.z=2.5;s.world.set({2,65,2},0);s.world.advance_ticks(1);
+    check(s.player.world().dimension_id()==0,"invalid portal is cleared before player dimension travel");
+}
+int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

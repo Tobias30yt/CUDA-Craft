@@ -4,6 +4,7 @@
 #include "cudacraft/terrain_math.hpp"
 #include "cudacraft/game.hpp"
 #include <string>
+#include <deque>
 
 namespace cudacraft {
 namespace {
@@ -20,7 +21,37 @@ bool Simulation::fertilize(BlockPos p) {
     const int next=std::min(age->count-1,current+2);if(next==current)return false;
     return world_.set(p,simdata::with_property(s,"age",std::to_string(next)));
 }
+void Simulation::validate_portals() {
+    // Validate before player portal travel. Bound both components and work per tick.
+    for(int budget=0;budget<8&&!portal_checks_.empty();++budget) {
+        const auto start=*portal_checks_.begin();portal_checks_.erase(portal_checks_.begin());
+        const int initial=world_.block(start);if(std::string_view(simdata::block(initial).name)!="nether_portal")continue;
+        const auto axis=simdata::property_value(initial,"axis");
+        const bool along_x=axis=="x";
+        auto at=[&](int u,int y){return BlockPos{along_x?u:start.x,y,along_x?start.z:u};};
+        auto matches=[&](BlockPos p){int s=world_.block(p);return std::string_view(simdata::block(s).name)=="nether_portal"&&simdata::property_value(s,"axis")==axis;};
+        std::set<BlockPos> connected{start};std::deque<BlockPos> queue{start};
+        int min_u=along_x?start.x:start.z,max_u=min_u,min_y=start.y,max_y=start.y;
+        while(!queue.empty()&&connected.size()<=441) {
+            auto p=queue.front();queue.pop_front();int u=along_x?p.x:p.z;
+            min_u=std::min(min_u,u);max_u=std::max(max_u,u);min_y=std::min(min_y,p.y);max_y=std::max(max_y,p.y);
+            for(auto n:{at(u-1,p.y),at(u+1,p.y),at(u,p.y-1),at(u,p.y+1)})if(matches(n)&&connected.insert(n).second)queue.push_back(n);
+        }
+        const int width=max_u-min_u+1,height=max_y-min_y+1;
+        bool valid=queue.empty()&&width>=2&&width<=21&&height>=3&&height<=21&&connected.size()==static_cast<std::size_t>(width*height);
+        if(valid) {
+            for(int u=min_u;u<=max_u;++u)valid&=world_.block(at(u,min_y-1))==simdata::obsidian_state&&world_.block(at(u,max_y+1))==simdata::obsidian_state;
+            for(int y=min_y;y<=max_y;++y)valid&=world_.block(at(min_u-1,y))==simdata::obsidian_state&&world_.block(at(max_u+1,y))==simdata::obsidian_state;
+        }
+        for(auto p:connected)portal_checks_.erase(p);
+        if(!valid) {
+            std::vector<std::pair<BlockPos,int>> changes;for(auto p:connected)changes.emplace_back(p,0);
+            world_.set_blocks(changes);
+        }
+    }
+}
 void Simulation::tick_blocks() {
+    validate_portals();
     std::vector<BlockPos> releases;for(auto [p,due]:button_releases_)if(due<=tick)releases.push_back(p);
     for(auto p:releases){button_releases_.erase(p);world_.set(p,simdata::with_property(world_.block(p),"powered","false"));}
     // Bounded round-robin work avoids starving positions late in the map.

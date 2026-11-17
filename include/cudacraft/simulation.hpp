@@ -61,6 +61,7 @@ private:
     std::map<BlockPos,std::uint64_t> water_;
     std::set<BlockPos> circuits_;
     std::set<BlockPos> shape_updates_;
+    std::set<BlockPos> portal_checks_;
     std::set<BlockPos> ticking_blocks_;
     BlockPos block_cursor_{};
     std::map<BlockPos,std::uint64_t> button_releases_;
@@ -73,6 +74,7 @@ private:
     void update_shapes();
     void tick_furnaces();
     void tick_blocks();
+    void validate_portals();
     void entities();
 };
 }

@@ -1,6 +1,24 @@
 # Validation record
 
-Date: 2026-11-17. CUDA Craft 0.11.0. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-17. CUDA Craft 0.11.1. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.11.1 additions
+
+- Full native release gate: **17/17 CTest suites passed in 97.29 seconds**.
+- **769 simulation checks**, including 81 additional checks for portal validity:
+  both axes, removal of required floor/roof/side blocks, interior holes, optional
+  corners and a player standing in a damaged portal before the next tick.
+- Fabric build and all three JUnit tests passed. The real Fabric client received
+  Nether, End and all 89 mob types with 0.11.1; return travel, dimension saves and
+  clean shutdown were verified by `--smoke --smoke-dimensions`.
+- The regular client instance was updated to 0.11.1. Its native executable has
+  the same SHA-256 as the tested build. The 0.11.1 Modrinth pack was created and
+  every packaged file was compared with its source release file.
+- The implementation backlog contains 55 tasks with priorities, dependencies and
+  acceptance criteria. The accompanying workbook contains 1,166 block audit rows
+  and 89 mob audit rows; no full vanilla behavior certification is inferred from
+  registration or spawning. Formula counts and a changed status input were checked,
+  the formula-error scan was empty, and previews of all three sheets were reviewed.
 
 ## Version 0.11 additions
 

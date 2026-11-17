@@ -43,6 +43,8 @@ void Simulation::schedule_water(BlockPos p,std::uint64_t delay) {
     world_.mark_dirty();
 }
 void Simulation::changed(BlockPos p,int before,int after) {
+    if(std::string_view(simdata::block(after).name)=="nether_portal"&&portal_checks_.size()<65536)portal_checks_.insert(p);
+    for(auto d:dirs){auto n=add(p,d);if(portal_checks_.size()<65536&&std::string_view(simdata::block(world_.block(n)).name)=="nether_portal")portal_checks_.insert(n);}
     const auto name=std::string_view(simdata::block(after).name);
     if(name.ends_with("_button")&&simdata::property_value(after,"powered")=="true")button_releases_[p]=tick+(name=="stone_button"||name=="polished_blackstone_button"?20:30);
     else button_releases_.erase(p);

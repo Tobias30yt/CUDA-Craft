@@ -31,7 +31,7 @@ def prepare(game):
         hash_path.write_text(sha)
         libraries.append(str(path))
     mods=game/'mods'; mods.mkdir(parents=True,exist_ok=True)
-    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.0.jar'
+    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.1.jar'
     if not mod.exists(): raise RuntimeError('Build the Fabric mod first: tools/build-fabric-client.cmd')
     destination=mods/'cuda-craft-client.jar'
     for old in mods.glob('cuda-craft-client*.jar'):
@@ -92,7 +92,7 @@ def main():
             paths.append(str(path))
     paths.append(str(mc/f'versions/{MC}/{MC}.jar'))
     natives=game/'natives';natives.mkdir(exist_ok=True)
-    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.0','classpath':os.pathsep.join(paths)}
+    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.1','classpath':os.pathsep.join(paths)}
     command=[str(java),'-Xmx2G','-Xms512M']
     for item in version['arguments']['jvm']:
         if isinstance(item,dict):

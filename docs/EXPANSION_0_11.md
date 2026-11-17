@@ -34,7 +34,9 @@ lava, bedrock ceiling and a safe arrival area; End central island, obsidian
 arrival platform and a return portal. Travel currently uses dimension spawn
 points, without vanilla 8:1 coordinate linking or nearest-portal search. There
 are no generated fortresses, bastions, End cities, outer islands or dragon fight
-progression. Breaking a portal frame does not yet invalidate its portal blocks.
+progression. Since 0.11.1, breaking a required frame edge or portal interior
+invalidates the connected portal before player travel. Optional corners may be
+removed. Validation is bounded per tick and covers both portal orientations.
 
 ## Shared block behavior
 
