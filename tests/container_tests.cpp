@@ -65,6 +65,6 @@ int main(){try{
         rejected=false;try{Simulation invalid(restored);invalid.load(payload.dump());}catch(...){rejected=true;}check(rejected,"invalid persisted stacks rejected");
         payload=nlohmann::json::parse(s.save());payload.erase("containers");Simulation legacy(restored);legacy.load(payload.dump());check(legacy.containers.empty(),"old worlds without container field still load");
     }
-    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path);
+    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path/"native-world.lock");std::filesystem::remove(path);
     std::cout<<checks<<" container persistence and lifecycle checks passed\n";return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<" after "<<checks<<" checks\n";return 1;}}

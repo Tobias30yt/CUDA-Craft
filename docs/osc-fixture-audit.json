@@ -1,0 +1,1767 @@
+{
+  "target_minecraft": "1.21.11",
+  "target_data_version": 4671,
+  "registry_sha256": "293ff1dbba615e5dd8f7d9b9e60adc26e040962fd6113b1f4e820060e2c8ba8b",
+  "fixtures": [
+    {
+      "file": "Orbital Skybender 1.0.litematic",
+      "sha256": "454fe84a80d97100c4020c9047e19d9a77f0621b34501c407cfc8863d3b824c2",
+      "litematica_version": 7,
+      "data_version": 4903,
+      "newer_than_target": true,
+      "registry_state_errors": [
+        "unknown block: minecraft:potent_sulfur"
+      ],
+      "registry_states_recognized": false,
+      "gameplay_verified": false,
+      "non_air_blocks": 9309,
+      "regions": [
+        {
+          "name": "Cannon",
+          "size": [
+            52,
+            28,
+            42
+          ],
+          "volume": 61152,
+          "non_air_blocks": 9309,
+          "palette_states": 381,
+          "used_states": 381
+        }
+      ],
+      "blocks": {
+        "minecraft:activator_rail": 868,
+        "minecraft:air": 51843,
+        "minecraft:amethyst_cluster": 1,
+        "minecraft:barrel": 11,
+        "minecraft:blue_concrete": 12,
+        "minecraft:brewing_stand": 1,
+        "minecraft:bubble_column": 4,
+        "minecraft:cactus": 1,
+        "minecraft:campfire": 1,
+        "minecraft:cauldron": 1,
+        "minecraft:chest": 12,
+        "minecraft:cobblestone_slab": 211,
+        "minecraft:cobblestone_stairs": 28,
+        "minecraft:cobblestone_wall": 53,
+        "minecraft:cobweb": 5,
+        "minecraft:comparator": 147,
+        "minecraft:composter": 16,
+        "minecraft:cyan_concrete": 1,
+        "minecraft:dead_tube_coral_wall_fan": 2,
+        "minecraft:detector_rail": 1,
+        "minecraft:dispenser": 6,
+        "minecraft:dropper": 64,
+        "minecraft:glass": 38,
+        "minecraft:glow_lichen": 1,
+        "minecraft:gray_carpet": 4,
+        "minecraft:grindstone": 2,
+        "minecraft:honey_block": 6,
+        "minecraft:hopper": 29,
+        "minecraft:iron_bars": 8,
+        "minecraft:iron_chain": 3,
+        "minecraft:iron_door": 8,
+        "minecraft:iron_trapdoor": 60,
+        "minecraft:ladder": 1,
+        "minecraft:lava": 2,
+        "minecraft:lever": 5,
+        "minecraft:light_blue_concrete": 7,
+        "minecraft:light_weighted_pressure_plate": 1,
+        "minecraft:mangrove_roots": 5,
+        "minecraft:nether_portal": 12,
+        "minecraft:note_block": 39,
+        "minecraft:oak_fence": 7,
+        "minecraft:oak_fence_gate": 4,
+        "minecraft:oak_leaves": 1,
+        "minecraft:oak_log": 1,
+        "minecraft:oak_shelf": 5,
+        "minecraft:oak_trapdoor": 1,
+        "minecraft:observer": 545,
+        "minecraft:obsidian": 77,
+        "minecraft:orange_concrete": 12,
+        "minecraft:pale_oak_wall_sign": 1,
+        "minecraft:piston": 172,
+        "minecraft:piston_head": 15,
+        "minecraft:potent_sulfur": 1,
+        "minecraft:powder_snow": 1,
+        "minecraft:powered_rail": 90,
+        "minecraft:rail": 11,
+        "minecraft:red_concrete": 4,
+        "minecraft:redstone_block": 40,
+        "minecraft:redstone_torch": 25,
+        "minecraft:redstone_wall_torch": 25,
+        "minecraft:redstone_wire": 536,
+        "minecraft:repeater": 241,
+        "minecraft:sand": 1,
+        "minecraft:scaffolding": 20,
+        "minecraft:slime_block": 20,
+        "minecraft:soul_sand": 6,
+        "minecraft:sticky_piston": 116,
+        "minecraft:stone_button": 3,
+        "minecraft:target": 28,
+        "minecraft:tnt": 11,
+        "minecraft:tripwire": 2,
+        "minecraft:tripwire_hook": 4,
+        "minecraft:water": 320,
+        "minecraft:waxed_copper_bulb": 59,
+        "minecraft:white_carpet": 14,
+        "minecraft:white_concrete": 418,
+        "minecraft:white_stained_glass": 4787,
+        "minecraft:yellow_concrete": 7,
+        "minecraft:yellow_terracotta": 1
+      },
+      "block_entities": {
+        "minecraft:barrel": 11,
+        "minecraft:brewing_stand": 1,
+        "minecraft:campfire": 1,
+        "minecraft:chest": 12,
+        "minecraft:comparator": 147,
+        "minecraft:dispenser": 6,
+        "minecraft:dropper": 64,
+        "minecraft:hopper": 29,
+        "minecraft:potent_sulfur": 1,
+        "minecraft:shelf": 5,
+        "minecraft:sign": 1
+      },
+      "entities_including_passengers": {
+        "minecraft:bamboo_raft": 1,
+        "minecraft:breeze": 261,
+        "minecraft:hopper_minecart": 4,
+        "minecraft:iron_golem": 3,
+        "minecraft:minecart": 3,
+        "minecraft:oak_boat": 5
+      },
+      "block_entities_with_items": 39,
+      "stored_item_stacks": 445,
+      "pending_block_ticks": 0,
+      "pending_fluid_ticks": 0
+    },
+    {
+      "file": "OSC 6 Control Panel.litematic",
+      "sha256": "9bda32b9fbfc9c3e7ee6378e2d5370adec75938dbe0aba251727824f85732514",
+      "litematica_version": 7,
+      "data_version": 4189,
+      "newer_than_target": false,
+      "registry_state_errors": [],
+      "registry_states_recognized": true,
+      "gameplay_verified": false,
+      "non_air_blocks": 3407,
+      "regions": [
+        {
+          "name": "OSC 6 Control Panel",
+          "size": [
+            18,
+            13,
+            33
+          ],
+          "volume": 7722,
+          "non_air_blocks": 3407,
+          "palette_states": 138,
+          "used_states": 138
+        }
+      ],
+      "blocks": {
+        "minecraft:activator_rail": 92,
+        "minecraft:air": 4315,
+        "minecraft:barrel": 1,
+        "minecraft:black_carpet": 228,
+        "minecraft:black_concrete": 882,
+        "minecraft:black_wool": 2,
+        "minecraft:blue_concrete": 6,
+        "minecraft:brown_concrete": 4,
+        "minecraft:comparator": 159,
+        "minecraft:composter": 1,
+        "minecraft:dark_oak_wall_sign": 12,
+        "minecraft:daylight_detector": 3,
+        "minecraft:dispenser": 1,
+        "minecraft:dropper": 38,
+        "minecraft:glass": 24,
+        "minecraft:glowstone": 1,
+        "minecraft:gold_block": 1,
+        "minecraft:gray_concrete": 2,
+        "minecraft:gray_concrete_powder": 2,
+        "minecraft:honey_block": 1,
+        "minecraft:hopper": 25,
+        "minecraft:iron_trapdoor": 4,
+        "minecraft:lever": 3,
+        "minecraft:light_blue_concrete": 2,
+        "minecraft:light_gray_concrete": 2,
+        "minecraft:light_weighted_pressure_plate": 1,
+        "minecraft:lime_concrete": 59,
+        "minecraft:nether_portal": 6,
+        "minecraft:note_block": 37,
+        "minecraft:observer": 218,
+        "minecraft:obsidian": 14,
+        "minecraft:orange_concrete": 6,
+        "minecraft:piston": 49,
+        "minecraft:piston_head": 1,
+        "minecraft:polished_blackstone_button": 56,
+        "minecraft:powder_snow": 17,
+        "minecraft:powered_rail": 9,
+        "minecraft:red_concrete": 2,
+        "minecraft:redstone_block": 15,
+        "minecraft:redstone_lamp": 11,
+        "minecraft:redstone_torch": 3,
+        "minecraft:redstone_wall_torch": 5,
+        "minecraft:redstone_wire": 118,
+        "minecraft:repeater": 138,
+        "minecraft:scaffolding": 2,
+        "minecraft:slime_block": 66,
+        "minecraft:spruce_button": 10,
+        "minecraft:sticky_piston": 25,
+        "minecraft:stone_button": 1,
+        "minecraft:target": 2,
+        "minecraft:waxed_copper_bulb": 150,
+        "minecraft:white_concrete": 888,
+        "minecraft:yellow_concrete": 2
+      },
+      "block_entities": {
+        "minecraft:barrel": 1,
+        "minecraft:comparator": 159,
+        "minecraft:daylight_detector": 3,
+        "minecraft:dispenser": 1,
+        "minecraft:dropper": 38,
+        "minecraft:hopper": 25,
+        "minecraft:sign": 12
+      },
+      "entities_including_passengers": {
+        "minecraft:hopper_minecart": 1
+      },
+      "block_entities_with_items": 25,
+      "stored_item_stacks": 62,
+      "pending_block_ticks": 53,
+      "pending_fluid_ticks": 1
+    },
+    {
+      "file": "OSC 6 Nether.litematic",
+      "sha256": "c829e9b9c3053451bf97dc8293cf8cebb3d91f0c8b281344769fd3e3c72c3e1a",
+      "litematica_version": 7,
+      "data_version": 4189,
+      "newer_than_target": false,
+      "registry_state_errors": [],
+      "registry_states_recognized": true,
+      "gameplay_verified": false,
+      "non_air_blocks": 44,
+      "regions": [
+        {
+          "name": "Northeast Portal",
+          "size": [
+            4,
+            -5,
+            2
+          ],
+          "volume": 40,
+          "non_air_blocks": 22,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "Southwest Portal",
+          "size": [
+            2,
+            -5,
+            -4
+          ],
+          "volume": 40,
+          "non_air_blocks": 22,
+          "palette_states": 5,
+          "used_states": 5
+        }
+      ],
+      "blocks": {
+        "minecraft:air": 36,
+        "minecraft:fire": 2,
+        "minecraft:nether_portal": 12,
+        "minecraft:netherrack": 2,
+        "minecraft:obsidian": 28
+      },
+      "block_entities": {},
+      "entities_including_passengers": {},
+      "block_entities_with_items": 0,
+      "stored_item_stacks": 0,
+      "pending_block_ticks": 0,
+      "pending_fluid_ticks": 0
+    },
+    {
+      "file": "OSC Minimal Signature.litematic",
+      "sha256": "dbbbf64561f0f89a532ff5ffd71d5cf6d724b317419c0bde9ee9728439caadd7",
+      "litematica_version": 7,
+      "data_version": 4671,
+      "newer_than_target": false,
+      "registry_state_errors": [],
+      "registry_states_recognized": true,
+      "gameplay_verified": false,
+      "non_air_blocks": 10637,
+      "regions": [
+        {
+          "name": "OSC Minimal Signature",
+          "size": [
+            24,
+            5,
+            23
+          ],
+          "volume": 2760,
+          "non_air_blocks": 542,
+          "palette_states": 93,
+          "used_states": 93
+        },
+        {
+          "name": "OSC Minimal Signature 1",
+          "size": [
+            -15,
+            8,
+            -7
+          ],
+          "volume": 840,
+          "non_air_blocks": 422,
+          "palette_states": 47,
+          "used_states": 47
+        },
+        {
+          "name": "OSC Minimal Signature 10",
+          "size": [
+            14,
+            13,
+            18
+          ],
+          "volume": 3276,
+          "non_air_blocks": 1304,
+          "palette_states": 96,
+          "used_states": 96
+        },
+        {
+          "name": "OSC Minimal Signature 11",
+          "size": [
+            -5,
+            -4,
+            3
+          ],
+          "volume": 60,
+          "non_air_blocks": 31,
+          "palette_states": 14,
+          "used_states": 14
+        },
+        {
+          "name": "OSC Minimal Signature 12",
+          "size": [
+            -6,
+            10,
+            9
+          ],
+          "volume": 540,
+          "non_air_blocks": 165,
+          "palette_states": 33,
+          "used_states": 33
+        },
+        {
+          "name": "OSC Minimal Signature 13",
+          "size": [
+            -4,
+            10,
+            4
+          ],
+          "volume": 160,
+          "non_air_blocks": 20,
+          "palette_states": 9,
+          "used_states": 9
+        },
+        {
+          "name": "OSC Minimal Signature 14",
+          "size": [
+            1,
+            3,
+            1
+          ],
+          "volume": 3,
+          "non_air_blocks": 3,
+          "palette_states": 3,
+          "used_states": 2
+        },
+        {
+          "name": "OSC Minimal Signature 15",
+          "size": [
+            27,
+            12,
+            9
+          ],
+          "volume": 2916,
+          "non_air_blocks": 516,
+          "palette_states": 68,
+          "used_states": 68
+        },
+        {
+          "name": "OSC Minimal Signature 16",
+          "size": [
+            -13,
+            16,
+            -12
+          ],
+          "volume": 2496,
+          "non_air_blocks": 483,
+          "palette_states": 80,
+          "used_states": 80
+        },
+        {
+          "name": "OSC Minimal Signature 17",
+          "size": [
+            4,
+            7,
+            1
+          ],
+          "volume": 28,
+          "non_air_blocks": 9,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "OSC Minimal Signature 18",
+          "size": [
+            -10,
+            11,
+            2
+          ],
+          "volume": 220,
+          "non_air_blocks": 54,
+          "palette_states": 12,
+          "used_states": 12
+        },
+        {
+          "name": "OSC Minimal Signature 19",
+          "size": [
+            5,
+            3,
+            4
+          ],
+          "volume": 60,
+          "non_air_blocks": 32,
+          "palette_states": 8,
+          "used_states": 8
+        },
+        {
+          "name": "OSC Minimal Signature 2",
+          "size": [
+            6,
+            6,
+            7
+          ],
+          "volume": 252,
+          "non_air_blocks": 174,
+          "palette_states": 27,
+          "used_states": 27
+        },
+        {
+          "name": "OSC Minimal Signature 20",
+          "size": [
+            2,
+            3,
+            16
+          ],
+          "volume": 96,
+          "non_air_blocks": 33,
+          "palette_states": 3,
+          "used_states": 3
+        },
+        {
+          "name": "OSC Minimal Signature 21",
+          "size": [
+            7,
+            10,
+            5
+          ],
+          "volume": 350,
+          "non_air_blocks": 145,
+          "palette_states": 33,
+          "used_states": 33
+        },
+        {
+          "name": "OSC Minimal Signature 22",
+          "size": [
+            6,
+            3,
+            -2
+          ],
+          "volume": 36,
+          "non_air_blocks": 13,
+          "palette_states": 3,
+          "used_states": 3
+        },
+        {
+          "name": "OSC Minimal Signature 23",
+          "size": [
+            7,
+            8,
+            -5
+          ],
+          "volume": 280,
+          "non_air_blocks": 103,
+          "palette_states": 11,
+          "used_states": 11
+        },
+        {
+          "name": "OSC Minimal Signature 24",
+          "size": [
+            -15,
+            9,
+            2
+          ],
+          "volume": 270,
+          "non_air_blocks": 36,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "OSC Minimal Signature 25",
+          "size": [
+            2,
+            4,
+            3
+          ],
+          "volume": 24,
+          "non_air_blocks": 9,
+          "palette_states": 6,
+          "used_states": 6
+        },
+        {
+          "name": "OSC Minimal Signature 26",
+          "size": [
+            4,
+            -6,
+            -3
+          ],
+          "volume": 72,
+          "non_air_blocks": 16,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "OSC Minimal Signature 27",
+          "size": [
+            -3,
+            13,
+            -4
+          ],
+          "volume": 156,
+          "non_air_blocks": 14,
+          "palette_states": 9,
+          "used_states": 9
+        },
+        {
+          "name": "OSC Minimal Signature 28",
+          "size": [
+            2,
+            5,
+            -19
+          ],
+          "volume": 190,
+          "non_air_blocks": 32,
+          "palette_states": 10,
+          "used_states": 10
+        },
+        {
+          "name": "OSC Minimal Signature 29",
+          "size": [
+            8,
+            9,
+            -47
+          ],
+          "volume": 3384,
+          "non_air_blocks": 1042,
+          "palette_states": 121,
+          "used_states": 121
+        },
+        {
+          "name": "OSC Minimal Signature 3",
+          "size": [
+            -2,
+            3,
+            3
+          ],
+          "volume": 18,
+          "non_air_blocks": 12,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "OSC Minimal Signature 30",
+          "size": [
+            -47,
+            10,
+            8
+          ],
+          "volume": 3760,
+          "non_air_blocks": 1097,
+          "palette_states": 122,
+          "used_states": 122
+        },
+        {
+          "name": "OSC Minimal Signature 31",
+          "size": [
+            14,
+            9,
+            4
+          ],
+          "volume": 504,
+          "non_air_blocks": 217,
+          "palette_states": 35,
+          "used_states": 35
+        },
+        {
+          "name": "OSC Minimal Signature 32",
+          "size": [
+            -4,
+            9,
+            14
+          ],
+          "volume": 504,
+          "non_air_blocks": 192,
+          "palette_states": 34,
+          "used_states": 34
+        },
+        {
+          "name": "OSC Minimal Signature 33",
+          "size": [
+            1,
+            3,
+            4
+          ],
+          "volume": 12,
+          "non_air_blocks": 8,
+          "palette_states": 6,
+          "used_states": 6
+        },
+        {
+          "name": "OSC Minimal Signature 34",
+          "size": [
+            -6,
+            3,
+            1
+          ],
+          "volume": 18,
+          "non_air_blocks": 12,
+          "palette_states": 8,
+          "used_states": 8
+        },
+        {
+          "name": "OSC Minimal Signature 35",
+          "size": [
+            1,
+            3,
+            5
+          ],
+          "volume": 15,
+          "non_air_blocks": 10,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "OSC Minimal Signature 36",
+          "size": [
+            6,
+            3,
+            1
+          ],
+          "volume": 18,
+          "non_air_blocks": 12,
+          "palette_states": 8,
+          "used_states": 8
+        },
+        {
+          "name": "OSC Minimal Signature 37",
+          "size": [
+            1,
+            3,
+            -5
+          ],
+          "volume": 15,
+          "non_air_blocks": 10,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "OSC Minimal Signature 38",
+          "size": [
+            4,
+            3,
+            1
+          ],
+          "volume": 12,
+          "non_air_blocks": 8,
+          "palette_states": 6,
+          "used_states": 6
+        },
+        {
+          "name": "OSC Minimal Signature 39",
+          "size": [
+            -4,
+            4,
+            -4
+          ],
+          "volume": 64,
+          "non_air_blocks": 44,
+          "palette_states": 12,
+          "used_states": 12
+        },
+        {
+          "name": "OSC Minimal Signature 4",
+          "size": [
+            8,
+            7,
+            20
+          ],
+          "volume": 1120,
+          "non_air_blocks": 499,
+          "palette_states": 57,
+          "used_states": 57
+        },
+        {
+          "name": "OSC Minimal Signature 40",
+          "size": [
+            11,
+            9,
+            -11
+          ],
+          "volume": 1089,
+          "non_air_blocks": 284,
+          "palette_states": 41,
+          "used_states": 41
+        },
+        {
+          "name": "OSC Minimal Signature 41",
+          "size": [
+            -7,
+            1,
+            1
+          ],
+          "volume": 7,
+          "non_air_blocks": 5,
+          "palette_states": 4,
+          "used_states": 4
+        },
+        {
+          "name": "OSC Minimal Signature 42",
+          "size": [
+            3,
+            1,
+            1
+          ],
+          "volume": 3,
+          "non_air_blocks": 2,
+          "palette_states": 3,
+          "used_states": 3
+        },
+        {
+          "name": "OSC Minimal Signature 43",
+          "size": [
+            2,
+            1,
+            1
+          ],
+          "volume": 2,
+          "non_air_blocks": 2,
+          "palette_states": 3,
+          "used_states": 2
+        },
+        {
+          "name": "OSC Minimal Signature 44",
+          "size": [
+            1,
+            1,
+            1
+          ],
+          "volume": 1,
+          "non_air_blocks": 1,
+          "palette_states": 2,
+          "used_states": 1
+        },
+        {
+          "name": "OSC Minimal Signature 45",
+          "size": [
+            -13,
+            1,
+            1
+          ],
+          "volume": 13,
+          "non_air_blocks": 1,
+          "palette_states": 2,
+          "used_states": 2
+        },
+        {
+          "name": "OSC Minimal Signature 46",
+          "size": [
+            1,
+            1,
+            -4
+          ],
+          "volume": 4,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "OSC Minimal Signature 47",
+          "size": [
+            -4,
+            11,
+            2
+          ],
+          "volume": 88,
+          "non_air_blocks": 37,
+          "palette_states": 14,
+          "used_states": 14
+        },
+        {
+          "name": "OSC Minimal Signature 48",
+          "size": [
+            13,
+            -3,
+            4
+          ],
+          "volume": 156,
+          "non_air_blocks": 17,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "OSC Minimal Signature 49",
+          "size": [
+            13,
+            -4,
+            1
+          ],
+          "volume": 52,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "OSC Minimal Signature 5",
+          "size": [
+            5,
+            7,
+            -4
+          ],
+          "volume": 140,
+          "non_air_blocks": 58,
+          "palette_states": 18,
+          "used_states": 18
+        },
+        {
+          "name": "OSC Minimal Signature 50",
+          "size": [
+            11,
+            -7,
+            1
+          ],
+          "volume": 77,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "OSC Minimal Signature 51",
+          "size": [
+            -4,
+            -3,
+            9
+          ],
+          "volume": 108,
+          "non_air_blocks": 14,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "OSC Minimal Signature 52",
+          "size": [
+            1,
+            -11,
+            16
+          ],
+          "volume": 176,
+          "non_air_blocks": 44,
+          "palette_states": 8,
+          "used_states": 8
+        },
+        {
+          "name": "OSC Minimal Signature 53",
+          "size": [
+            1,
+            3,
+            -2
+          ],
+          "volume": 6,
+          "non_air_blocks": 2,
+          "palette_states": 2,
+          "used_states": 2
+        },
+        {
+          "name": "OSC Minimal Signature 54",
+          "size": [
+            -9,
+            -3,
+            4
+          ],
+          "volume": 108,
+          "non_air_blocks": 11,
+          "palette_states": 2,
+          "used_states": 2
+        },
+        {
+          "name": "OSC Minimal Signature 55",
+          "size": [
+            -6,
+            -11,
+            1
+          ],
+          "volume": 66,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "OSC Minimal Signature 56",
+          "size": [
+            4,
+            -3,
+            -8
+          ],
+          "volume": 96,
+          "non_air_blocks": 14,
+          "palette_states": 3,
+          "used_states": 3
+        },
+        {
+          "name": "OSC Minimal Signature 57",
+          "size": [
+            -3,
+            4,
+            -2
+          ],
+          "volume": 24,
+          "non_air_blocks": 12,
+          "palette_states": 6,
+          "used_states": 6
+        },
+        {
+          "name": "OSC Minimal Signature 58",
+          "size": [
+            -5,
+            2,
+            -7
+          ],
+          "volume": 70,
+          "non_air_blocks": 27,
+          "palette_states": 9,
+          "used_states": 9
+        },
+        {
+          "name": "OSC Minimal Signature 59",
+          "size": [
+            2,
+            39,
+            2
+          ],
+          "volume": 156,
+          "non_air_blocks": 1,
+          "palette_states": 2,
+          "used_states": 2
+        },
+        {
+          "name": "OSC Minimal Signature 6",
+          "size": [
+            16,
+            8,
+            -23
+          ],
+          "volume": 2944,
+          "non_air_blocks": 1172,
+          "palette_states": 104,
+          "used_states": 104
+        },
+        {
+          "name": "OSC Minimal Signature 60",
+          "size": [
+            3,
+            -32,
+            3
+          ],
+          "volume": 288,
+          "non_air_blocks": 288,
+          "palette_states": 5,
+          "used_states": 4
+        },
+        {
+          "name": "OSC Minimal Signature 7",
+          "size": [
+            4,
+            6,
+            -16
+          ],
+          "volume": 384,
+          "non_air_blocks": 132,
+          "palette_states": 31,
+          "used_states": 31
+        },
+        {
+          "name": "OSC Minimal Signature 8",
+          "size": [
+            -13,
+            12,
+            12
+          ],
+          "volume": 1872,
+          "non_air_blocks": 526,
+          "palette_states": 64,
+          "used_states": 64
+        },
+        {
+          "name": "OSC Minimal Signature 9",
+          "size": [
+            4,
+            9,
+            7
+          ],
+          "volume": 252,
+          "non_air_blocks": 128,
+          "palette_states": 26,
+          "used_states": 26
+        },
+        {
+          "name": "Trapdoor 1",
+          "size": [
+            3,
+            32,
+            -3
+          ],
+          "volume": 288,
+          "non_air_blocks": 270,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "Trapdoor 2",
+          "size": [
+            5,
+            4,
+            -3
+          ],
+          "volume": 60,
+          "non_air_blocks": 25,
+          "palette_states": 8,
+          "used_states": 8
+        },
+        {
+          "name": "Trapdoor 3",
+          "size": [
+            7,
+            3,
+            -13
+          ],
+          "volume": 273,
+          "non_air_blocks": 196,
+          "palette_states": 18,
+          "used_states": 18
+        },
+        {
+          "name": "Trapdoor 4",
+          "size": [
+            -2,
+            -51,
+            -2
+          ],
+          "volume": 204,
+          "non_air_blocks": 49,
+          "palette_states": 3,
+          "used_states": 3
+        }
+      ],
+      "blocks": {
+        "minecraft:activator_rail": 842,
+        "minecraft:air": 22899,
+        "minecraft:barrel": 20,
+        "minecraft:bubble_column": 60,
+        "minecraft:campfire": 1,
+        "minecraft:chest": 11,
+        "minecraft:cobblestone_slab": 37,
+        "minecraft:cobblestone_stairs": 3,
+        "minecraft:cobblestone_wall": 46,
+        "minecraft:comparator": 257,
+        "minecraft:composter": 52,
+        "minecraft:dead_tube_coral_wall_fan": 5,
+        "minecraft:dirt_path": 2,
+        "minecraft:dispenser": 1,
+        "minecraft:dropper": 111,
+        "minecraft:glass": 108,
+        "minecraft:gravel": 44,
+        "minecraft:honey_block": 14,
+        "minecraft:hopper": 63,
+        "minecraft:iron_bars": 13,
+        "minecraft:iron_door": 12,
+        "minecraft:iron_trapdoor": 53,
+        "minecraft:lantern": 40,
+        "minecraft:lever": 2,
+        "minecraft:moss_block": 45,
+        "minecraft:nether_portal": 45,
+        "minecraft:note_block": 83,
+        "minecraft:oak_fence_gate": 18,
+        "minecraft:observer": 678,
+        "minecraft:obsidian": 71,
+        "minecraft:piston": 227,
+        "minecraft:piston_head": 15,
+        "minecraft:powder_snow": 47,
+        "minecraft:powered_rail": 1,
+        "minecraft:rail": 2,
+        "minecraft:redstone_block": 33,
+        "minecraft:redstone_torch": 16,
+        "minecraft:redstone_wall_torch": 39,
+        "minecraft:redstone_wire": 724,
+        "minecraft:repeater": 522,
+        "minecraft:scaffolding": 26,
+        "minecraft:slime_block": 138,
+        "minecraft:soul_sand": 3,
+        "minecraft:sticky_piston": 235,
+        "minecraft:stone_button": 13,
+        "minecraft:target": 18,
+        "minecraft:tnt": 50,
+        "minecraft:torch": 24,
+        "minecraft:water": 109,
+        "minecraft:waxed_copper_bulb": 80,
+        "minecraft:white_concrete": 5577,
+        "minecraft:white_stained_glass": 1
+      },
+      "block_entities": {
+        "minecraft:barrel": 20,
+        "minecraft:campfire": 1,
+        "minecraft:chest": 11,
+        "minecraft:comparator": 257,
+        "minecraft:dispenser": 1,
+        "minecraft:dropper": 111,
+        "minecraft:hopper": 63
+      },
+      "entities_including_passengers": {},
+      "block_entities_with_items": 73,
+      "stored_item_stacks": 560,
+      "pending_block_ticks": 1,
+      "pending_fluid_ticks": 0
+    },
+    {
+      "file": "OSC MS Control Panel.litematic",
+      "sha256": "b5374dad38884aacb85b5db31b829e01d7b5bda932af335dc7ef582fc51d000b",
+      "litematica_version": 7,
+      "data_version": 4903,
+      "newer_than_target": true,
+      "registry_state_errors": [],
+      "registry_states_recognized": true,
+      "gameplay_verified": false,
+      "non_air_blocks": 2918,
+      "regions": [
+        {
+          "name": "OSC MS Control Panel",
+          "size": [
+            14,
+            15,
+            33
+          ],
+          "volume": 6930,
+          "non_air_blocks": 2918,
+          "palette_states": 178,
+          "used_states": 178
+        }
+      ],
+      "blocks": {
+        "minecraft:activator_rail": 85,
+        "minecraft:air": 4012,
+        "minecraft:barrel": 2,
+        "minecraft:black_carpet": 155,
+        "minecraft:black_concrete": 188,
+        "minecraft:black_wool": 2,
+        "minecraft:blue_concrete": 6,
+        "minecraft:brown_concrete": 4,
+        "minecraft:cobblestone_wall": 191,
+        "minecraft:comparator": 174,
+        "minecraft:composter": 3,
+        "minecraft:dark_oak_wall_sign": 5,
+        "minecraft:dispenser": 1,
+        "minecraft:dropper": 38,
+        "minecraft:emerald_block": 2,
+        "minecraft:glass": 20,
+        "minecraft:glowstone": 1,
+        "minecraft:gold_block": 1,
+        "minecraft:gray_carpet": 5,
+        "minecraft:gray_concrete": 2,
+        "minecraft:gray_concrete_powder": 2,
+        "minecraft:honey_block": 1,
+        "minecraft:hopper": 25,
+        "minecraft:iron_door": 6,
+        "minecraft:iron_trapdoor": 7,
+        "minecraft:lever": 3,
+        "minecraft:light_blue_concrete": 2,
+        "minecraft:light_gray_carpet": 5,
+        "minecraft:light_gray_concrete": 2,
+        "minecraft:light_weighted_pressure_plate": 1,
+        "minecraft:lime_concrete": 4,
+        "minecraft:nether_portal": 6,
+        "minecraft:note_block": 28,
+        "minecraft:observer": 167,
+        "minecraft:obsidian": 14,
+        "minecraft:orange_concrete": 6,
+        "minecraft:piston": 48,
+        "minecraft:polished_blackstone_button": 56,
+        "minecraft:powder_snow": 14,
+        "minecraft:powered_rail": 1,
+        "minecraft:red_concrete": 2,
+        "minecraft:redstone_block": 14,
+        "minecraft:redstone_lamp": 12,
+        "minecraft:redstone_torch": 5,
+        "minecraft:redstone_wall_torch": 8,
+        "minecraft:redstone_wire": 130,
+        "minecraft:repeater": 138,
+        "minecraft:scaffolding": 4,
+        "minecraft:slime_block": 66,
+        "minecraft:spruce_button": 10,
+        "minecraft:sticky_piston": 17,
+        "minecraft:stone_button": 1,
+        "minecraft:target": 3,
+        "minecraft:waxed_copper_bulb": 141,
+        "minecraft:white_concrete": 1080,
+        "minecraft:white_stained_glass": 2,
+        "minecraft:yellow_concrete": 2
+      },
+      "block_entities": {
+        "minecraft:barrel": 2,
+        "minecraft:comparator": 174,
+        "minecraft:dispenser": 1,
+        "minecraft:dropper": 38,
+        "minecraft:hopper": 25,
+        "minecraft:sign": 5
+      },
+      "entities_including_passengers": {
+        "minecraft:hopper_minecart": 1
+      },
+      "block_entities_with_items": 23,
+      "stored_item_stacks": 74,
+      "pending_block_ticks": 0,
+      "pending_fluid_ticks": 0
+    },
+    {
+      "file": "OSC MS Nether.litematic",
+      "sha256": "e427a06b9a843860931a52b30236c2c4d973e7a8717e0b4c98a1e8740f1dc5f7",
+      "litematica_version": 7,
+      "data_version": 4556,
+      "newer_than_target": false,
+      "registry_state_errors": [],
+      "registry_states_recognized": true,
+      "gameplay_verified": false,
+      "non_air_blocks": 602,
+      "regions": [
+        {
+          "name": "OSC MS Nether",
+          "size": [
+            -5,
+            7,
+            14
+          ],
+          "volume": 490,
+          "non_air_blocks": 355,
+          "palette_states": 18,
+          "used_states": 18
+        },
+        {
+          "name": "OSC MS Nether 1",
+          "size": [
+            -9,
+            7,
+            -5
+          ],
+          "volume": 315,
+          "non_air_blocks": 247,
+          "palette_states": 12,
+          "used_states": 12
+        }
+      ],
+      "blocks": {
+        "minecraft:air": 201,
+        "minecraft:cave_air": 2,
+        "minecraft:comparator": 4,
+        "minecraft:dropper": 9,
+        "minecraft:hopper": 16,
+        "minecraft:nether_portal": 45,
+        "minecraft:obsidian": 60,
+        "minecraft:powder_snow": 6,
+        "minecraft:redstone_wall_torch": 1,
+        "minecraft:white_concrete": 461
+      },
+      "block_entities": {
+        "minecraft:comparator": 4,
+        "minecraft:dropper": 9,
+        "minecraft:hopper": 16
+      },
+      "entities_including_passengers": {},
+      "block_entities_with_items": 4,
+      "stored_item_stacks": 4,
+      "pending_block_ticks": 0,
+      "pending_fluid_ticks": 0
+    },
+    {
+      "file": "The Orbital Strike Cannon Mk.6.1.litematic",
+      "sha256": "8c2d8bf4dc8059cb083a28368da2efa1be2bd2dd4999d8b8062d115c4c758632",
+      "litematica_version": 7,
+      "data_version": 4556,
+      "newer_than_target": false,
+      "registry_state_errors": [],
+      "registry_states_recognized": true,
+      "gameplay_verified": false,
+      "non_air_blocks": 13501,
+      "regions": [
+        {
+          "name": "Bottom Section",
+          "size": [
+            36,
+            13,
+            36
+          ],
+          "volume": 16848,
+          "non_air_blocks": 4226,
+          "palette_states": 236,
+          "used_states": 236
+        },
+        {
+          "name": "Chunkload Detector",
+          "size": [
+            4,
+            5,
+            -4
+          ],
+          "volume": 80,
+          "non_air_blocks": 41,
+          "palette_states": 12,
+          "used_states": 12
+        },
+        {
+          "name": "EastWest Accel Duper",
+          "size": [
+            48,
+            12,
+            -12
+          ],
+          "volume": 6912,
+          "non_air_blocks": 1490,
+          "palette_states": 146,
+          "used_states": 146
+        },
+        {
+          "name": "Headspace 1",
+          "size": [
+            5,
+            -2,
+            1
+          ],
+          "volume": 10,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "Headspace 2",
+          "size": [
+            1,
+            2,
+            8
+          ],
+          "volume": 16,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "Headspace 3",
+          "size": [
+            5,
+            -4,
+            1
+          ],
+          "volume": 20,
+          "non_air_blocks": 11,
+          "palette_states": 7,
+          "used_states": 7
+        },
+        {
+          "name": "Headspace 4",
+          "size": [
+            1,
+            -4,
+            6
+          ],
+          "volume": 24,
+          "non_air_blocks": 13,
+          "palette_states": 8,
+          "used_states": 8
+        },
+        {
+          "name": "HeightAccel Encoder",
+          "size": [
+            9,
+            12,
+            11
+          ],
+          "volume": 1188,
+          "non_air_blocks": 277,
+          "palette_states": 40,
+          "used_states": 40
+        },
+        {
+          "name": "Magazine Reciever Dummy Reference",
+          "size": [
+            1,
+            -2,
+            2
+          ],
+          "volume": 4,
+          "non_air_blocks": 4,
+          "palette_states": 5,
+          "used_states": 4
+        },
+        {
+          "name": "Middle Section 1",
+          "size": [
+            -10,
+            9,
+            36
+          ],
+          "volume": 3240,
+          "non_air_blocks": 506,
+          "palette_states": 79,
+          "used_states": 79
+        },
+        {
+          "name": "Middle Section 2",
+          "size": [
+            -26,
+            9,
+            -40
+          ],
+          "volume": 9360,
+          "non_air_blocks": 2083,
+          "palette_states": 127,
+          "used_states": 127
+        },
+        {
+          "name": "NorthEast Chunkloader",
+          "size": [
+            4,
+            8,
+            -5
+          ],
+          "volume": 160,
+          "non_air_blocks": 84,
+          "palette_states": 13,
+          "used_states": 13
+        },
+        {
+          "name": "NorthSouth Accel Duper",
+          "size": [
+            -14,
+            12,
+            47
+          ],
+          "volume": 7896,
+          "non_air_blocks": 1571,
+          "palette_states": 145,
+          "used_states": 145
+        },
+        {
+          "name": "Payload Magazine",
+          "size": [
+            -15,
+            7,
+            -6
+          ],
+          "volume": 630,
+          "non_air_blocks": 286,
+          "palette_states": 51,
+          "used_states": 51
+        },
+        {
+          "name": "Payload Magazine Conveyor",
+          "size": [
+            10,
+            8,
+            -7
+          ],
+          "volume": 560,
+          "non_air_blocks": 197,
+          "palette_states": 32,
+          "used_states": 32
+        },
+        {
+          "name": "Payload Magazine Wireless Reciever",
+          "size": [
+            -11,
+            11,
+            -26
+          ],
+          "volume": 3146,
+          "non_air_blocks": 1142,
+          "palette_states": 52,
+          "used_states": 52
+        },
+        {
+          "name": "Random Wire 1",
+          "size": [
+            1,
+            4,
+            4
+          ],
+          "volume": 16,
+          "non_air_blocks": 7,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "Random Wire 2",
+          "size": [
+            -5,
+            4,
+            -2
+          ],
+          "volume": 40,
+          "non_air_blocks": 12,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "Random Wire 3",
+          "size": [
+            -4,
+            5,
+            1
+          ],
+          "volume": 20,
+          "non_air_blocks": 11,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "SouthWest Chunkloader",
+          "size": [
+            6,
+            -8,
+            4
+          ],
+          "volume": 192,
+          "non_air_blocks": 88,
+          "palette_states": 13,
+          "used_states": 13
+        },
+        {
+          "name": "Trapdoor 1",
+          "size": [
+            -4,
+            -3,
+            3
+          ],
+          "volume": 36,
+          "non_air_blocks": 36,
+          "palette_states": 6,
+          "used_states": 5
+        },
+        {
+          "name": "Trapdoor 10",
+          "size": [
+            1,
+            1,
+            -2
+          ],
+          "volume": 2,
+          "non_air_blocks": 2,
+          "palette_states": 2,
+          "used_states": 1
+        },
+        {
+          "name": "Trapdoor 11",
+          "size": [
+            -8,
+            17,
+            2
+          ],
+          "volume": 272,
+          "non_air_blocks": 0,
+          "palette_states": 1,
+          "used_states": 1
+        },
+        {
+          "name": "Trapdoor 12",
+          "size": [
+            1,
+            48,
+            -2
+          ],
+          "volume": 96,
+          "non_air_blocks": 10,
+          "palette_states": 5,
+          "used_states": 5
+        },
+        {
+          "name": "Trapdoor 3",
+          "size": [
+            1,
+            2,
+            -39
+          ],
+          "volume": 78,
+          "non_air_blocks": 78,
+          "palette_states": 20,
+          "used_states": 19
+        },
+        {
+          "name": "Trapdoor 4",
+          "size": [
+            8,
+            2,
+            1
+          ],
+          "volume": 16,
+          "non_air_blocks": 16,
+          "palette_states": 9,
+          "used_states": 8
+        },
+        {
+          "name": "Trapdoor 5",
+          "size": [
+            -11,
+            -9,
+            8
+          ],
+          "volume": 792,
+          "non_air_blocks": 760,
+          "palette_states": 47,
+          "used_states": 47
+        },
+        {
+          "name": "Trapdoor 6",
+          "size": [
+            -8,
+            -31,
+            2
+          ],
+          "volume": 496,
+          "non_air_blocks": 496,
+          "palette_states": 2,
+          "used_states": 1
+        },
+        {
+          "name": "Trapdoor 7",
+          "size": [
+            5,
+            -6,
+            2
+          ],
+          "volume": 60,
+          "non_air_blocks": 48,
+          "palette_states": 13,
+          "used_states": 13
+        },
+        {
+          "name": "Trapdoor 8",
+          "size": [
+            1,
+            1,
+            4
+          ],
+          "volume": 4,
+          "non_air_blocks": 4,
+          "palette_states": 2,
+          "used_states": 1
+        },
+        {
+          "name": "Trapdoor 9",
+          "size": [
+            1,
+            2,
+            1
+          ],
+          "volume": 2,
+          "non_air_blocks": 2,
+          "palette_states": 3,
+          "used_states": 2
+        }
+      ],
+      "blocks": {
+        "minecraft:activator_rail": 1293,
+        "minecraft:air": 38715,
+        "minecraft:amethyst_cluster": 1,
+        "minecraft:barrel": 22,
+        "minecraft:campfire": 1,
+        "minecraft:chest": 29,
+        "minecraft:cobblestone_slab": 63,
+        "minecraft:cobblestone_stairs": 3,
+        "minecraft:cobblestone_wall": 46,
+        "minecraft:comparator": 292,
+        "minecraft:composter": 50,
+        "minecraft:daylight_detector": 2,
+        "minecraft:dead_tube_coral_wall_fan": 5,
+        "minecraft:detector_rail": 2,
+        "minecraft:dirt_path": 2,
+        "minecraft:dispenser": 3,
+        "minecraft:dropper": 182,
+        "minecraft:glass": 135,
+        "minecraft:honey_block": 16,
+        "minecraft:hopper": 83,
+        "minecraft:iron_bars": 8,
+        "minecraft:iron_door": 16,
+        "minecraft:iron_trapdoor": 120,
+        "minecraft:jukebox": 1,
+        "minecraft:lantern": 46,
+        "minecraft:lava_cauldron": 1,
+        "minecraft:lever": 4,
+        "minecraft:moss_block": 40,
+        "minecraft:nether_portal": 12,
+        "minecraft:note_block": 95,
+        "minecraft:oak_fence_gate": 30,
+        "minecraft:observer": 968,
+        "minecraft:obsidian": 36,
+        "minecraft:piston": 266,
+        "minecraft:piston_head": 72,
+        "minecraft:powder_snow": 49,
+        "minecraft:powered_rail": 32,
+        "minecraft:rail": 3,
+        "minecraft:redstone_block": 37,
+        "minecraft:redstone_torch": 19,
+        "minecraft:redstone_wall_torch": 59,
+        "minecraft:redstone_wire": 850,
+        "minecraft:repeater": 625,
+        "minecraft:scaffolding": 83,
+        "minecraft:slime_block": 71,
+        "minecraft:soul_sand": 5,
+        "minecraft:sticky_piston": 350,
+        "minecraft:stone_button": 13,
+        "minecraft:target": 56,
+        "minecraft:tnt": 56,
+        "minecraft:torch": 31,
+        "minecraft:tripwire": 1,
+        "minecraft:tripwire_hook": 2,
+        "minecraft:water": 807,
+        "minecraft:waxed_copper_bulb": 90,
+        "minecraft:white_concrete": 6317
+      },
+      "block_entities": {
+        "minecraft:barrel": 22,
+        "minecraft:campfire": 1,
+        "minecraft:chest": 29,
+        "minecraft:comparator": 292,
+        "minecraft:daylight_detector": 2,
+        "minecraft:dispenser": 3,
+        "minecraft:dropper": 182,
+        "minecraft:hopper": 83,
+        "minecraft:jukebox": 1
+      },
+      "entities_including_passengers": {
+        "minecraft:chest_minecart": 1,
+        "minecraft:hopper_minecart": 3
+      },
+      "block_entities_with_items": 130,
+      "stored_item_stacks": 1190,
+      "pending_block_ticks": 4,
+      "pending_fluid_ticks": 0
+    }
+  ]
+}

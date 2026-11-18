@@ -27,6 +27,14 @@ public final class BackendSession {
     private FileChannel lockChannel;
     private FileLock lock;
     private CompletableFuture<Integer> ready;
+    private CompletableFuture<Void> stopping;
+    @FunctionalInterface interface ProcessStarter { Process start(ProcessBuilder builder) throws IOException; }
+    private final ProcessStarter processStarter;
+    private final long saveTimeoutMs, terminateTimeoutMs;
+    public BackendSession() { this(ProcessBuilder::start, 8000, 2000); }
+    BackendSession(ProcessStarter processStarter, long saveTimeoutMs, long terminateTimeoutMs) {
+        this.processStarter = processStarter; this.saveTimeoutMs = saveTimeoutMs; this.terminateTimeoutMs = terminateTimeoutMs;
+    }
     private boolean paused;
     private long generation;
     public State state() { return state; }
@@ -37,7 +45,7 @@ public final class BackendSession {
         if (!Files.isRegularFile(executable) || !executable.getFileName().toString().endsWith(".exe"))
             return CompletableFuture.failedFuture(new IOException("Native server not found: " + executable));
         if (!name.matches("[A-Za-z0-9_]{1,16}")) return CompletableFuture.failedFuture(new IOException("Invalid Minecraft profile name"));
-        process = null; releaseLock();
+        process = null; stopping = null; releaseLock();
         if (secret != null) Arrays.fill(secret, (byte)0);
         state = State.STARTING; status = "Starting local server..."; paused = false; port = 0;
         secret = new byte[32]; new SecureRandom().nextBytes(secret); ready = new CompletableFuture<>();
@@ -56,7 +64,7 @@ public final class BackendSession {
                     builder.environment().put("CUDACRAFT_LOCAL_TOKEN", HexFormat.of().formatHex(secret));
                     builder.environment().put("CUDACRAFT_LOCAL_NAME", name);
                     builder.environment().put("CUDACRAFT_LOCAL_UUID", uuid.toString().replace("-", ""));
-                    process = builder.start(); owned = process; input = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
+                    process = processStarter.start(builder); owned = process; input = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
                 }
                 Path log = world.directory().resolve("native-server.log");
                 if (Files.exists(log)) Files.move(log, world.directory().resolve("native-server.previous.log"), StandardCopyOption.REPLACE_EXISTING);
@@ -90,7 +98,12 @@ public final class BackendSession {
                 synchronized (this) { if (generation == run && (process == null || !process.isAlive())) releaseLock(); }
             }
         });
-        result.orTimeout(60, TimeUnit.SECONDS).exceptionally(error -> { synchronized (this) { if (generation == run) stopAsync(); } return null; });
+        result.orTimeout(60, TimeUnit.SECONDS).exceptionally(error -> { synchronized (this) {
+            if (generation == run) {
+                if (state == State.STARTING) { state = State.FAILED; status = "Local server did not become ready. See native-server.log."; }
+                stopAsync();
+            }
+        } return null; });
         return result;
     }
     public synchronized byte[] proof(byte[] nonce, SocketAddress remote) throws GeneralSecurityException {
@@ -105,14 +118,23 @@ public final class BackendSession {
         if (input == null) return;
         try { input.write(text); input.newLine(); input.flush(); } catch (IOException ignored) { /* Exit is handled by the reader. */ }
     }
-    public synchronized CompletableFuture<Void> stopAsync() { final long run = generation; return CompletableFuture.runAsync(() -> stop(run)); }
-    public void stop() {
-        long run; synchronized (this) { run = generation; } stop(run);
+    public synchronized CompletableFuture<Void> stopAsync() {
+        if (stopping != null) return stopping;
+        final long run = generation;
+        // Publish before running: completing a cancelled launch can re-enter stopAsync.
+        stopping = new CompletableFuture<>(); final var result = stopping;
+        CompletableFuture.runAsync(() -> {
+            try { stop(run); result.complete(null); }
+            catch (Exception error) { result.completeExceptionally(error); }
+        });
+        return result;
     }
+    public void stop() { stopAsync().join(); }
     private void stop(long expectedGeneration) {
-        Process child; long run;
+        Process child; long run; String failure;
         synchronized (this) {
             if (generation != expectedGeneration || state == State.STOPPED || state == State.STOPPING) return;
+            failure = state == State.FAILED ? status : null;
             run = generation; state = State.STOPPING; status = "Saving local world..."; child = process;
             if (ready != null && !ready.isDone()) ready.completeExceptionally(new IOException("Launch cancelled"));
             command("stop");
@@ -120,13 +142,28 @@ public final class BackendSession {
             input = null;
         }
         if (child != null) {
-            try { if (!child.waitFor(8, TimeUnit.SECONDS)) { child.destroy(); if (!child.waitFor(2, TimeUnit.SECONDS)) child.destroyForcibly().waitFor(); } }
-            catch (InterruptedException e) { Thread.currentThread().interrupt(); child.destroy(); }
+            try {
+                if (!child.waitFor(saveTimeoutMs, TimeUnit.MILLISECONDS)) {
+                    failure = "Server did not finish saving; it was forcibly stopped. See native-server.log.";
+                    child.destroy();
+                    if (!child.waitFor(terminateTimeoutMs, TimeUnit.MILLISECONDS)) {
+                        child.destroyForcibly(); child.waitFor(terminateTimeoutMs, TimeUnit.MILLISECONDS);
+                    }
+                }
+                if (!child.isAlive() && child.exitValue() != 0 && failure == null)
+                    failure = "Local server exited (" + child.exitValue() + "); saving may have failed. See native-server.log.";
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); child.destroy();
+                failure = "Interrupted while waiting for the server to save. See native-server.log.";
+            }
         }
         synchronized (this) {
             if (run == generation) {
-                if (secret != null) Arrays.fill(secret, (byte)0); secret = null; process = null; port = 0;
-                releaseLock(); state = State.STOPPED; status = "Local world saved";
+                if (secret != null) Arrays.fill(secret, (byte)0); secret = null; port = 0;
+                if (child == null || !child.isAlive()) { process = null; releaseLock(); }
+                else { failure = "Local server is still stopping; this world remains locked. See native-server.log."; stopping = null; }
+                state = failure == null ? State.STOPPED : State.FAILED;
+                status = failure != null ? failure : child == null ? "Launch cancelled" : "Local world saved";
             }
         }
     }

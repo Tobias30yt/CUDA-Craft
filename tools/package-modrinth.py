@@ -42,6 +42,8 @@ def main():
         'cudacraft/docs/PORTALS.md': ROOT/'docs/PORTALS.md',
         'cudacraft/docs/INVENTORY.md': ROOT/'docs/INVENTORY.md',
         'cudacraft/docs/CRAFTING.md': ROOT/'docs/CRAFTING.md',
+        'cudacraft/docs/OSC_VANILLA_TEST.md': ROOT/'docs/OSC_VANILLA_TEST.md',
+        'cudacraft/docs/osc-fixture-audit.json': ROOT/'docs/osc-fixture-audit.json',
     }
     for file in (ROOT/'third_party').rglob('*'):
         if file.is_file() and (file.name.startswith('LICENSE') or file.name.startswith('NOTICE')):

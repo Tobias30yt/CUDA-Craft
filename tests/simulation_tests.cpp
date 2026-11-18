@@ -130,7 +130,7 @@ void persistence_tests() {
         check((w.block({1,64,0})-sd::repeater_first)%2==0,"pending repeater resumes");
     }
     // Only remove the individual test-owned save files in the unique directory.
-    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path);
+    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path/"native-world.lock");std::filesystem::remove(path);
 }
 void needs_and_mob_tests() {
     Session s;PlayerState initial;initial.mode=0;initial.food=10;initial.saturation=0;initial.x=.5;initial.z=.5;initial.inventory[36]={sd::bread_item,2,0};
@@ -269,8 +269,8 @@ void portal_and_dimension_save_tests() {
         check(root.dimension(2).simulation().tick>=root.dimension(2).simulation().mobs.at(last).born,"loading does not rewind dimension clock behind mob birth");
         const auto& player=root.simulation().saved_players.at(std::string(32,'0'));check(player.dimension==2&&player.inventory[36].count==7,"player dimension and inventory persist");
     }
-    for(const auto* name:{"DIM-1","DIM1"}){std::filesystem::remove(path/name/"blocks.json");std::filesystem::remove(path/name);}
-    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path);
+    for(const auto* name:{"DIM-1","DIM1"}){std::filesystem::remove(path/name/"blocks.json");std::filesystem::remove(path/name/"native-world.lock");std::filesystem::remove(path/name);}
+    std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path/"native-world.lock");std::filesystem::remove(path);
 }
 void portal_invalidation_tests() {
     int portal_state=0;for(const auto& b:sd::blocks)if(std::string_view(b.name)=="nether_portal")portal_state=b.state;

@@ -52,6 +52,9 @@ final class CudaWorldScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(font, title, width / 2, 12, 0xffffffff);
         graphics.drawCenteredString(font, "Native backend - experimental gameplay", width / 2, 26, 0xffaaaaaa);
-        if (error != null) graphics.drawCenteredString(font, font.plainSubstrByWidth(error, width - 20), width / 2, height - 47, 0xffff7777);
+        String message = error;
+        if (message == null && CudaCraftClient.BACKEND.state() == BackendSession.State.FAILED) message = CudaCraftClient.BACKEND.status();
+        if (message == null && CudaCraftClient.BACKEND.active()) message = CudaCraftClient.BACKEND.status();
+        if (message != null) graphics.drawCenteredString(font, font.plainSubstrByWidth(message, width - 20), width / 2, height - 47, 0xffff7777);
     }
 }

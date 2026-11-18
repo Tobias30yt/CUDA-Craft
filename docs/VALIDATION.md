@@ -1,6 +1,48 @@
 # Validation record
 
-Date: 2026-11-18. CUDA Craft 0.11.4. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-18. CUDA Craft 0.11.5. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.11.5 additions
+
+- The final statically linked native build passed **20/20 CTest suites in
+  103.79 seconds**, including CUDA diagnostics on the RTX 4060. Earlier runs
+  exposed test-world sharing and cleanup assumptions after introducing world
+  leases; the fixtures now use isolated saves and remove the persistent lock file
+  only after closing their worlds. The knockback test compares consecutive motion
+  snapshots because a pig can wander away from its summon position before an attack.
+- Seven real-process storage cases cover concurrent/path-alias opens, independent
+  worlds, dimension saves, OS lease release after termination, invalid-save
+  preservation, failed-save exit codes, and density world reopen. The last valid
+  save survives an injected temporary-file write failure. This is not a proof of
+  power-loss durability or atomic commits across dimensions.
+- The Fabric build passed **seven JUnit cases**, including real child processes
+  that exit successfully, fail while saving, hang during shutdown or fail startup.
+  Concurrent stop requests share one completion; the synchronous shutdown waits
+  for it. Forced/nonzero exits retain a failure status, visible in the world screen.
+- A real Fabric 1.21.11 client received the native world, exercised chest/furnace
+  menus, drag/collect/offhand and bulk crafting, and shut down cleanly. Saved counts
+  were exactly 17 diamonds, one iron ingot and two chests, without leftover planks
+  or duplicated container contents.
+- The extracted `.mrpack` passed the same seven storage/status cases in a fresh
+  Unicode/spaced directory with PATH restricted to Windows System32. Native and
+  mod versions and package checksums match. PE imports are only `bcrypt.dll`,
+  `kernel32.dll`, `winhttp.dll` and `ws2_32.dll`; VC++ and CUDA runtimes do not need
+  separate runtime DLLs. This host test is not a clean second-PC test or an actual
+  Modrinth application's import-dialog test. Machine-readable evidence is written
+  next to the pack as `.verification.json`.
+- Seven original Cubicmetre schematics were inventoried with hashes and checked
+  against the official 1.21.11 block-state report. Three decoder tests cover signed
+  packed words, cross-word indices, malformed arrays and unknown states. The strict
+  Mk.6.1/OSC-6-panel/Nether compatibility gate passes; the newer MS panel is correctly
+  rejected by its data version despite recognized block states. See
+  [OSC_VANILLA_TEST.md](OSC_VANILLA_TEST.md) and [osc-fixture-audit.json](osc-fixture-audit.json).
+  No complete cannon integration run has passed or been attempted on the native server.
+- The updated workbook contains 59 tasks, 1,166 block rows and 89 mob rows.
+  Summary reconciliation, status-change recalculation, formula-error search and
+  visual checks of all three sheets passed.
+
+The release remains an experimental build. Full Vanilla mechanics, the >90%
+verified-block target and the Orbital Strike Cannon acceptance test remain open.
 
 ## Version 0.11.4 additions
 

@@ -4,6 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
+import java.util.concurrent.TimeUnit;
 import java.security.GeneralSecurityException;
 import java.util.HexFormat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,5 +37,37 @@ class LocalSessionTest {
         var session = new BackendSession(); var world = new WorldCatalog(directory).create("Test",0,"flat",true);
         assertTrue(session.start(directory.resolve("missing.exe"),world,"Tester",java.util.UUID.randomUUID()).isCompletedExceptionally());
         assertFalse(session.active()); session.stop(); assertEquals(BackendSession.State.STOPPED,session.state());
+    }
+    private BackendSession fixture(String mode) throws Exception {
+        String java = Path.of(System.getProperty("java.home"), "bin", "java.exe").toString();
+        String classes = Path.of(BackendTestChild.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        return new BackendSession(builder -> new ProcessBuilder(java, "-cp", classes, BackendTestChild.class.getName(), mode)
+            .redirectErrorStream(true).start(), 500, 1000);
+    }
+    private void shutdownScenario(String mode, BackendSession.State expected, String message) throws Exception {
+        var world = new WorldCatalog(directory).create("Save test", 0, "flat", true);
+        var executable = Files.createFile(directory.resolve("fixture.exe"));
+        var session = fixture(mode);
+        try {
+            session.start(executable, world, "Tester", java.util.UUID.randomUUID()).get(10, TimeUnit.SECONDS);
+            var stop = session.stopAsync(); assertSame(stop, session.stopAsync());
+            session.stop(); // Synchronous application shutdown must also wait for an in-flight stop.
+            assertTrue(stop.isDone()); assertEquals(expected, session.state());
+            assertTrue(session.status().contains(message), session.status());
+            try (var channel = FileChannel.open(world.directory().resolve("frontend.lock"), StandardOpenOption.WRITE);
+                 var lock = channel.tryLock()) { assertNotNull(lock); }
+        } finally { session.stop(); }
+    }
+    @Test void successfulShutdownConfirmsSave() throws Exception { shutdownScenario("normal", BackendSession.State.STOPPED, "saved"); }
+    @Test void failedSaveCannotBeReportedAsSaved() throws Exception { shutdownScenario("save-failure", BackendSession.State.FAILED, "saving may have failed"); }
+    @Test void forcedShutdownCannotBeReportedAsSaved() throws Exception { shutdownScenario("hang", BackendSession.State.FAILED, "forcibly stopped"); }
+    @Test void startupErrorSurvivesCleanup() throws Exception {
+        var world = new WorldCatalog(directory).create("Fail test", 0, "flat", true);
+        var session = fixture("startup-failure");
+        var executable = Files.createFile(directory.resolve("fixture.exe"));
+        assertThrows(java.util.concurrent.ExecutionException.class,
+            () -> session.start(executable, world, "Tester", java.util.UUID.randomUUID()).get(10, TimeUnit.SECONDS));
+        session.stop(); assertEquals(BackendSession.State.FAILED, session.state());
+        assertTrue(session.status().contains("exited (7)"), session.status());
     }
 }

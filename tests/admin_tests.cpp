@@ -54,6 +54,6 @@ int main(){try{
         world.admin().execute("stop",nullptr,[](const std::string&){});check(world.admin().stopping,"console stop request");
     }
     {World world(directory);check(!world.admin().is_operator(identity),"deop persists across restart");}
-    for(const char* file:{"blocks.json","operators.json","performance.json"})std::filesystem::remove(directory/file);std::filesystem::remove(directory);
+    for(const char* file:{"blocks.json","operators.json","performance.json","native-world.lock"})std::filesystem::remove(directory/file);std::filesystem::remove(directory);
     std::cout<<checks<<" admin/performance checks passed\n";return 0;
 }catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

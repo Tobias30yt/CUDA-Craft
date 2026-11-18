@@ -1,16 +1,16 @@
 # CUDA Craft – nächste Implementierungen
 
-Stand: 18.11.2026, Version 0.11.4, Minecraft Java 1.21.11.
+Stand: 18.11.2026, Version 0.11.5, Minecraft Java 1.21.11.
 
-Die [Aufgabenliste](implementation-backlog.json) enthält 55 priorisierte Aufgaben
+Die [Aufgabenliste](implementation-backlog.json) enthält 59 priorisierte Aufgaben
 mit Status, nächstem Schritt, Abnahmekriterium und Abhängigkeiten. Davon sind
-23 offen, 31 teilweise umgesetzt und eine erledigt. Diese Zahlen beschreiben
+26 offen, 32 teilweise umgesetzt und eine erledigt. Diese Zahlen beschreiben
 den ausgewählten Entwicklungsplan, keinen prozentualen Vanilla-Fertigstellungsgrad.
 
 ## Als Nächstes
 
-1. Vanilla-Vergleichsfälle für Interaktionen, Inventare und Blockupdates ausbauen.
-2. Kollisionsformen, schnelle Inventartransaktionen und sichere Speicherung vervollständigen.
+1. [Orbital Strike Cannon Mk.6/MS](OSC_VANILLA_TEST.md): vollständigen Fixture-Import und Vanilla-Referenzlauf für 1.21.11 vorbereiten.
+2. Update-Reihenfolge, Observer/Comparatoren, Kolben und TNT anhand kleiner Referenzschaltungen umsetzen; danach die vollständige Kanone testen.
 3. Die neue Netherportal-Verknüpfung mit Vanilla-Vergleichsfällen absichern und die Platzierungswahl angleichen.
 4. Nether/End-Generierung, Features und automatische Bauwerke vervollständigen.
 5. Workstations, Redstone, Flüssigkeiten, Mob-KI und Survival anhand der Abnahmekriterien erweitern.
@@ -30,6 +30,15 @@ P3 Auslieferung. Die Reihenfolge ist ein Vorschlag, keine Terminprognose.
   Sie liegt lokal unter `outputs/01a1d5db-d59d-75c1-8b99-8bb6f5555ad7/` und wird
   im Chat bereitgestellt. Änderungen in Excel synchronisieren sich nicht automatisch
   mit der Aufgabenliste im Repository.
+
+## Seit 0.11.5
+
+Native Welt-Sperren schützen auch außerhalb des Fabric-Clients gegen paralleles
+Öffnen. Fehlgeschlagene oder erzwungene Server-Abschaltungen werden nicht mehr als
+erfolgreich gespeichert gemeldet. Die portable EXE benötigt keine zusätzlich
+installierte VC++-Laufzeit. Das ist noch keine transaktionale Mehrdimensionsspeicherung.
+Original-Schematics für Cubicmetres Kanone wurden inventarisiert und mit Hashes
+fixiert; B056–B059 beschreiben die verbleibenden Integrationstests und Grundlagen.
 
 ## Seit 0.11.4 teilweise umgesetzt
 

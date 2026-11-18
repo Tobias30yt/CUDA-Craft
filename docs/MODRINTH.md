@@ -4,7 +4,7 @@
 
 1. In der Modrinth App die Funktion zum Erstellen/Importieren einer Instanz
    oeffnen und eine lokale `.mrpack`-Datei auswaehlen.
-2. `dist/CUDA-Craft-0.11.4-windows-x64.mrpack` aus diesem Projekt importieren.
+2. `dist/CUDA-Craft-0.11.5-windows-x64.mrpack` aus diesem Projekt importieren.
 3. Die Installation von Minecraft **1.21.11**, **Fabric Loader 0.20.1** und
    **Fabric API 0.141.6+1.21.11** abschliessen. Java 21 verwenden.
 4. Die Instanz starten und im Minecraft-Titelmenue **CUDA Singleplayer** anklicken.
@@ -28,7 +28,7 @@ in der Modrinth App oeffnen und diese Dateien hineinkopieren:
 
 | Quelldatei im CUDA-Craft-Projekt | Ziel relativ zum Spielordner |
 | --- | --- |
-| `fabric-client/build/libs/cuda-craft-client-0.11.4.jar` | `mods/cuda-craft-client.jar` |
+| `fabric-client/build/libs/cuda-craft-client-0.11.5.jar` | `mods/cuda-craft-client.jar` |
 | `build/cuda/cuda-craft.exe` | `cudacraft/native/cuda-craft.exe` |
 
 Fabric API in der oben genannten Version ueber die App hinzufuegen. Es darf nur
@@ -55,8 +55,22 @@ Nach dem nativen Release-Build und dem Fabric-Build:
 
 ```powershell
 python tools/package-modrinth.py
+python tools/verify-release.py dist/CUDA-Craft-0.11.5-windows-x64.mrpack
 ```
 
 Das Ergebnis und seine SHA-256-Pruefsumme liegen in `dist/`. Die `.mrpack` ist
 fuer lokalen Import gedacht; damit wird kein Projekt auf modrinth.com publiziert.
 Formatreferenz: https://support.modrinth.com/en/articles/8802351-modrinth-modpack-format-mrpack
+
+Der zweite Befehl prüft Prüfsumme, native/Fabric-Version und Windows-DLL-Importe.
+Er entpackt in einen frischen Pfad mit Leerzeichen/Umlauten und testet dort Start,
+Statusabfrage, Speichern, Neustart, Welt-Sperren und Speicherfehler mit reduziertem
+PATH. Das ersetzt keinen vollständigen Importtest im Modrinth-App-Dialog oder
+einen Test auf einem sauberen zweiten PC. Dessen Nachweis bleibt offen.
+
+Seit 0.11.5 enthält die EXE die C++-Laufzeit statisch. `native-world.lock` bleibt
+nach normalem Beenden als leere Datei liegen; entscheidend ist die Betriebssystem-
+Sperre, nicht die Existenz der Datei. Die Datei nicht während einer laufenden
+Welt löschen. Der Client zeigt nach Speicherfehlern/erzwungenem Beenden eine
+Fehlermeldung statt „Local world saved“; Details stehen im Weltordner in
+`native-server.log`.

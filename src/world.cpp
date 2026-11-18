@@ -1,4 +1,5 @@
 #include "cudacraft/world.hpp"
+#include "cudacraft/world_lock.hpp"
 #include "cudacraft/game.hpp"
 #include "cudacraft/gpu.hpp"
 #include "cudacraft/generated_game_data.hpp"
@@ -23,6 +24,7 @@
 
 namespace cudacraft {
 World::World(std::filesystem::path directory,TerrainOptions options,World* parent,int dimension) : parent_(parent),dimension_(dimension),directory_(std::move(directory)), options_(std::move(options)) {
+    if(!directory_.empty()) lock_=std::make_unique<WorldLock>(directory_);
     simulation_=std::make_unique<Simulation>(*this);
     if(!parent_)admin_=std::make_unique<Administration>(*this,directory_);
     if(options_.generator!="flat" && options_.generator!="overworld" && options_.generator!="climate" && options_.generator!="density" && options_.generator!="nether" && options_.generator!="end") throw std::runtime_error("Unknown generator");

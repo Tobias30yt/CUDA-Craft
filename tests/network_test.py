@@ -7,6 +7,7 @@ import struct
 import subprocess
 import sys
 import threading
+import tempfile
 import time
 import unittest
 
@@ -74,8 +75,10 @@ def status_json(payload):
 
 class RunningServer:
     def __init__(self, *args, env=None):
+        self.temporary = None if '--world' in args else tempfile.TemporaryDirectory(prefix='cuda-network-')
+        world_args = [] if self.temporary is None else ['--world', self.temporary.name]
         self.process = subprocess.Popen(
-            [EXE, "--port", "0", "--motd", MOTD, "--run-for-ms", "30000", *args],
+            [EXE, "--port", "0", "--motd", MOTD, "--run-for-ms", "30000", *world_args, *args],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
             encoding="utf-8", errors="replace", env=env)
         self.lines = queue.Queue()
@@ -115,6 +118,7 @@ class RunningServer:
         self.reader.join(timeout=1)
         self.process.stdin.close()
         self.process.stdout.close()
+        if self.temporary is not None: self.temporary.cleanup()
 
 
 class NetworkTests(unittest.TestCase):
@@ -241,7 +245,8 @@ class NetworkTests(unittest.TestCase):
                      ["--motd", "x" * 2049], ["--max-connections", "33"]):
             result = subprocess.run([EXE, *args], capture_output=True, timeout=3)
             self.assertNotEqual(result.returncode, 0, args)
-        result = subprocess.run([EXE, "--port", "0", "--run-for-ms", "100"], capture_output=True, timeout=3)
+        with tempfile.TemporaryDirectory(prefix='cuda-timed-') as world:
+            result = subprocess.run([EXE, "--port", "0", "--world", world, "--run-for-ms", "100"], capture_output=True, timeout=3)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(b"CUDA Craft stopped.", result.stdout)
 

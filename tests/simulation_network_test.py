@@ -111,8 +111,11 @@ class SimulationNetworkTests(unittest.TestCase):
             p.send(b'\x19'+vi(pig)+vi(1)+b'\0')
             p.until(lambda:pig in p.motion and p.motion[pig][1][0]>.2 and p.motion[pig][1][1]>0)
             position,velocity=p.motion[pig]
-            self.assertGreater(position[0],1.5);self.assertGreater(position[1],64)
+            self.assertGreater(position[1],64)
             self.assertGreater(velocity[0],0)
+            # The pig may walk before the attack arrives. Compare successive
+            # knockback snapshots, not its original summon coordinate.
+            p.until(lambda:p.motion[pig][0][0]>position[0] and p.motion[pig][0][1]>position[1])
         finally:p.close()
     def test_dimensions_inventory_and_chunk_layout(self):
         p=Player(self.server)

@@ -13,6 +13,7 @@ class GameSession;
 class NoiseTerrain;
 class Simulation;
 class Administration;
+class WorldLock;
 struct PortalFrame { BlockPos origin; int width,height; bool along_x; };
 class World {
 public:
@@ -57,6 +58,8 @@ public:
     int biome(int x, int y, int z) const;
     std::uint64_t seed_hash() const;
 private:
+    // Destroy last, after dimension saves and all other world-owned state.
+    std::unique_ptr<WorldLock> lock_;
     World* parent_=nullptr;
     int dimension_=0;
     std::map<int,std::unique_ptr<World>> dimensions_;

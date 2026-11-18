@@ -5,7 +5,15 @@ Zielversion: **Minecraft Java 1.21.11, Protokoll 774**.
 
 Modrinth App: [Paket importieren oder manuell installieren](docs/MODRINTH.md).
 
-**Stand 0.11.4: 1.010 Crafting-Rezepte und Shift-Crafting.**
+**Stand 0.11.5: Welt-Sperren, verlässliche Shutdown-Meldungen und portable Builds.**
+Gleichzeitiges Öffnen derselben Welt wird vom nativen Backend verhindert.
+Der Fabric-Client meldet Speicherfehler und erzwungene Abbrüche. Die Windows-EXE
+bindet die C++-Laufzeit statisch ein; ein Pakettest prüft den entpackten Server.
+Das bleibt ein experimenteller Release, keine vollständige Vanilla-Implementierung.
+[Cubicmetres Orbital Strike Cannon Mk.6/MS](docs/OSC_VANILLA_TEST.md) ist jetzt
+ein konkretes Entwicklungs- und Abnahmeziel für Redstone; sie läuft hier noch nicht.
+
+**1.010 Crafting-Rezepte und Shift-Crafting sind vorhanden.**
 Die normalen geformten/ungeformten Rezepte stammen jetzt aus den originalen
 1.21.11-Daten. Shift-Klick verarbeitet mehrere Durchlaeufe; Eimer und Flaschen
 bleiben als Rueckgabe-Items erhalten. [Crafting und Grenzen](docs/CRAFTING.md).
