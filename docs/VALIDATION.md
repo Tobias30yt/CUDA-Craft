@@ -1,6 +1,29 @@
 # Validation record
 
-Date: 2026-11-18. CUDA Craft 0.11.2. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-18. CUDA Craft 0.11.3. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.11.3 additions
+
+- Full native release gate: **17/17 CTest suites passed in 100.15 seconds**.
+  The 811 simulation checks and 704 container lifecycle checks remain passing.
+- Five additional encrypted-client inventory scenarios cover left/right dragging,
+  remainders, capacity limits, duplicate selections, double-click collection order,
+  two-viewer invalidation, stale messages, armor/furnace restrictions, offhand swaps
+  inside menus and via the normal F-key packet, incomplete-drag cancellation and
+  creative fill authorization. All ten container-network scenarios passed.
+- Fabric build and all three JUnit tests passed. The real Fabric container scenario
+  split 17 diamonds across three chest slots, collected them again and swapped them
+  through the offhand. It then crafted a chest using right-drag ingredient placement.
+  The save retained exactly 17 diamonds, one smelted iron ingot and one crafted chest;
+  the client and isolated backend shut down cleanly.
+- Offhand synchronization uses the version-pinned player-inventory packet, verified
+  from the installed 1.21.11 mapped classes and the generated protocol report.
+- The local client and Modrinth package are updated to 0.11.3. Installed native files
+  are compared to the tested build by SHA-256; all pack members are checked against
+  their source files. The updated workbook passed formula, input-change and visual checks.
+
+Inventory parity is still partial: shift-crafting, full components, recipes and
+specialized menus remain open. See [INVENTORY.md](INVENTORY.md).
 
 ## Version 0.11.2 additions
 

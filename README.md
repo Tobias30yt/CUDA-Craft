@@ -5,7 +5,10 @@ Zielversion: **Minecraft Java 1.21.11, Protokoll 774**.
 
 Modrinth App: [Paket importieren oder manuell installieren](docs/MODRINTH.md).
 
-**Stand 0.11.2: Verknuepfte Netherportale mit 8:1-Koordinaten.**
+**Stand 0.11.3: Inventar-Drag, Doppelklick und Offhand-Tausch.**
+Stacks lassen sich mit linker/rechter Maustaste verteilen und per Doppelklick
+einsammeln. Offhand-Tausch funktioniert in Menues und mit F im Spiel.
+[Inventarverhalten und Grenzen](docs/INVENTORY.md).
 Netherreisen suchen jetzt intakte Zielportale und erzeugen bei Bedarf einen
 neuen Rahmen mit freiem Ankunftsbereich. [Details und Grenzen](docs/PORTALS.md).
 Beschaedigte Netherportale werden jetzt deaktiviert; optionale Rahmenecken

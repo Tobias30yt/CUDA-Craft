@@ -46,6 +46,8 @@ private:
     Send send_;
     std::array<ItemStack,46> inventory_{};
     ItemStack cursor_{};
+    int drag_type_=-1;
+    std::set<int> drag_slots_;
     std::array<ItemStack,9> crafting_{};
     bool crafting_open_=false;
     std::vector<BlockPos> container_positions_;
@@ -93,6 +95,12 @@ private:
     void respawn();
     void sync_mobs();
     void inventory_click(protocol::Reader& reader);
+    ItemStack* menu_stack(int index);
+    int menu_size() const;
+    int menu_limit(int index,ItemStack item) const;
+    bool advanced_inventory_click(int index,int button,int mode);
+    void finish_inventory_action();
+    void reset_drag(){drag_type_=-1;drag_slots_.clear();}
     void update_recipe();
     void close_crafting();
     void use_item(int hand);

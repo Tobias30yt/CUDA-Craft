@@ -1,5 +1,5 @@
 {
-  "version": "0.11.2",
+  "version": "0.11.3",
   "date": "2026-11-18",
   "columns": ["ID", "Priorität", "Bereich", "Aufgabe", "Status", "Nächster Schritt", "Abnahmekriterium", "Abhängigkeit"],
   "tasks": [
@@ -7,7 +7,7 @@
     ["B002","P0","Nachweise","Vanilla-Testwelten und Vergleichsläufe","Teilweise","Referenzfälle für Interaktion, Blockupdates und Inventare ergänzen","Reproduzierbare Eingaben erzeugen gleiche Zustände und Ereignisreihenfolge wie 1.21.11.",""],
     ["B003","P0","Blöcke","Vollprüfung von mindestens 1.050 Blocktypen","Offen","Für jeden Typ Verhalten und Tests erfassen","Mehr als 90 % von 1.166 Typen mit vollständiger Checkliste und belegtem Vanilla-Vergleich.","B002"],
     ["B004","P0","Speichern","Crash- und Mehrdimensionskonsistenz","Teilweise","Abbruchfälle während Speichern und Dimensionswechsel testen","Keine verlorenen oder duplizierten Items nach Prozessabbruch, Neustart oder Reise.",""],
-    ["B005","P0","Inventare","Alle Klickarten und schnelle Transaktionen","Teilweise","Ziehen, Doppelklick, Offhand und veraltete Fenster testen","Client und Server bleiben bei zwei Nutzern und Paketwiederholungen konsistent.","B002"],
+    ["B005","P0","Inventare","Alle Klickarten und schnelle Transaktionen","Teilweise","Drag, Doppelklick und Offhand vorhanden; Shift-Crafting, Komponenten und weitere Transaktionsfolgen ergänzen","Client und Server bleiben bei zwei Nutzern und Paketwiederholungen konsistent.","B002"],
     ["B006","P0","Physik","Blockformen und serverseitige Kollision","Teilweise","Kollisionsformen je Zustand statt Vollwürfel verwenden","Treppen, Zäune, Slabs und Türen kollidieren wie Vanilla; kein Durchlaufen.","B002"],
     ["B007","P1","Portale","8:1-Koordinaten und Portalsuche","Teilweise","Skalierung und Zielsuche vorhanden; exakte Tie-Breaks, Kollisionskorrektur und Vanilla-Vergleiche ergänzen","Hin- und Rückreise folgt Vanilla-Zielauswahl, inklusive negativem X/Z und Weltgrenze.","B001,B006"],
     ["B008","P1","Portale","Sichere Zielportal-Erzeugung","Teilweise","Rahmen und trockene Plattform vorhanden; Vanilla-Platzierungswahl und Gelände-Sonderfälle vergleichen","Keine Reise in Lava, feste Blöcke oder außerhalb des Baubereichs.","B007"],

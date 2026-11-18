@@ -1,6 +1,6 @@
 # CUDA Craft – nächste Implementierungen
 
-Stand: 18.11.2026, Version 0.11.2, Minecraft Java 1.21.11.
+Stand: 18.11.2026, Version 0.11.3, Minecraft Java 1.21.11.
 
 Die [Aufgabenliste](implementation-backlog.json) enthält 55 priorisierte Aufgaben
 mit Status, nächstem Schritt, Abnahmekriterium und Abhängigkeiten. Davon sind
@@ -30,6 +30,13 @@ P3 Auslieferung. Die Reihenfolge ist ein Vorschlag, keine Terminprognose.
   Sie liegt lokal unter `outputs/01a1d5db-d59d-75c1-8b99-8bb6f5555ad7/` und wird
   im Chat bereitgestellt. Änderungen in Excel synchronisieren sich nicht automatisch
   mit der Aufgabenliste im Repository.
+
+## Seit 0.11.3 teilweise umgesetzt
+
+Linker/rechter Inventar-Drag, Doppelklick-Sammeln und Offhand-Tausch sind eingebaut.
+Veraltete Transaktionen und Änderungen durch andere Container-Nutzer brechen einen
+laufenden Drag ab. Shift-Crafting, vollständige Komponenten und Spezialmenüs bleiben
+offen. Details: [Inventare](INVENTORY.md).
 
 ## Seit 0.11.2 teilweise umgesetzt
 

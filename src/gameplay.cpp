@@ -21,6 +21,10 @@ void GameSession::save_player() {
 }
 void GameSession::health_sync(){send(Packet(0x66).f32(health_).var(food_).f32(saturation_));}
 void GameSession::inventory_sync() {
+    reset_drag();
+    // Offhand is outside chest/workbench menus. Use the 1.21.11 player inventory
+    // packet (raw inventory slot 40), so corrections reach it in every window.
+    Packet offhand(0x6a);offhand.var(40);item_packet(offhand,inventory_[45]);send(offhand);
     if(!container_positions_.empty()) {
         if(!container_valid()){close_crafting();inventory_sync();return;}
         const int count=Simulation::container_slots(container_type_);
@@ -254,6 +258,7 @@ void GameSession::update_recipe() {
     if(!result.empty())craft_result_={simdata::item_id(result),count,0};
 }
 void GameSession::close_crafting() {
+    reset_drag();
     const int window=current_window();crafting_open_=false;container_positions_.clear();container_type_=0;
     for(auto& s:crafting_)if(s.item) {auto temp=s;s={};int left=add_item(temp);if(left&&!world_->simulation().spawn(71,x,y+.5,z,{temp.item,left,temp.damage}))s={temp.item,left,temp.damage};}
     if(cursor_.item) {auto temp=cursor_;cursor_={};int left=add_item(temp);if(left&&!world_->simulation().spawn(71,x,y+.5,z,{temp.item,left,temp.damage}))cursor_={temp.item,left,temp.damage};}
@@ -270,6 +275,7 @@ void GameSession::inventory_click(protocol::Reader& r) {
     int changed=r.varint();if(changed<0||changed>128)throw protocol::Error("Invalid changed slots");
     for(int i=0;i<changed;++i){(void)r.u16();skip_hash();}skip_hash();r.require_end();
     if(!alive()||window!=current_window()||revision!=inventory_revision_) {inventory_sync();return;}
+    if(advanced_inventory_click(index,button,mode))return;
     if(index==-999&&mode==0) {
         if(cursor_.item) {int count=button==1?1:cursor_.count;if(world_->simulation().spawn(71,x,y+1,z,{cursor_.item,count,cursor_.damage})) {cursor_.count-=count;if(!cursor_.count)cursor_={};}}
         inventory_sync();return;
@@ -291,10 +297,13 @@ void GameSession::inventory_click(protocol::Reader& r) {
     if(mode==0&&button<=1) {
         if(!cursor_.item) {int count=button==1?(dst.count+1)/2:dst.count;cursor_={dst.item,count,dst.damage};dst.count-=count;if(!dst.count)dst={};}
         else if(!dst.item||same_item(dst,cursor_)) {
-            const int capacity=simdata::item(cursor_.item)->stack-dst.count;int moved=std::min(capacity,button==1?1:cursor_.count);
+            const int capacity=menu_limit(index,cursor_)-dst.count;int moved=std::min(capacity,button==1?1:cursor_.count);
             if(moved>0) {dst={cursor_.item,dst.count+moved,cursor_.damage};cursor_.count-=moved;if(!cursor_.count)cursor_={};}
-        } else std::swap(dst,cursor_);
-    } else if(mode==2&&button<9&&inv!=36+button)std::swap(dst,inventory_[36+button]);
+        } else if(cursor_.count<=menu_limit(index,cursor_))std::swap(dst,cursor_);
+    } else if(mode==2&&(button<9||button==40)) {
+        const int other=button==40?45:36+button;auto& stack=inventory_[other];
+        if(inv!=other&&(!stack.item||stack.count<=menu_limit(index,stack)))std::swap(dst,stack);
+    }
     else if(mode==1&&inv>=9&&inv<=44&&dst.item) {
         const int from=inv>=36?9:36,to=inv>=36?36:45;
         for(int pass=0;pass<2;++pass)for(int i=from;i<to&&dst.item;++i) {

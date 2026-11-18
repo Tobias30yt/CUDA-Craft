@@ -236,6 +236,10 @@ void GameSession::handle(std::span<const std::uint8_t> payload) {
             if(held.item&&world_->simulation().spawn(71,x,y+1,z,{held.item,count,held.damage}))set_slot(36+selected_,held.item,held.count-count,held.damage);
         }
         if(action==5){eat_at_=0;eating_slot_=-1;send(Packet(0x61).var(entity_id).u8(8).var(0).u8(0).u8(255));}
+        if(action==6&&alive()) {
+            std::swap(inventory_[36+selected_],inventory_[45]);
+            eat_at_=0;eating_slot_=-1;mining_active_=false;inventory_sync();
+        }
         block_changed(p,world_->block(p)); send(Packet(0x04).var(sequence));
     } else if(id==0x3f) {
         const int hand=r.varint(); const auto clicked=unpack_position(read_u64(r)); const int face=r.varint();

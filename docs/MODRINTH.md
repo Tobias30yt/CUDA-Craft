@@ -4,7 +4,7 @@
 
 1. In der Modrinth App die Funktion zum Erstellen/Importieren einer Instanz
    oeffnen und eine lokale `.mrpack`-Datei auswaehlen.
-2. `dist/CUDA-Craft-0.11.2-windows-x64.mrpack` aus diesem Projekt importieren.
+2. `dist/CUDA-Craft-0.11.3-windows-x64.mrpack` aus diesem Projekt importieren.
 3. Die Installation von Minecraft **1.21.11**, **Fabric Loader 0.20.1** und
    **Fabric API 0.141.6+1.21.11** abschliessen. Java 21 verwenden.
 4. Die Instanz starten und im Minecraft-Titelmenue **CUDA Singleplayer** anklicken.
@@ -28,7 +28,7 @@ in der Modrinth App oeffnen und diese Dateien hineinkopieren:
 
 | Quelldatei im CUDA-Craft-Projekt | Ziel relativ zum Spielordner |
 | --- | --- |
-| `fabric-client/build/libs/cuda-craft-client-0.11.2.jar` | `mods/cuda-craft-client.jar` |
+| `fabric-client/build/libs/cuda-craft-client-0.11.3.jar` | `mods/cuda-craft-client.jar` |
 | `build/cuda/cuda-craft.exe` | `cudacraft/native/cuda-craft.exe` |
 
 Fabric API in der oben genannten Version ueber die App hinzufuegen. Es darf nur

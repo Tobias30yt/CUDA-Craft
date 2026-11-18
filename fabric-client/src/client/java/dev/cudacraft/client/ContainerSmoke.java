@@ -17,7 +17,6 @@ import net.minecraft.world.phys.Vec3;
 final class ContainerSmoke {
     private int stage;
     private long next;
-    private int ingredient;
     private static final int[] CHEST_GRID = {1,2,3,4,6,7,8,9};
     void tick(Minecraft client) {
         if (!Boolean.getBoolean("cudacraft.smokeContainers") || client.player == null || client.level == null || client.gameMode == null) return;
@@ -26,6 +25,25 @@ final class ContainerSmoke {
         if (stage == 0 && client.level.getBlockState(new BlockPos(2,64,2)).is(Blocks.CHEST)) {
             use(client, new BlockPos(2,64,2)); stage=1;
         } else if (stage == 1 && menu instanceof ChestMenu chest && chest.getRowCount() == 3 && menu.getSlot(0).getItem().is(Items.DIAMOND) && menu.getSlot(0).getItem().getCount() == 17) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.PICKUP,client.player);stage=21;
+        } else if (stage == 21 && menu instanceof ChestMenu && menu.getCarried().getCount() == 17) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,0,ClickType.QUICK_CRAFT,client.player);
+            for (int slot : new int[]{0,2,3}) client.gameMode.handleInventoryMouseClick(menu.containerId,slot,1,ClickType.QUICK_CRAFT,client.player);
+            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,2,ClickType.QUICK_CRAFT,client.player);stage=22;
+        } else if (stage == 22 && menu.getSlot(0).getItem().getCount()==5 && menu.getSlot(2).getItem().getCount()==5 && menu.getSlot(3).getItem().getCount()==5 && menu.getCarried().getCount()==2) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,4,0,ClickType.PICKUP,client.player);stage=23;
+        } else if (stage == 23 && menu.getCarried().isEmpty() && menu.getSlot(4).getItem().getCount()==2) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,4,0,ClickType.PICKUP,client.player);stage=24;
+        } else if (stage == 24 && menu.getCarried().getCount()==2 && menu.getSlot(4).getItem().isEmpty()) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,4,0,ClickType.PICKUP_ALL,client.player);stage=25;
+        } else if (stage == 25 && menu.getCarried().getCount()==17 && menu.getSlot(0).getItem().isEmpty()) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.PICKUP,client.player);stage=26;
+        } else if (stage == 26 && menu.getCarried().isEmpty() && menu.getSlot(0).getItem().getCount()==17) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,0,40,ClickType.SWAP,client.player);stage=27;
+        } else if (stage == 27 && client.player.getOffhandItem().is(Items.DIAMOND) && client.player.getOffhandItem().getCount()==17 && menu.getSlot(0).getItem().isEmpty()) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,0,40,ClickType.SWAP,client.player);stage=28;
+        } else if (stage == 28 && client.player.getOffhandItem().isEmpty() && menu.getSlot(0).getItem().getCount()==17) {
+            org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: drag collect and offhand verified");
             client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.QUICK_MOVE,client.player);stage=2;
         } else if (stage == 2 && client.player.getInventory().countItem(Items.DIAMOND) == 17) {
             client.gameMode.handleInventoryMouseClick(menu.containerId,1,0,ClickType.QUICK_MOVE,client.player);stage=20;
@@ -47,8 +65,9 @@ final class ContainerSmoke {
                 }
             }
         } else if (stage == 8 && menu instanceof CraftingMenu && menu.getCarried().is(Items.OAK_PLANKS)) {
-            client.gameMode.handleInventoryMouseClick(menu.containerId,CHEST_GRID[ingredient++],1,ClickType.PICKUP,client.player);
-            if (ingredient == CHEST_GRID.length) stage=9;
+            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,4,ClickType.QUICK_CRAFT,client.player);
+            for (int slot : CHEST_GRID) client.gameMode.handleInventoryMouseClick(menu.containerId,slot,5,ClickType.QUICK_CRAFT,client.player);
+            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,6,ClickType.QUICK_CRAFT,client.player);stage=9;
         } else if (stage == 9 && menu instanceof CraftingMenu && menu.getSlot(0).getItem().is(Items.CHEST) && menu.getCarried().isEmpty()) {
             client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.PICKUP,client.player);stage=10;
         } else if (stage == 10 && menu instanceof CraftingMenu && menu.getCarried().is(Items.CHEST)) {

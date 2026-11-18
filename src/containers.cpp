@@ -98,8 +98,8 @@ void GameSession::container_click(int index,int button,int mode) {
             if(!dst.item||same(dst,cursor_)) {const int moved=std::min(capacity(index,cursor_)-dst.count,button?1:cursor_.count);if(moved>0){dst={cursor_.item,dst.count+moved,cursor_.damage};cursor_.count-=moved;if(!cursor_.count)cursor_={};}}
             else if(cursor_.count<=capacity(index,cursor_))std::swap(dst,cursor_);
         }
-    } else if(mode==2&&button<9&&!(index>=slots&&9+index-slots==36+button)) {
-        auto& hotbar=inventory_[36+button];
+    } else if(mode==2&&(button<9||button==40)&&!(index>=slots&&9+index-slots==(button==40?45:36+button))) {
+        auto& hotbar=inventory_[button==40?45:36+button];
         if(kind&&index==2){if(dst.item&&(!hotbar.item||same(dst,hotbar))){int count=std::min(dst.count,simdata::item(dst.item)->stack-hotbar.count);hotbar={dst.item,hotbar.count+count,dst.damage};dst.count-=count;if(!dst.count)dst={};}}
         else if(accepts(index,hotbar)&&(!hotbar.item||hotbar.count<=capacity(index,hotbar)))std::swap(dst,hotbar);
     }
