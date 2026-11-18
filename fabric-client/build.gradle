@@ -2,7 +2,7 @@ plugins {
     id 'fabric-loom' version '1.14.10'
 }
 
-version = '0.11.3'
+version = '0.11.4'
 group = 'dev.cudacraft'
 base { archivesName = 'cuda-craft-client' }
 

@@ -40,7 +40,7 @@ void GameSession::inventory_sync() {
     } else for(int i=0;i<46;++i)item_packet(p,i==0?craft_result_:i>=1&&i<=4?crafting_[i-1]:inventory_[i]);
     item_packet(p,cursor_);send(p);save_player();
 }
-int GameSession::add_item(ItemStack s) {
+int GameSession::add_item(ItemStack s,bool synchronize) {
     const auto* def=simdata::item(s.item);if(!def||s.count<1)return s.count;
     const int original=s.count;
     for(int pass=0;pass<2;++pass)for(int j=0;j<36&&s.count;++j) {
@@ -50,7 +50,7 @@ int GameSession::add_item(ItemStack s) {
             dst={s.item,dst.count+move,s.damage};s.count-=move;
         }
     }
-    if(s.count!=original)inventory_sync();return s.count;
+    if(s.count!=original&&synchronize)inventory_sync();return s.count;
 }
 void GameSession::set_mode(int mode) {
     mode_=mode;mining_active_=false;eat_at_=0;falling_=false;fall_start_=y;
@@ -212,56 +212,11 @@ void GameSession::sync_mobs() {
 void GameSession::mob_hurt(int id){if(seen_mobs_.contains(id))send(Packet(0x29).var(id).f32(0));}
 void GameSession::collect(int mob,int player,int count){if(seen_mobs_.contains(mob))send(Packet(0x7a).var(mob).var(player).var(count));}
 
-void GameSession::update_recipe() {
-    craft_result_={};craft_slots_.clear();const int width=crafting_open_?3:2;
-    int minx=width,miny=width,maxx=-1,maxy=-1,occupied=0;
-    for(int i=0;i<width*width;++i)if(crafting_[i].item){minx=std::min(minx,i%width);maxx=std::max(maxx,i%width);miny=std::min(miny,i/width);maxy=std::max(maxy,i/width);++occupied;craft_slots_.push_back(i);}
-    if(!occupied)return;
-    if(occupied==1) {
-        const auto* item=simdata::item(crafting_[craft_slots_[0]].item);std::string name=item?item->name:"";
-        if(name.ends_with("_log"))craft_result_={simdata::item_id(name.substr(0,name.size()-4)+"_planks"),4,0};
-        return;
-    }
-    std::string pattern;
-    for(int row=miny;row<=maxy;++row) {
-        if(row!=miny)pattern+='/';
-        for(int col=minx;col<=maxx;++col) {
-            const int item=crafting_[row*width+col].item;
-            const auto* i=simdata::item(item);std::string_view n=item&&i?i->name:"";
-            pattern+=n.empty()?'.':n.ends_with("_planks")?'P':n=="stick"?'S':n=="cobblestone"||n=="cobbled_deepslate"?'C':n=="iron_ingot"?'I':n=="diamond"?'D':n=="coal"||n=="charcoal"?'O':n=="furnace"?'F':n=="smooth_stone"?'Q':n.ends_with("_log")||n.ends_with("_wood")||n.ends_with("_stem")||n.ends_with("_hyphae")?'L':n.ends_with("_slab")&&simdata::block(World::item_state(i->id)).tool==2?'A':'?';
-        }
-    }
-    std::string result;int count=1;
-    if(pattern=="P/P"){result="stick";count=4;}
-    else if(pattern=="PP/PP")result="crafting_table";
-    else if(pattern=="PPP/P.P/PPP")result="chest";
-    else if(pattern=="CCC/C.C/CCC")result="furnace";
-    else if(pattern=="PAP/P.P/PAP")result="barrel";
-    else if(pattern=="III/IFI/QQQ")result="blast_furnace";
-    else if(pattern==".L./LFL/.L.")result="smoker";
-    else if(pattern=="PPP") {
-        const int first=crafting_[craft_slots_[0]].item;
-        if(std::all_of(craft_slots_.begin(),craft_slots_.end(),[&](int i){return crafting_[i].item==first;})) {
-            std::string name=simdata::item(first)->name;result=name.substr(0,name.size()-7)+"_slab";count=6;
-        }
-    }
-    else if(pattern=="O/S"){result="torch";count=4;}
-    else for(const auto& [material,prefix]:{std::pair('P',"wooden_"),std::pair('C',"stone_"),std::pair('I',"iron_"),std::pair('D',"diamond_")}) {
-        std::string normalized=pattern;std::replace(normalized.begin(),normalized.end(),material,'M');
-        if(normalized=="MMM/.S./.S.")result=std::string(prefix)+"pickaxe";
-        else if(normalized=="MM/MS/.S"||normalized=="MM/SM/S.")result=std::string(prefix)+"axe";
-        else if(normalized=="M/S/S")result=std::string(prefix)+"shovel";
-        else if(normalized=="M/M/S")result=std::string(prefix)+"sword";
-        else if(normalized=="MM/.S/.S"||normalized=="MM/S./S.")result=std::string(prefix)+"hoe";
-        if(!result.empty())break;
-    }
-    if(!result.empty())craft_result_={simdata::item_id(result),count,0};
-}
 void GameSession::close_crafting() {
     reset_drag();
     const int window=current_window();crafting_open_=false;container_positions_.clear();container_type_=0;
-    for(auto& s:crafting_)if(s.item) {auto temp=s;s={};int left=add_item(temp);if(left&&!world_->simulation().spawn(71,x,y+.5,z,{temp.item,left,temp.damage}))s={temp.item,left,temp.damage};}
-    if(cursor_.item) {auto temp=cursor_;cursor_={};int left=add_item(temp);if(left&&!world_->simulation().spawn(71,x,y+.5,z,{temp.item,left,temp.damage}))cursor_={temp.item,left,temp.damage};}
+    for(auto& s:crafting_)if(s.item) {auto temp=s;s={};int left=add_item(temp,false);if(left&&!world_->simulation().spawn(71,x,y+.5,z,{temp.item,left,temp.damage}))s={temp.item,left,temp.damage};}
+    if(cursor_.item) {auto temp=cursor_;cursor_={};int left=add_item(temp,false);if(left&&!world_->simulation().spawn(71,x,y+.5,z,{temp.item,left,temp.damage}))cursor_={temp.item,left,temp.damage};}
     if(window)send(Packet(0x11).var(window));
     save_player();
 }
@@ -284,9 +239,13 @@ void GameSession::inventory_click(protocol::Reader& r) {
     if(index<0||index>=46){inventory_sync();return;}
     update_recipe();
     if(index==0) {
-        if(mode==0&&button<=1&&craft_result_.item&&(!cursor_.item||same_item(cursor_,craft_result_))&&cursor_.count+craft_result_.count<=simdata::item(craft_result_.item)->stack) {
-            cursor_={craft_result_.item,cursor_.count+craft_result_.count,0};
-            for(int i:craft_slots_)if(--crafting_[i].count==0)crafting_[i]={};
+        if(mode==0&&button<=1)craft_output(false);
+        else if(mode==1&&button<=1) {
+            const int output=craft_result_.item;
+            for(int crafts=0;crafts<64&&output&&craft_result_.item==output;++crafts) {
+                if(!craft_output(true))break;
+                update_recipe();
+            }
         }
         inventory_sync();return;
     }

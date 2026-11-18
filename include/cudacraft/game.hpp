@@ -27,7 +27,7 @@ public:
     bool sees(int cx,int cz) const { return loaded_.contains({cx,cz}); }
     void simulation_tick();
     void damage(float amount,std::string_view cause,bool force=false);
-    int add_item(ItemStack stack);
+    int add_item(ItemStack stack,bool synchronize=true);
     float attack_damage();
     void mob_hurt(int id);
     void collect(int mob,int player,int count);
@@ -102,6 +102,7 @@ private:
     void finish_inventory_action();
     void reset_drag(){drag_type_=-1;drag_slots_.clear();}
     void update_recipe();
+    bool craft_output(bool quick);
     void close_crafting();
     void use_item(int hand);
     bool use_bucket(BlockPos clicked,int face,int slot);

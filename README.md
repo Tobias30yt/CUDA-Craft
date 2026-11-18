@@ -5,7 +5,10 @@ Zielversion: **Minecraft Java 1.21.11, Protokoll 774**.
 
 Modrinth App: [Paket importieren oder manuell installieren](docs/MODRINTH.md).
 
-**Stand 0.11.3: Inventar-Drag, Doppelklick und Offhand-Tausch.**
+**Stand 0.11.4: 1.010 Crafting-Rezepte und Shift-Crafting.**
+Die normalen geformten/ungeformten Rezepte stammen jetzt aus den originalen
+1.21.11-Daten. Shift-Klick verarbeitet mehrere Durchlaeufe; Eimer und Flaschen
+bleiben als Rueckgabe-Items erhalten. [Crafting und Grenzen](docs/CRAFTING.md).
 Stacks lassen sich mit linker/rechter Maustaste verteilen und per Doppelklick
 einsammeln. Offhand-Tausch funktioniert in Menues und mit F im Spiel.
 [Inventarverhalten und Grenzen](docs/INVENTORY.md).

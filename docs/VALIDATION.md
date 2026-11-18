@@ -1,6 +1,35 @@
 # Validation record
 
-Date: 2026-11-18. CUDA Craft 0.11.3. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-18. CUDA Craft 0.11.4. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.11.4 additions
+
+- All **18 CTest suites have passing results** for the release: the full run passed
+  17 suites; its new restart case incorrectly force-terminated the fixture before
+  saving. After correcting that test to send `stop` and await exit, the complete
+  container-network suite (13 scenarios) passed again in 16.26 seconds. No native
+  code changed after the full run.
+- **2,030 crafting checks** cover both normal and mirrored/permuted matching for
+  all 1,010 imported recipes, plus tag alternatives, shifted shapes, invalid extra
+  ingredients, excluded component recipes and crafting remainders.
+- **818 simulation checks** include atomic refusal when the item-entity capacity
+  cannot hold a crafting remainder or partial output. Removing the capacity limit
+  allows the same action without duplicating or losing ingredients/results.
+- Independent encrypted clients verify 20 logs yielding 80 planks, stale output
+  clicks, full inventories, partial-output drops, cake returning three buckets,
+  honey returning eight bottles and exact counts after a saved server restart.
+  Ping barriers distinguish transaction replies from already queued peer updates.
+- Fabric build and all three JUnit tests passed. The real Fabric client drag-filled
+  a workbench with 16 planks, shift-crafted two chests and shut down cleanly. The
+  server save contained exactly two chests, 17 transferred diamonds and one iron
+  ingot, with no leftover planks or duplicate container contents.
+- Client 0.11.4 is installed; its native EXE is compared by SHA-256 with the tested
+  build. The updated Modrinth package checks every payload against its release file.
+  The workbook's formulas/input recalculation and all three rendered sheets passed.
+
+The 60 excluded crafting entries are enumerated in crafting-data-manifest.json.
+This release does not establish complete crafting-component support, crash-safe
+storage, or the >90% vanilla-block target. See [CRAFTING.md](CRAFTING.md).
 
 ## Version 0.11.3 additions
 

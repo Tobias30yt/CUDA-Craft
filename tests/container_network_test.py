@@ -6,7 +6,7 @@ game=simulation.game;login=game.login;vi=game.vi
 
 class Player(game.Player):
     def __init__(self,server,name='CudaTester'):
-        self.play=False;self.window=0;self.revision=0;self.inventory={};self.cursor=(0,0,0);self.opened=None;self.closed=[];self.drops={};self.properties={};self.offhand=(0,0,0)
+        self.play=False;self.window=0;self.revision=0;self.inventory={};self.cursor=(0,0,0);self.opened=None;self.closed=[];self.drops={};self.properties={};self.offhand=(0,0,0);self.pings=0;self.pong=0
         super().__init__(server,name)
     def configure(self):super().configure();self.play=True
     def packet(self):
@@ -20,6 +20,7 @@ class Player(game.Player):
             if window==self.window:self.inventory[index]=stack
             r.end()
         elif pid==0x39:self.opened=(r.varint(),r.varint())
+        elif pid==0x3c:self.pong=struct.unpack('>Q',r.read(8))[0];r.end()
         elif pid==0x6a:
             index=r.varint();stack=simulation.slot(r);r.end()
             if index==40:self.offhand=stack
@@ -40,21 +41,23 @@ class Player(game.Player):
                 else:raise AssertionError('Unexpected metadata type '+str(kind))
         return data
     def give(self,item,count=64,index=36):
-        revision=self.revision;self.send(b'\x37'+struct.pack('>h',index)+vi(count)+vi(item)+b'\0\0');self.until(lambda:self.revision>revision)
+        self.barrier();revision=self.revision;self.send(b'\x37'+struct.pack('>h',index)+vi(count)+(vi(item)+b'\0\0' if count else b''));self.until(lambda:self.revision>revision);self.barrier()
     def click(self,index,button=0,mode=0,revision=None,window=None):
-        old=self.revision
+        self.barrier();old=self.revision
         self.send(b'\x11'+vi(self.window if window is None else window)+vi(old if revision is None else revision)+struct.pack('>hB',index,button)+vi(mode)+vi(0)+b'\0')
-        self.until(lambda:self.revision>old)
+        self.until(lambda:self.revision>old);self.barrier()
+    def barrier(self):
+        self.pings+=1;self.send(b'\x25'+struct.pack('>Q',self.pings));self.until(lambda:self.pong==self.pings)
     def open(self,x=2,y=64,z=2):
         self.opened=None;self.place(x,y,z,190);self.until(lambda:self.opened is not None and self.window==self.opened[0]);return self.opened
     def close_menu(self):
-        old=self.revision;self.send(b'\x12'+vi(self.window));self.until(lambda:self.window==0 and self.revision>old)
+        old=self.revision;self.send(b'\x12'+vi(self.window));self.until(lambda:self.window==0 and self.revision>old);self.barrier()
     def raw_click(self,index,button,mode=5,revision=None):
         self.send(b'\x11'+vi(self.window)+vi(self.revision if revision is None else revision)+struct.pack('>hB',index,button)+vi(mode)+vi(0)+b'\0')
     def drag(self,slots,kind=0):
-        before=self.revision;self.raw_click(-999,kind*4)
+        self.barrier();before=self.revision;self.raw_click(-999,kind*4)
         for slot in slots:self.raw_click(slot,kind*4+1)
-        self.raw_click(-999,kind*4+2);self.until(lambda:self.revision>before)
+        self.raw_click(-999,kind*4+2);self.until(lambda:self.revision>before);self.barrier()
 
 class ContainerTests(unittest.TestCase):
     def setUp(self):
@@ -80,6 +83,51 @@ class ContainerTests(unittest.TestCase):
             self.assertEqual(p.offhand,(898,17,0));self.assertEqual(p.inventory[37][0],0)
             p.send(b'\x28'+vi(6)+struct.pack('>qB',0,0)+vi(952));p.until(lambda:952 in p.acks)
             self.assertEqual(p.offhand[0],0);self.assertEqual(p.inventory[37],(898,17,0))
+        finally:p.close()
+    def test_bulk_crafting_logs_and_stale_result_click(self):
+        p=Player(self.server)
+        try:
+            for slot in range(36,45):p.give(0,0,index=slot)
+            p.give(134,20,index=37);p.click(37);p.click(1)
+            self.assertEqual(p.inventory[0],(36,4,0));old=p.revision;p.click(0,mode=1)
+            self.assertEqual(sum(s[1] for i,s in p.inventory.items() if i>=9 and s[0]==36),80)
+            self.assertEqual(p.cursor[0],0);self.assertEqual(p.inventory[1][0],0)
+            p.give(134,2,index=37);p.click(37);p.click(1);p.click(0,mode=1,revision=old)
+            self.assertEqual(p.inventory[1],(134,2,0));self.assertEqual(sum(s[1] for i,s in p.inventory.items() if i>=9 and s[0]==36),80)
+        finally:p.close()
+    def test_bulk_crafting_full_inventory_and_partial_output_drop(self):
+        p=Player(self.server)
+        try:
+            p.give(134,1,index=37);p.click(37);p.click(1)
+            for slot in range(9,45):p.give(898,64,index=slot)
+            p.click(0,mode=1);self.assertEqual(p.inventory[1],(134,1,0));self.assertEqual(p.cursor[0],0)
+            p.give(36,63,index=9);p.click(0,mode=1)
+            self.assertEqual(p.inventory[9],(36,64,0));self.assertEqual(p.inventory[1][0],0)
+            p.until(lambda:any(s==(36,3,0) for s in p.drops.values()))
+            self.assertEqual(sum(s[1] for s in p.drops.values() if s[0]==36),3)
+        finally:p.close()
+    def test_cake_and_honey_remainders_survive_restart(self):
+        p=Player(self.server)
+        try:
+            self.chest(p,item=332);self.assertEqual(p.open()[1],12)
+            for slot,item in [(1,1018),(2,1018),(3,1018),(4,1084),(5,1031),(6,1084),(7,952),(8,952),(9,952)]:
+                p.give(item,1,index=36);p.click(37);p.click(slot)
+            self.assertEqual(p.inventory[0],(1085,1,0));p.click(0,mode=1)
+            self.assertEqual([p.inventory[i] for i in (1,2,3)],[(1012,1,0)]*3)
+            self.assertEqual(sum(s[1] for i,s in p.inventory.items() if i>=10 and s[0]==1085),1)
+            p.close_menu();p.give(1381,8,index=37);p.click(37);p.click(1);p.click(0,mode=1)
+            self.assertEqual(p.inventory[1],(1120,1,0))
+            self.assertEqual(sum(s[1] for i,s in p.inventory.items() if i>=9 and s[0]==1084),24)
+            self.assertEqual(sum(s[1] for i,s in p.inventory.items() if i>=1 and s[0]==1120),8)
+            p.close_menu()
+        finally:p.close()
+        # RunningServer.close force-terminates fixtures; exercise a real saved shutdown here.
+        self.server.process.stdin.write('stop\n');self.server.process.stdin.flush()
+        self.assertEqual(self.server.process.wait(timeout=10),0)
+        self.server.close();self.server=game.wire.RunningServer('--world',self.tmp.name);p=Player(self.server);p.barrier()
+        try:
+            for item,count in [(1012,3),(1085,1),(1084,24),(1120,8)]:
+                self.assertEqual(sum(s[1] for i,s in p.inventory.items() if i>=9 and s[0]==item),count)
         finally:p.close()
     def test_chest_drag_caps_duplicates_and_peer_cancellation(self):
         p=Player(self.server);peer=Player(self.server,'SecondTester')

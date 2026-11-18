@@ -361,4 +361,25 @@ void portal_linking_tests() {
         check(s.player.world().dimension_id()==0,"invalid source cannot bypass bounded portal cleanup backlog");
     }
 }
-int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+void crafting_capacity_tests() {
+    Session s;s.begin();s.command("clear");s.creative(36,sd::item_id("honey_bottle"),2);s.click(36);s.click(1);
+    for(int i=9;i<=44;++i)s.creative(i,sd::item_id("diamond"),64);
+    for(int i=0;i<4096;++i)s.world.simulation().spawn(71,20,64,20,{sd::item_id("dirt"),1,0});
+    s.click(0);
+    check(s.saved().crafting[0].count==2&&s.saved().cursor.item==0,"full drop capacity rejects crafting before consuming honey");
+    s.world.simulation().mobs.clear();s.click(0);
+    check(s.saved().cursor.item==sd::item_id("sugar")&&s.saved().cursor.count==3&&s.saved().crafting[0].count==1,"ordinary crafting consumes exactly one honey bottle");
+    check(s.world.simulation().mobs.size()==1&&s.world.simulation().mobs.begin()->second.drop.item==sd::item_id("glass_bottle"),"crafting remainder drops once when inventory is full");
+    s.click(0);
+    check(s.saved().cursor.count==6&&s.saved().crafting[0].item==sd::item_id("glass_bottle")&&s.world.simulation().mobs.size()==1,"last remainder returns to the emptied crafting slot");
+    Session bulk;bulk.begin();bulk.command("clear");bulk.creative(36,sd::item_id("oak_log"),1);bulk.click(36);bulk.click(1);
+    for(int i=9;i<=44;++i)bulk.creative(i,sd::item_id("diamond"),64);
+    bulk.creative(9,sd::item_id("oak_planks"),63);
+    for(int i=0;i<4096;++i)bulk.world.simulation().spawn(71,20,64,20,{sd::item_id("dirt"),1,0});
+    auto shift=[&]{bulk.player.handle(Packet(0x11).var(0).var(bulk.revision).u16(0).u8(0).var(1).var(0).u8(0).data);};
+    shift();check(bulk.saved().inventory[9].count==63&&bulk.saved().crafting[0].count==1,"partial-output crafting is atomic when remainder cannot spawn");
+    bulk.world.simulation().mobs.clear();shift();
+    check(bulk.saved().inventory[9].count==64&&bulk.saved().crafting[0].item==0,"shift crafting fills remaining inventory capacity");
+    check(bulk.world.simulation().mobs.size()==1&&bulk.world.simulation().mobs.begin()->second.drop.count==3,"partial shift output drops the remaining three planks exactly once");
+}
+int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

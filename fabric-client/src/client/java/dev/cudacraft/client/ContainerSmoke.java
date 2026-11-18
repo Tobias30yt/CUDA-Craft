@@ -47,7 +47,7 @@ final class ContainerSmoke {
             client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.QUICK_MOVE,client.player);stage=2;
         } else if (stage == 2 && client.player.getInventory().countItem(Items.DIAMOND) == 17) {
             client.gameMode.handleInventoryMouseClick(menu.containerId,1,0,ClickType.QUICK_MOVE,client.player);stage=20;
-        } else if (stage == 20 && client.player.getInventory().countItem(Items.OAK_PLANKS) == 8) {
+        } else if (stage == 20 && client.player.getInventory().countItem(Items.OAK_PLANKS) == 16) {
             client.player.closeContainer();stage=3;
         } else if (stage == 3) {
             use(client,new BlockPos(4,64,2));stage=4;
@@ -65,21 +65,16 @@ final class ContainerSmoke {
                 }
             }
         } else if (stage == 8 && menu instanceof CraftingMenu && menu.getCarried().is(Items.OAK_PLANKS)) {
-            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,4,ClickType.QUICK_CRAFT,client.player);
-            for (int slot : CHEST_GRID) client.gameMode.handleInventoryMouseClick(menu.containerId,slot,5,ClickType.QUICK_CRAFT,client.player);
-            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,6,ClickType.QUICK_CRAFT,client.player);stage=9;
+            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,0,ClickType.QUICK_CRAFT,client.player);
+            for (int slot : CHEST_GRID) client.gameMode.handleInventoryMouseClick(menu.containerId,slot,1,ClickType.QUICK_CRAFT,client.player);
+            client.gameMode.handleInventoryMouseClick(menu.containerId,-999,2,ClickType.QUICK_CRAFT,client.player);stage=9;
         } else if (stage == 9 && menu instanceof CraftingMenu && menu.getSlot(0).getItem().is(Items.CHEST) && menu.getCarried().isEmpty()) {
-            client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.PICKUP,client.player);stage=10;
-        } else if (stage == 10 && menu instanceof CraftingMenu && menu.getCarried().is(Items.CHEST)) {
-            for (int slot=10;slot<menu.slots.size();slot++) {
-                if (menu.getSlot(slot).getItem().isEmpty()) {
-                    client.gameMode.handleInventoryMouseClick(menu.containerId,slot,0,ClickType.PICKUP,client.player);stage=11;break;
-                }
-            }
-        } else if (stage == 11 && client.player.getInventory().countItem(Items.CHEST) == 1 && menu.getCarried().isEmpty()) {
+            client.gameMode.handleInventoryMouseClick(menu.containerId,0,0,ClickType.QUICK_MOVE,client.player);stage=11;
+        } else if (stage == 11 && client.player.getInventory().countItem(Items.CHEST) == 2 && menu.getCarried().isEmpty() && menu.getSlot(0).getItem().isEmpty()) {
             client.player.closeContainer();stage=12;
             org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: crafting menu verified");
-        } else if (stage == 12 && client.player.containerMenu == client.player.inventoryMenu && client.player.getInventory().countItem(Items.CHEST) == 1) {
+            org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: bulk crafting verified");
+        } else if (stage == 12 && client.player.containerMenu == client.player.inventoryMenu && client.player.getInventory().countItem(Items.CHEST) == 2) {
             stage=13;client.stop();
         }
         next=now+300_000_000L;

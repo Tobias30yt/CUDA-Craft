@@ -29,7 +29,7 @@ int run(const std::vector<std::string>& args) {
         for (std::size_t i = 1; i < args.size(); ++i) {
             const std::string_view option(args[i]);
             if (option == "--help") {
-                std::cout << "CUDA Craft 0.11.3 - Minecraft Java 1.21.11 (protocol 774)\n"
+                std::cout << "CUDA Craft 0.11.4 - Minecraft Java 1.21.11 (protocol 774)\n"
                     "Survival prototype with water, basic mobs and redstone. Vanilla parity is incomplete.\n"
                     "  --bind IPv4             Bind address (default 127.0.0.1)\n"
                     "  --port 0..65535         TCP port (default 25565; 0 selects a free port)\n"
@@ -48,7 +48,7 @@ int run(const std::vector<std::string>& args) {
                     "Console: help, op <player>, perf, monitor on, save-all, stop\n";
                 return 0;
             }
-            if (option == "--version") { std::cout << "CUDA Craft 0.11.3 | Minecraft Java 1.21.11 | protocol 774\n"; return 0; }
+            if (option == "--version") { std::cout << "CUDA Craft 0.11.4 | Minecraft Java 1.21.11 | protocol 774\n"; return 0; }
             if (option == "--gpu-self-test") {
                 std::string detail;
                 const int result = cudacraft::gpu::self_test(detail);

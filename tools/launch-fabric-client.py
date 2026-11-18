@@ -31,7 +31,7 @@ def prepare(game):
         hash_path.write_text(sha)
         libraries.append(str(path))
     mods=game/'mods'; mods.mkdir(parents=True,exist_ok=True)
-    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.3.jar'
+    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.4.jar'
     if not mod.exists(): raise RuntimeError('Build the Fabric mod first: tools/build-fabric-client.cmd')
     destination=mods/'cuda-craft-client.jar'
     for old in mods.glob('cuda-craft-client*.jar'):
@@ -92,7 +92,7 @@ def main():
             paths.append(str(path))
     paths.append(str(mc/f'versions/{MC}/{MC}.jar'))
     natives=game/'natives';natives.mkdir(exist_ok=True)
-    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.3','classpath':os.pathsep.join(paths)}
+    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.4','classpath':os.pathsep.join(paths)}
     command=[str(java),'-Xmx2G','-Xms512M']
     for item in version['arguments']['jvm']:
         if isinstance(item,dict):
@@ -114,7 +114,7 @@ def main():
             portal_fixture(world/'DIM-1','cuda-craft-nether-v1',100,70,100)
         if args.smoke_containers:
             blocks={b['name']:b for b in json.loads((ROOT/'.tools/reference/blocks.json').read_text())}
-            chest=[[0,0,0] for _ in range(27)];chest[0]=[898,17,0];chest[1]=[36,8,0]
+            chest=[[0,0,0] for _ in range(27)];chest[0]=[898,17,0];chest[1]=[36,16,0]
             furnace=[[0,0,0] for _ in range(27)];furnace[0]=[903,1,0];furnace[1]=[896,1,0]
             containers=[{'position':[2,64,2],'type':blocks['chest']['minStateId'],'items':chest}, {'position':[4,64,2],'type':blocks['furnace']['minStateId'],'items':furnace}]
             (world/'blocks.json').write_text(json.dumps({'format':2,'protocol':774,'generator':'cuda-craft-flat-v1','seed':20261115,
@@ -142,9 +142,10 @@ def main():
             if 'CUDA Craft smoke: drag collect and offhand verified' not in text:raise RuntimeError('Real inventory gesture verification did not finish')
             if 'CUDA Craft smoke: chest and furnace menus verified' not in text:raise RuntimeError('Real container menu verification did not finish')
             if 'CUDA Craft smoke: crafting menu verified' not in text:raise RuntimeError('Real crafting menu verification did not finish')
+            if 'CUDA Craft smoke: bulk crafting verified' not in text:raise RuntimeError('Real bulk crafting verification did not finish')
             inventory=saved['simulation']['players'][identity.hex]['items']
             if sum(s[1] for s in inventory if s[0]==898)!=17 or sum(s[1] for s in inventory if s[0]==904)!=1:raise RuntimeError('Container transfers were not committed by the server')
-            if sum(s[1] for s in inventory if s[0]==331)!=1 or any(s[0]==36 for s in inventory):raise RuntimeError('Chest crafting was not committed by the server')
+            if sum(s[1] for s in inventory if s[0]==331)!=2 or any(s[0]==36 for s in inventory):raise RuntimeError('Bulk chest crafting was not committed by the server')
             for c in saved['simulation']['containers']:
                 if c['position']==[2,64,2] and any(s[0] for s in c['items']):raise RuntimeError('Chest contents duplicated')
                 if c['position']==[4,64,2] and c['items'][2][0]:raise RuntimeError('Furnace output duplicated')

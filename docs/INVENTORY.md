@@ -27,7 +27,8 @@ classes. These files are reference inputs, not distributed project code.
 
 ## Still incomplete
 
-Shift-crafting, complete recipe/remainder handling, arbitrary item components,
+Since 0.11.4, shift-crafting and plain recipe/remainder handling are implemented;
+see [CRAFTING.md](CRAFTING.md). Special/component recipes, arbitrary item components,
 equipment component overrides, binding enchantments, all specialized menus and
 furnace XP remain incomplete. This release does not certify full vanilla inventory
 parity. The backlog entry B005 remains partial.

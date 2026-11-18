@@ -41,6 +41,7 @@ def main():
         'cudacraft/docs/MOBS.md': ROOT/'docs/MOBS.md',
         'cudacraft/docs/PORTALS.md': ROOT/'docs/PORTALS.md',
         'cudacraft/docs/INVENTORY.md': ROOT/'docs/INVENTORY.md',
+        'cudacraft/docs/CRAFTING.md': ROOT/'docs/CRAFTING.md',
     }
     for file in (ROOT/'third_party').rglob('*'):
         if file.is_file() and (file.name.startswith('LICENSE') or file.name.startswith('NOTICE')):

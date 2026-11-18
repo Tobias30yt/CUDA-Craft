@@ -1,0 +1,255 @@
+{
+  "version": "1.21.11",
+  "server_sha1": "64bb6d763bed0a9f1d632ec347938594144943ed",
+  "inner_server_sha256": "ec47239a8de246335e1d54f6ac319bd35641778eb4b6a6da06372840d02fcebc",
+  "items_sha256": "0031a948bf8210aaf68d4964499cb2c31f2c3bf5d7339439540ca82a9eb28686",
+  "mapped_item_reference_sha256": "77e665c6391dc8a1222a44f3ffb354ba8b5f1f1eb775ca437887e4fca5cc280c",
+  "recipe_count": 1010,
+  "shaped": 706,
+  "shapeless": 304,
+  "ingredient_groups": 505,
+  "remainders": 5,
+  "excluded_crafting": [
+    {
+      "name": "armor_dye",
+      "reason": "minecraft:crafting_special_armordye"
+    },
+    {
+      "name": "banner_duplicate",
+      "reason": "minecraft:crafting_special_bannerduplicate"
+    },
+    {
+      "name": "black_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "black_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "blue_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "blue_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "book_cloning",
+      "reason": "minecraft:crafting_special_bookcloning"
+    },
+    {
+      "name": "brown_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "brown_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "cyan_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "cyan_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "decorated_pot",
+      "reason": "minecraft:crafting_decorated_pot"
+    },
+    {
+      "name": "firework_rocket",
+      "reason": "minecraft:crafting_special_firework_rocket"
+    },
+    {
+      "name": "firework_star",
+      "reason": "minecraft:crafting_special_firework_star"
+    },
+    {
+      "name": "firework_star_fade",
+      "reason": "minecraft:crafting_special_firework_star_fade"
+    },
+    {
+      "name": "gray_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "gray_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "green_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "green_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "light_blue_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "light_blue_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "light_gray_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "light_gray_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "lime_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "lime_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "magenta_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "magenta_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "map_cloning",
+      "reason": "minecraft:crafting_special_mapcloning"
+    },
+    {
+      "name": "map_extending",
+      "reason": "minecraft:crafting_special_mapextending"
+    },
+    {
+      "name": "orange_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "orange_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "pink_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "pink_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "purple_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "purple_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "red_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "red_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "repair_item",
+      "reason": "minecraft:crafting_special_repairitem"
+    },
+    {
+      "name": "shield_decoration",
+      "reason": "minecraft:crafting_special_shielddecoration"
+    },
+    {
+      "name": "suspicious_stew_from_allium",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_azure_bluet",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_blue_orchid",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_closed_eyeblossom",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_cornflower",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_dandelion",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_lily_of_the_valley",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_open_eyeblossom",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_orange_tulip",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_oxeye_daisy",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_pink_tulip",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_poppy",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_red_tulip",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_torchflower",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_white_tulip",
+      "reason": "result components"
+    },
+    {
+      "name": "suspicious_stew_from_wither_rose",
+      "reason": "result components"
+    },
+    {
+      "name": "tipped_arrow",
+      "reason": "minecraft:crafting_special_tippedarrow"
+    },
+    {
+      "name": "white_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "white_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "yellow_bundle",
+      "reason": "minecraft:crafting_transmute"
+    },
+    {
+      "name": "yellow_shulker_box",
+      "reason": "minecraft:crafting_transmute"
+    }
+  ],
+  "generated_sha256": "5410bf543593f606e73c5eddb79c6088b5c3df365cd0d51527320f346774a17b"
+}
