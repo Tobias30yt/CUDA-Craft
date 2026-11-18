@@ -6,12 +6,14 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 
 namespace cudacraft {
 class GameSession;
 class NoiseTerrain;
 class Simulation;
 class Administration;
+struct PortalFrame { BlockPos origin; int width,height; bool along_x; };
 class World {
 public:
     explicit World(std::filesystem::path directory = {}, TerrainOptions options = {}, World* parent=nullptr, int dimension=0);
@@ -28,6 +30,8 @@ public:
     Administration& admin(){return root().admin_?*root().admin_:*admin_;}
     World& root(){return parent_?*parent_:*this;}
     World& dimension(int id);
+    std::optional<PortalFrame> portal_frame(BlockPos point) const;
+    std::optional<PortalFrame> find_or_create_portal(BlockPos target,bool along_x);
     int dimension_id() const{return dimension_;}
     int dimension_type() const{return dimension_==1?3:dimension_==2?2:0;}
     const char* dimension_name() const{return dimension_==1?"minecraft:the_nether":dimension_==2?"minecraft:the_end":"minecraft:overworld";}

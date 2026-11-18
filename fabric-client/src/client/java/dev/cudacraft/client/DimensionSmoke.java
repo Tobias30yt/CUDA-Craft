@@ -30,6 +30,16 @@ final class DimensionSmoke {
             client.getConnection().sendCommand("dimension overworld");stage=5;
         } else if (stage==5 && client.level.dimension()==Level.OVERWORLD && client.level.getBlockState(new BlockPos(0,63,0)).is(Blocks.GRASS_BLOCK)) {
             org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: dimension round trip verified");stage=6;
-        } else if (stage==6) {stage=7;client.stop();}
+        } else if (stage==6) {
+            client.getConnection().sendCommand("tp 800.5 64 800.5");stage=7;
+        } else if (stage==7 && client.level.dimension()==Level.NETHER
+                && Math.abs(client.player.getX()-100.5)<.05 && Math.abs(client.player.getZ()-100.5)<.05
+                && client.level.getBlockState(new BlockPos(100,70,100)).is(Blocks.NETHER_PORTAL)) {
+            org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: linked Nether portal received");stage=8;
+        } else if (stage==8 && client.level.dimension()==Level.OVERWORLD
+                && Math.abs(client.player.getX()-800.5)<.05 && Math.abs(client.player.getZ()-800.5)<.05
+                && client.level.getBlockState(new BlockPos(800,64,800)).is(Blocks.NETHER_PORTAL)) {
+            org.slf4j.LoggerFactory.getLogger("CUDA Craft").info("CUDA Craft smoke: linked portal round trip verified");stage=9;
+        } else if (stage==9) {stage=10;client.stop();}
     }
 }

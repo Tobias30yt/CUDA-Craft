@@ -31,7 +31,7 @@ def prepare(game):
         hash_path.write_text(sha)
         libraries.append(str(path))
     mods=game/'mods'; mods.mkdir(parents=True,exist_ok=True)
-    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.1.jar'
+    mod=ROOT/'fabric-client/build/libs/cuda-craft-client-0.11.2.jar'
     if not mod.exists(): raise RuntimeError('Build the Fabric mod first: tools/build-fabric-client.cmd')
     destination=mods/'cuda-craft-client.jar'
     for old in mods.glob('cuda-craft-client*.jar'):
@@ -92,7 +92,7 @@ def main():
             paths.append(str(path))
     paths.append(str(mc/f'versions/{MC}/{MC}.jar'))
     natives=game/'natives';natives.mkdir(exist_ok=True)
-    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.1','classpath':os.pathsep.join(paths)}
+    values={'natives_directory':str(natives),'launcher_name':'CUDA-Craft','launcher_version':'0.11.2','classpath':os.pathsep.join(paths)}
     command=[str(java),'-Xmx2G','-Xms512M']
     for item in version['arguments']['jvm']:
         if isinstance(item,dict):
@@ -102,8 +102,16 @@ def main():
     if args.smoke:
         world_id=str(uuid.uuid4());world=game/'cuda-worlds'/world_id;world.mkdir(parents=True)
         (world/'cuda-world.properties').write_text('format=1\nname=Fabric integration test\nseed=20261115\ngenerator='+args.smoke_generator+'\ncreative='+('false' if args.smoke_containers else 'true')+'\n')
-        command += ['-Dcudacraft.quickPlayWorld='+world_id,'-Dcudacraft.smokeSeconds='+('45' if args.smoke_dimensions else '30' if args.smoke_containers else '20')]
-        if args.smoke_dimensions:command+=['-Dcudacraft.smokeDimensions=true']
+        command += ['-Dcudacraft.quickPlayWorld='+world_id,'-Dcudacraft.smokeSeconds='+('60' if args.smoke_dimensions else '30' if args.smoke_containers else '20')]
+        if args.smoke_dimensions:
+            command+=['-Dcudacraft.smokeDimensions=true']
+            blocks={b['name']:b for b in json.loads((ROOT/'.tools/reference/blocks.json').read_text())}
+            def portal_fixture(folder,generator,x,y,z):
+                folder.mkdir(parents=True,exist_ok=True)
+                edits=[[x+u,y+v,z,blocks['obsidian' if u in [-1,2] or v in [-1,3] else 'nether_portal']['defaultState']] for u in range(-1,3) for v in range(-1,4)]
+                (folder/'blocks.json').write_text(json.dumps({'format':2,'protocol':774,'generator':generator,'seed':20261115,'edits':edits}))
+            portal_fixture(world,'cuda-craft-flat-v1',800,64,800)
+            portal_fixture(world/'DIM-1','cuda-craft-nether-v1',100,70,100)
         if args.smoke_containers:
             blocks={b['name']:b for b in json.loads((ROOT/'.tools/reference/blocks.json').read_text())}
             chest=[[0,0,0] for _ in range(27)];chest[0]=[898,17,0];chest[1]=[36,8,0]
@@ -141,12 +149,14 @@ def main():
                 if c['position']==[4,64,2] and c['items'][2][0]:raise RuntimeError('Furnace output duplicated')
             print('Real vanilla chest/furnace/crafting menus and item transfers verified against the server save.')
         if args.smoke_dimensions:
-            for marker in ['Nether received','End received','all 89 mob types received','dimension round trip verified']:
+            for marker in ['Nether received','End received','all 89 mob types received','dimension round trip verified','linked Nether portal received','linked portal round trip verified']:
                 if 'CUDA Craft smoke: '+marker not in text:raise RuntimeError('Dimension integration did not finish: '+marker)
             if saved['simulation']['players'][identity.hex].get('dimension',0)!=0:raise RuntimeError('Return dimension was not saved')
+            player=saved['simulation']['players'][identity.hex]
+            if abs(player['position'][0]-800.5)>0.05 or abs(player['position'][2]-800.5)>0.05:raise RuntimeError('Linked portal return position was not saved')
             for folder in ['DIM-1','DIM1']:
                 if not (world/folder/'blocks.json').is_file():raise RuntimeError('Dimension save missing: '+folder)
-            print('Real Fabric client received both dimensions and all 89 mob types; round trip and saves verified.')
+            print('Real Fabric client received both dimensions and all 89 mob types; linked portal round trip and saves verified.')
         print('Real Fabric client received the native world and shut down cleanly.')
 
 if __name__=='__main__':main()

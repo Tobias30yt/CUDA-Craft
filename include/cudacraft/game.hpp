@@ -32,7 +32,7 @@ public:
     void mob_hurt(int id);
     void collect(int mob,int player,int count);
     World& world(){return *world_;}
-    void change_dimension(int dimension);
+    void change_dimension(int dimension,bool through_portal=false);
     void command_tree();
     void kick(std::string_view reason);
     bool closing() const{return kicked_;}

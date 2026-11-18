@@ -1,6 +1,30 @@
 # Validation record
 
-Date: 2026-11-17. CUDA Craft 0.11.1. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-18. CUDA Craft 0.11.2. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.11.2 additions
+
+- Full native release gate: **17/17 CTest suites passed in 95.14 seconds**.
+- **811 simulation checks**, including 42 additional portal checks. They cover
+  automatic 8:1 travel and return, inventory/position persistence, arrival cooldown,
+  axis rotation, floor conversion at negative coordinates, different search radii,
+  distance ordering, broken frames, dry fallback platforms, refusal to overwrite a
+  chest, world-boundary clamping and source validation before travel.
+- Fabric build and all three JUnit tests passed. The real-client dimension scenario
+  also entered the saved Overworld portal at (800.5, 64, 800.5), received the linked
+  Nether portal at (100.5, 70, 100.5), waited through cooldown, returned automatically
+  and saved the exact horizontal return position. The same run received both extra
+  dimensions and all 89 mob types and shut down cleanly.
+- `--smoke --smoke-dimensions` now seeds isolated portal fixtures and requires both
+  linked-travel log markers plus the saved return position. Normal worlds are untouched.
+- The updated workbook has 55 tasks: 23 open, 31 partial, one completed. Portal
+  linking/creation remain partial pending exact vanilla placement/collision comparisons.
+  Formula checks, status-input recalculation and all three sheet previews passed.
+- The regular Fabric instance is updated to 0.11.2. Its EXE is compared by SHA-256
+  with the tested binary; the Modrinth package checks every archived release file.
+
+This establishes the tested portal behavior, not full vanilla portal-generation
+parity or a new block-completion percentage. See [PORTALS.md](PORTALS.md).
 
 ## Version 0.11.1 additions
 

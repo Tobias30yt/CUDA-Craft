@@ -160,7 +160,7 @@ void GameSession::simulation_tick() {
     if(alive()&&!awaiting_teleport_) {
         const auto name=std::string_view(simdata::block(world_->block(position(x,y,z))).name);
         if((name=="nether_portal"||name=="end_portal")&&now>=portal_cooldown_) {
-            if(++portal_ticks_>=(name=="end_portal"||!survival()?1:80)) {change_dimension(name=="end_portal"?(world_->dimension_id()==2?0:2):(world_->dimension_id()==1?0:1));return;}
+            if(++portal_ticks_>=(name=="end_portal"||!survival()?1:80)) {change_dimension(name=="end_portal"?(world_->dimension_id()==2?0:2):(world_->dimension_id()==1?0:1),name=="nether_portal");return;}
         } else portal_ticks_=0;
     }
     if(now%20==0)send(Packet(0x6f).u64(now).u64(world_->simulation().day_time).u8(1));

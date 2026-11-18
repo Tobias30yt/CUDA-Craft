@@ -1,17 +1,17 @@
 # CUDA Craft – nächste Implementierungen
 
-Stand: 17.11.2026, Version 0.11.1, Minecraft Java 1.21.11.
+Stand: 18.11.2026, Version 0.11.2, Minecraft Java 1.21.11.
 
 Die [Aufgabenliste](implementation-backlog.json) enthält 55 priorisierte Aufgaben
 mit Status, nächstem Schritt, Abnahmekriterium und Abhängigkeiten. Davon sind
-25 offen, 29 teilweise umgesetzt und eine erledigt. Diese Zahlen beschreiben
+23 offen, 31 teilweise umgesetzt und eine erledigt. Diese Zahlen beschreiben
 den ausgewählten Entwicklungsplan, keinen prozentualen Vanilla-Fertigstellungsgrad.
 
 ## Als Nächstes
 
 1. Vanilla-Vergleichsfälle für Interaktionen, Inventare und Blockupdates ausbauen.
 2. Kollisionsformen, schnelle Inventartransaktionen und sichere Speicherung vervollständigen.
-3. Netherportal-Verknüpfung mit 8:1-Koordinaten, Zielsuche und sicherer Erzeugung implementieren.
+3. Die neue Netherportal-Verknüpfung mit Vanilla-Vergleichsfällen absichern und die Platzierungswahl angleichen.
 4. Nether/End-Generierung, Features und automatische Bauwerke vervollständigen.
 5. Workstations, Redstone, Flüssigkeiten, Mob-KI und Survival anhand der Abnahmekriterien erweitern.
 
@@ -30,6 +30,13 @@ P3 Auslieferung. Die Reihenfolge ist ein Vorschlag, keine Terminprognose.
   Sie liegt lokal unter `outputs/01a1d5db-d59d-75c1-8b99-8bb6f5555ad7/` und wird
   im Chat bereitgestellt. Änderungen in Excel synchronisieren sich nicht automatisch
   mit der Aufgabenliste im Repository.
+
+## Seit 0.11.2 teilweise umgesetzt
+
+Netherportale verwenden 8:1-Koordinaten, suchen intakte Ziele und bauen bei Bedarf
+einen Rahmen mit freiem Ankunftsbereich. Hin- und Rückreise wurden auch im echten
+Fabric-Client geprüft. Die genaue Vanilla-Platzierungswahl und Kollisionskorrektur
+bleiben offen. Details: [Portale](PORTALS.md).
 
 ## In 0.11.1 erledigt
 

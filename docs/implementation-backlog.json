@@ -1,6 +1,6 @@
 {
-  "version": "0.11.1",
-  "date": "2026-11-17",
+  "version": "0.11.2",
+  "date": "2026-11-18",
   "columns": ["ID", "Priorität", "Bereich", "Aufgabe", "Status", "Nächster Schritt", "Abnahmekriterium", "Abhängigkeit"],
   "tasks": [
     ["B001","P0","Portale","Beschädigte Portale abschalten","Erledigt","Regression bei Änderungen am Nachbarsystem erhalten","Beide Achsen: Seiten, Boden, Dach und Innenloch entfernen Portal vor Reise. Ecken bleiben optional.",""],
@@ -9,8 +9,8 @@
     ["B004","P0","Speichern","Crash- und Mehrdimensionskonsistenz","Teilweise","Abbruchfälle während Speichern und Dimensionswechsel testen","Keine verlorenen oder duplizierten Items nach Prozessabbruch, Neustart oder Reise.",""],
     ["B005","P0","Inventare","Alle Klickarten und schnelle Transaktionen","Teilweise","Ziehen, Doppelklick, Offhand und veraltete Fenster testen","Client und Server bleiben bei zwei Nutzern und Paketwiederholungen konsistent.","B002"],
     ["B006","P0","Physik","Blockformen und serverseitige Kollision","Teilweise","Kollisionsformen je Zustand statt Vollwürfel verwenden","Treppen, Zäune, Slabs und Türen kollidieren wie Vanilla; kein Durchlaufen.","B002"],
-    ["B007","P1","Portale","8:1-Koordinaten und Portalsuche","Offen","Zielkoordinaten skalieren und vorhandene Portale suchen","Hin- und Rückreise folgt Vanilla-Zielauswahl, inklusive negativem X/Z und Weltgrenze.","B001,B006"],
-    ["B008","P1","Portale","Sichere Zielportal-Erzeugung","Offen","Freien Platz suchen und fehlenden Zielrahmen bauen","Keine Reise in Lava, feste Blöcke oder außerhalb des Baubereichs.","B007"],
+    ["B007","P1","Portale","8:1-Koordinaten und Portalsuche","Teilweise","Skalierung und Zielsuche vorhanden; exakte Tie-Breaks, Kollisionskorrektur und Vanilla-Vergleiche ergänzen","Hin- und Rückreise folgt Vanilla-Zielauswahl, inklusive negativem X/Z und Weltgrenze.","B001,B006"],
+    ["B008","P1","Portale","Sichere Zielportal-Erzeugung","Teilweise","Rahmen und trockene Plattform vorhanden; Vanilla-Platzierungswahl und Gelände-Sonderfälle vergleichen","Keine Reise in Lava, feste Blöcke oder außerhalb des Baubereichs.","B007"],
     ["B009","P1","Weltgenerierung","Nether mit Vanilla-Seedgleichheit","Teilweise","Nether-Dichte, Oberflächen und Biome portieren","Kontrollchunks und Biomdaten stimmen über mehrere Seeds mit Vanilla überein.","B002"],
     ["B010","P1","Weltgenerierung","End-Inseln und äußere Inseln","Teilweise","Vanilla-End-Dichte und Inselverteilung portieren","Zentrale und äußere Inseln stimmen mit Referenzchunks überein.","B002"],
     ["B011","P1","Weltgenerierung","Overworld-Features und Vegetation","Teilweise","Bäume, Pflanzen, Seen und platzierte Erze portieren","Vollständig dekorierte Referenzchunks stimmen überein.","B002"],

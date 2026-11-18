@@ -290,4 +290,75 @@ void portal_invalidation_tests() {
     s.player.x=3.5;s.player.y=64;s.player.z=2.5;s.world.set({2,65,2},0);s.world.advance_ticks(1);
     check(s.player.world().dimension_id()==0,"invalid portal is cleared before player dimension travel");
 }
-int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+void place_test_portal(World& w,BlockPos origin,bool along_x=true) {
+    int portal=0;for(const auto& b:sd::blocks)if(std::string_view(b.name)=="nether_portal")portal=sd::with_property(b.state,"axis",along_x?"x":"z");
+    std::vector<std::pair<BlockPos,int>> changes;
+    for(int u=-1;u<=2;++u)for(int v=-1;v<=3;++v)changes.emplace_back(BlockPos{origin.x+(along_x?u:0),origin.y+v,origin.z+(along_x?0:u)},u==-1||u==2||v==-1||v==3?sd::obsidian_state:portal);
+    check(w.set_blocks(changes),"test portal created atomically");
+}
+void portal_linking_tests() {
+    {
+        Session s;s.begin();s.creative(36,sd::item_id("diamond"),7);
+        place_test_portal(s.world,{800,70,800},false);
+        auto& nether=s.world.dimension(1);place_test_portal(nether,{100,70,100});
+        s.player.x=800.5;s.player.y=70;s.player.z=800.5;s.player.yaw=20;
+        s.world.advance_ticks(1);
+        check(s.player.world().dimension_id()==1&&std::abs(s.player.x-100.5)<1e-6&&std::abs(s.player.z-100.5)<1e-6,"automatic travel scales horizontal coordinates by one eighth");
+        check(s.player.y==70&&s.player.yaw==110,"portal travel preserves height offset and rotates changed axis");
+        check(s.saved().dimension==1&&s.saved().inventory[36].count==7,"linked arrival and inventory persisted");
+        s.player.handle(Packet(0).var(2).data);s.world.advance_ticks(98);
+        check(s.player.world().dimension_id()==1,"arrival cooldown prevents immediate return");
+        s.world.advance_ticks(2);
+        check(s.player.world().dimension_id()==0&&std::abs(s.player.x-800.5)<1e-6&&std::abs(s.player.z-800.5)<1e-6,"cooldown expiry returns through linked source portal");
+        check(s.saved().inventory[36].count==7,"round trip does not duplicate or consume inventory");
+    }
+    {
+        Session s;s.begin();place_test_portal(s.world,{-800,64,-800});
+        place_test_portal(s.world.dimension(1),{-100,64,-116});
+        s.player.x=-799.5;s.player.y=64;s.player.z=-799.5;s.player.change_dimension(1,true);
+        check(s.player.world().dimension_id()==1&&s.player.z== -115.5,"negative scaled coordinates floor toward minus infinity at search boundary");
+    }
+    {
+        World w;place_test_portal(w,{128,64,0});
+        const auto count=w.edit_count();auto p=w.find_or_create_portal({0,64,0},true);
+        check(p&&p->origin.x==128&&w.edit_count()==count,"Overworld search includes radius 128 without extra construction");
+        w.set({128,67,0},0);p=w.find_or_create_portal({0,64,0},true);
+        check(p&&p->origin.x==0&&w.portal_frame(p->origin).has_value(),"broken target is rejected and a new valid frame is built");
+    }
+    {
+        World root;World w({},TerrainOptions{},&root,1);
+        place_test_portal(w,{17,64,0});auto p=w.find_or_create_portal({0,64,0},false);
+        check(p&&p->origin.x==0&&!p->along_x,"Nether search excludes a portal outside radius 16 and keeps requested axis");
+        check(w.portal_frame(p->origin).has_value(),"created z-axis frame validates");
+    }
+    {
+        World w;place_test_portal(w,{0,80,0});place_test_portal(w,{8,64,0});
+        auto p=w.find_or_create_portal({0,64,0},true);
+        check(p&&p->origin.x==8,"portal choice uses full three-dimensional distance");
+        World tie;place_test_portal(tie,{-2,64,0});place_test_portal(tie,{1,64,0});
+        p=tie.find_or_create_portal({0,67,0},true);
+        check(p&&p->origin.x== -2,"equal-distance portal selection is deterministic");
+    }
+    for(bool blocked:{false,true}) {
+        World root;World w({},TerrainOptions{},&root,1);
+        for(int x=-18;x<=18;++x)for(int z=-18;z<=18;++z)w.set({x,63,z},sd::lava_state);
+        if(blocked)w.set({0,70,0},World::item_state(sd::item_id("chest")));
+        const auto count=w.edit_count();auto p=w.find_or_create_portal({0,64,0},true);
+        if(blocked)check(!p&&w.edit_count()==count&&std::string_view(sd::block(w.block({0,70,0})).name)=="chest","blocked fallback aborts without modifying player construction");
+        else {
+            check(p&&p->origin.y==70&&w.portal_frame(p->origin).has_value(),"lava-only terrain gets supported dry fallback portal");
+            for(int x=-1;x<=2;++x)for(int z=-1;z<=1;++z)check(w.block({x,69,z})==sd::obsidian_state,"fallback builds a complete landing platform");
+            check(w.block({0,70,1})==0&&w.block({0,71,1})==0,"fallback provides body and head clearance");
+        }
+    }
+    for(int edge:{-9000,9000}) {
+        World w;auto p=w.find_or_create_portal({edge,64,edge},true);
+        check(p&&World::valid(p->origin)&&w.portal_frame(p->origin).has_value(),"world border clamps destination and keeps complete frame inside bounds");
+    }
+    {
+        Session s;s.begin();place_test_portal(s.world,{800,64,800});s.player.x=800.5;s.player.z=800.5;
+        s.world.set({800,67,800},0);s.player.change_dimension(1,true);
+        check(s.player.world().dimension_id()==0,"invalid source cannot bypass bounded portal cleanup backlog");
+    }
+}
+int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

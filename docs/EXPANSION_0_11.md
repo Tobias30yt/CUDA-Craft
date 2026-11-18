@@ -31,8 +31,9 @@ cooldown. Water buckets evaporate in the Nether.
 
 Terrain is an **independent prototype**, not vanilla seed parity: Nether caves,
 lava, bedrock ceiling and a safe arrival area; End central island, obsidian
-arrival platform and a return portal. Travel currently uses dimension spawn
-points, without vanilla 8:1 coordinate linking or nearest-portal search. There
+arrival platform and a return portal. Since 0.11.2, Nether portal travel uses
+8:1 coordinate scaling, intact target search and supported portal creation;
+[placement and world-border limitations remain](PORTALS.md). There
 are no generated fortresses, bastions, End cities, outer islands or dragon fight
 progression. Since 0.11.1, breaking a required frame edge or portal interior
 invalidates the connected portal before player travel. Optional corners may be

@@ -5,7 +5,9 @@ Zielversion: **Minecraft Java 1.21.11, Protokoll 774**.
 
 Modrinth App: [Paket importieren oder manuell installieren](docs/MODRINTH.md).
 
-**Stand 0.11.1: Dimensionswechsel, 89 Mobtypen und Portal-Reparatur.**
+**Stand 0.11.2: Verknuepfte Netherportale mit 8:1-Koordinaten.**
+Netherreisen suchen jetzt intakte Zielportale und erzeugen bei Bedarf einen
+neuen Rahmen mit freiem Ankunftsbereich. [Details und Grenzen](docs/PORTALS.md).
 Beschaedigte Netherportale werden jetzt deaktiviert; optionale Rahmenecken
 bleiben erlaubt. [Naechste Implementierungen und Pruefziele](docs/TODO.md).
 Nether und End besitzen getrennte Saves und eigene Chunk-Uebertragung. Portale,
