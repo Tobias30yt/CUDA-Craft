@@ -21,6 +21,19 @@ def unpack(value):
     x=value>>38;z=(value>>12)&0x3ffffff;y=value&4095
     return (x-(0x4000000 if x&0x2000000 else 0),y-(4096 if y&2048 else 0),z-(0x4000000 if z&0x2000000 else 0))
 
+def wait_for_save(player,path,predicate):
+    deadline=time.monotonic()+5
+    while time.monotonic()<deadline:
+        try:
+            saved=json.loads(path.read_text())
+        except (FileNotFoundError,PermissionError):
+            # The pathname can be briefly unavailable during Windows atomic replacement.
+            player.step(.1)
+            continue
+        if predicate(saved):return saved
+        player.step(.1)
+    raise TimeoutError(f"Expected autosaved state did not arrive in {path.name}")
+
 def decode_light(r):
     masks=[[struct.unpack('>Q',r.read(8))[0] for _ in range(r.varint())] for _ in range(4)]
     layers=[]
@@ -205,13 +218,10 @@ class GameTests(unittest.TestCase):
             p=Player(self.server)
             try:
                 p.place(2,63,2,55);p.until(lambda:55 in p.acks)
-                path=Path(folder)/'blocks.json';deadline=time.monotonic()+5
-                while not path.exists() or [2,64,2,1] not in json.loads(path.read_text())['edits']:
-                    if time.monotonic()>deadline:raise TimeoutError('World did not autosave')
-                    p.step(.1)
-                self.assertIn([2,64,2,1],json.loads(path.read_text())['edits'])
-            finally:p.close()
-            self.server.close()
+                wait_for_save(p,Path(folder)/'blocks.json',lambda saved:[2,64,2,1] in saved['edits'])
+            finally:
+                p.close()
+                self.server.close()
             self.server=wire.RunningServer('--world',folder)
             p=Player(self.server)
             try:self.assertEqual(p.block(2,64,2),1)
@@ -248,11 +258,9 @@ class GameTests(unittest.TestCase):
                 p.send(b'\x1e'+struct.pack('>dddffB',x+4.5,y,z+.5,0,0,0))
                 p.place(x,y-1,z,70);p.until(lambda:70 in p.acks)
                 self.assertEqual(p.block(x,y,z),1)
-                path=Path(folder)/'blocks.json';deadline=time.monotonic()+5
-                while [x,y,z,1] not in json.loads(path.read_text())['edits']:
-                    if time.monotonic()>deadline:raise TimeoutError('Natural-world edit did not save')
-                    p.step(.1)
-                saved=json.loads(path.read_text());self.assertEqual(saved['seed'],20261113)
+                path=Path(folder)/'blocks.json'
+                saved=wait_for_save(p,path,lambda saved:[x,y,z,1] in saved['edits'])
+                self.assertEqual(saved['seed'],20261113)
                 self.assertEqual(saved['generator'],'cuda-craft-'+generator+'-v1')
                 key=math.floor(x/16),math.floor(z/16)
                 original_biomes=p.biomes[key]
@@ -283,11 +291,7 @@ class GameTests(unittest.TestCase):
                 self.assertEqual(p.block(2,64,2),1)
                 self.assertEqual(set(p.biomes[0,0]),{40})
                 p.place(3,63,3,71);p.until(lambda:71 in p.acks)
-                deadline=time.monotonic()+5
-                while json.loads(path.read_text())['format']==1:
-                    if time.monotonic()>deadline:raise TimeoutError('Legacy world upgrade did not save')
-                    p.step(.1)
-                upgraded=json.loads(path.read_text())
+                upgraded=wait_for_save(p,path,lambda saved:saved['format']!=1)
                 self.assertEqual(upgraded['seed'],0)
                 self.assertEqual(upgraded['generator'],'cuda-craft-flat-v1')
                 self.assertIn([2,64,2,1],upgraded['edits'])

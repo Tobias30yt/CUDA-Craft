@@ -117,6 +117,23 @@ def main():
                         step(action["ticks"])
                         continue
                     position = " ".join(map(str, action["pos"]))
+                    if "inventory" in action:
+                        item = action["inventory"]
+                        if "check" in action:
+                            slot = f"Slot:{item['slot']}b"
+                            count = item["count"]
+                            match = slot + (f',id:"minecraft:{item["item"]}",count:{count}' if count else "")
+                            mode = "if" if count else "unless"
+                            label = action["check"]
+                            command(f"execute {mode} data block {position} Items[{{{match}}}] run say {label}",
+                                    f"[Server] {label}")
+                            print(label, flush=True)
+                            continue
+                        stack = item["item"] if item["count"] else "air"
+                        count = f" {item['count']}" if item["count"] else ""
+                        command(f"item replace block {position} container.{item['slot']} with {stack}{count}",
+                                "Replaced a slot")
+                        continue
                     properties = action.get("properties", {})
                     block = action["block"]
                     if properties:

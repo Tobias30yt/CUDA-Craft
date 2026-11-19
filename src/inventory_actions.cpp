@@ -42,6 +42,7 @@ void GameSession::finish_inventory_action() {
     world_->mark_dirty();
     if(container_positions_.empty()){inventory_sync();return;}
     const auto positions=container_positions_;
+    for(const auto bank:positions)world_->simulation().inventory_signal_changed(bank);
     for(auto* peer:world_->players)if(peer->container_positions_==positions)peer->inventory_sync();
 }
 bool GameSession::advanced_inventory_click(int index,int button,int mode) {

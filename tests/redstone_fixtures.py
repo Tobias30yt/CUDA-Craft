@@ -94,6 +94,69 @@ def comparator_unequal_actions(mode):
     ]
 
 
+def inventory_edit(position, slot, item, count):
+    return dict(pos=position,inventory=dict(slot=slot,item=item,count=count))
+
+
+def comparator_inventory_actions():
+    barrel, conductor, device, out = [(x,80,0) for x in range(14,18)]
+    return [
+        *floor(device,out), place(barrel,"barrel"), place(conductor,"stone"),
+        place(device,"comparator",facing="west"), place(out,"redstone_wire"),
+        step(3), check("empty barrel emits zero",out,"redstone_wire",power="0"),
+        inventory_edit(barrel,0,"stone",1), step(),
+        check("inventory change waits a second tick",out,"redstone_wire",power="0"), step(),
+        check("reads barrel through one solid block",out,"redstone_wire",power="1"),
+        *[inventory_edit(barrel,slot,"stone",64) for slot in range(14)], step(2),
+        check("fourteen full slots emit eight",out,"redstone_wire",power="8"),
+        *[inventory_edit(barrel,slot,"air",0) for slot in range(14)], step(2),
+        check("emptying inventory clears output",out,"redstone_wire",power="0"),
+    ]
+
+
+def hopper_transfer_actions():
+    source, hopper, target = (16,81,0),(16,80,0),(16,79,0)
+    signal = (15,80,0)
+
+    def slot(label, position, count):
+        return dict(inventory_edit(position,0,"stone",count),check=label)
+
+    return [
+        place(source,"barrel"),place(hopper,"hopper",facing="down"),place(target,"barrel"),
+        place(signal,"redstone_block"),inventory_edit(source,0,"stone",2), step(3),
+        check("powered hopper locks",hopper,"hopper",enabled="false"),
+        slot("locked hopper leaves both items",source,2),
+        place(signal,"air"),step(),
+        slot("unlocked hopper pulls one item",hopper,1),
+        slot("source retains one item",source,1),
+        step(7),slot("target stays empty during cooldown",target,0),
+        step(),slot("pushes after eight ticks",target,1),
+        slot("push and pull can occur on the same tick",hopper,1),
+        slot("source is now empty",source,0),
+        step(8),slot("target receives final item",target,2),
+        slot("hopper is empty after final push",hopper,0),
+    ]
+
+
+def dropper_transfer_actions():
+    power, dropper, target = (15,80,0),(16,80,0),(17,80,0)
+
+    def slot(label, position, count):
+        return dict(inventory_edit(position,0,"stone",count),check=label)
+
+    return [
+        place(dropper,"dropper",facing="east"),place(target,"barrel"),
+        inventory_edit(dropper,0,"stone",3), place(power,"redstone_block"),
+        step(3),slot("dropper waits four ticks",target,0),
+        step(),slot("first rising edge transfers one",target,1),
+        step(8),slot("held input does not repeat",target,1),
+        place(power,"air"),place(power,"redstone_block"),place(power,"air"),
+        step(3),slot("brief pulse still waits until due",target,1),
+        step(),slot("brief pulse transfers exactly one",target,2),
+        slot("one item remains in dropper",dropper,1),
+    ]
+
+
 def piston_actions(sticky):
     signal, piston, front, moved = [(x, 80, 0) for x in range(14, 18)]
     kind = "sticky_piston" if sticky else "piston"
@@ -179,6 +242,9 @@ CASES.update({
     "comparator_subtract": comparator_mode_actions("subtract"),
     "comparator_weaker_side_compare": comparator_unequal_actions("compare"),
     "comparator_weaker_side_subtract": comparator_unequal_actions("subtract"),
+    "comparator_inventory": comparator_inventory_actions(),
+    "hopper_transfer": hopper_transfer_actions(),
+    "dropper_transfer": dropper_transfer_actions(),
     "piston_push": piston_actions(False),
     "sticky_piston_pull": piston_actions(True),
     "piston_limit_12": piston_limit_actions(12),

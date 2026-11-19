@@ -50,8 +50,8 @@ class NBT:
     def root(self):
         tag=self.number('B');self.string();return self.payload(tag)
 
-def chunk_from_region(folder,cx,cz):
-    path=folder/'region'/f'r.{cx//32}.{cz//32}.mca'
+def chunk_from_region(folder,cx,cz,storage='region'):
+    path=folder/storage/f'r.{cx//32}.{cz//32}.mca'
     if not path.exists():return None
     with path.open('rb') as stream:
         stream.seek(4*((cx&31)+(cz&31)*32));entry=stream.read(4)

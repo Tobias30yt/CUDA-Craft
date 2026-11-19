@@ -10,7 +10,13 @@ namespace cudacraft {
 class World;
 class GameSession;
 struct ItemStack { int item=0,count=0,damage=0; auto operator<=>(const ItemStack&) const=default; };
-struct Container {int type=0;std::array<ItemStack,27> items{};int burn_left=0,burn_total=0,cook_progress=0,cook_total=200,cook_input=0;};
+struct Container {
+    int type=0;
+    std::array<ItemStack,27> items{};
+    int burn_left=0,burn_total=0,cook_progress=0,cook_total=200,cook_input=0;
+    int transfer_cooldown=0;
+    std::uint64_t last_transfer_tick=0;
+};
 struct PlayerState {
     std::array<ItemStack,46> inventory{};
     std::array<ItemStack,9> crafting{};
@@ -32,6 +38,7 @@ public:
     explicit Simulation(World& world):world_(world){}
     void changed(BlockPos p,int before,int after,bool notify_observers=true);
     void update_copper_bulbs(BlockPos changed,int before,int after);
+    void update_droppers(BlockPos changed,int before,int after);
     void step();
     void activate(int cx,int cz,const std::vector<std::uint32_t>& blocks);
     bool interact(BlockPos p);
@@ -42,11 +49,12 @@ public:
     bool break_block(BlockPos position);
     static int container_type(int state);
     static int furnace_kind(int state);
-    static int container_slots(int state){return furnace_kind(state)?3:27;}
+    static int container_slots(int state);
     std::vector<BlockPos> container_positions(BlockPos position) const;
     Container* container(BlockPos position,bool create=false);
     std::size_t container_drops(BlockPos position,int replacement) const;
     void container_changed(BlockPos position,int before,int after);
+    void inventory_signal_changed(BlockPos position);
     int spawn(int type,double x,double y,double z,ItemStack drop={});
     void attack(GameSession& player,int entity);
     std::string save() const;
@@ -63,6 +71,8 @@ private:
     std::set<BlockPos> circuits_;
     std::set<BlockPos> copper_bulbs_;
     std::set<BlockPos> piston_checks_;
+    std::set<BlockPos> hoppers_;
+    std::set<BlockPos> droppers_;
     std::map<BlockPos,int> comparator_outputs_;
     std::set<BlockPos> shape_updates_;
     std::set<BlockPos> portal_checks_;
@@ -79,10 +89,13 @@ private:
     int neighbor_power(BlockPos position,bool wires) const;
     int directional_input(BlockPos position,BlockPos direction) const;
     int comparator_output(BlockPos position,int state) const;
+    std::optional<int> container_signal(BlockPos position) const;
     void schedule_directional(BlockPos position);
     void tick_pistons();
     void update_shapes();
     void tick_furnaces();
+    void tick_hoppers();
+    void dispense_dropper(BlockPos position,int state);
     void tick_blocks();
     void validate_portals();
     void entities();

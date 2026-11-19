@@ -18,6 +18,7 @@ BlockPos opposite(BlockPos p){return {-p.x,-p.y,-p.z};}
 constexpr std::string_view direction_names[]={"down","up","north","south","west","east"};
 bool observer(int state) { return simdata::block(state).name == std::string_view("observer"); }
 bool comparator(int state) { return std::string_view(simdata::block(state).name)=="comparator"; }
+bool dropper(int state) { return std::string_view(simdata::block(state).name)=="dropper"; }
 bool piston(int state) {
     const std::string_view name=simdata::block(state).name;
     return name=="piston"||name=="sticky_piston";
@@ -59,11 +60,16 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     if(std::string_view(simdata::block(after).name)=="nether_portal"&&portal_checks_.size()<65536)portal_checks_.insert(p);
     for(auto d:dirs){auto n=add(p,d);if(portal_checks_.size()<65536&&std::string_view(simdata::block(world_.block(n)).name)=="nether_portal")portal_checks_.insert(n);}
     const auto name=std::string_view(simdata::block(after).name);
+    if(name=="hopper")hoppers_.insert(p);
+    else if(std::string_view(simdata::block(before).name)=="hopper")hoppers_.erase(p);
+    if(dropper(after))droppers_.insert(p);
+    else if(dropper(before))droppers_.erase(p);
     if(name.ends_with("_button")&&simdata::property_value(after,"powered")=="true")button_releases_[p]=tick+(name=="stone_button"||name=="polished_blackstone_button"?20:30);
     else button_releases_.erase(p);
     if(ticking_block(after)&&ticking_blocks_.size()<65536)ticking_blocks_.insert(p);else ticking_blocks_.erase(p);
     container_changed(p,before,after);
-    devices_.erase(p);
+    if(!dropper(before)||!dropper(after)||observer_face(before)!=observer_face(after))
+        devices_.erase(p);
     if(simdata::circuit(after)||observer(after)||comparator(after)) circuits_.insert(p); else circuits_.erase(p);
     if(comparator(before)&&(!comparator(after)||observer_face(before)!=observer_face(after)))
         comparator_outputs_.erase(p);
@@ -189,14 +195,14 @@ int Simulation::placement(int item,int face,float yaw,float pitch) const {
     if(item==redstone_block_item)return redstone_block_state;
     if(item==crafting_table_item)return crafting_table_state;
     int state=World::item_state(item);
-    if(observer(state)||piston(state)) {
+    if(observer(state)||piston(state)||dropper(state)) {
         constexpr double radians=3.14159265358979323846/180;
         const double horizontal=std::cos(pitch*radians);
         const double x=-std::sin(yaw*radians)*horizontal;
         const double z=std::cos(yaw*radians)*horizontal;
         const double y=-std::sin(pitch*radians);
         const int direction=std::abs(y)>std::max(std::abs(x),std::abs(z))?(y>0?1:0):2+toward[look];
-        const auto index=piston(state)?direction^1:direction;
+        const auto index=observer(state)?direction:direction^1;
         return with_property(state,"facing",direction_names[index]);
     }
     state=with_property(state,"axis",face<2?"y":face<4?"z":"x");
@@ -360,7 +366,7 @@ int Simulation::comparator_output(BlockPos position,int state) const {
         const int value=world_.block(p);
         if(copper_bulb(value))return property_value(value,"lit")=="true"?15:0;
         if(std::string_view(block(value).name)=="composter")return std::stoi(std::string(property_value(value,"level")));
-        return std::nullopt;
+        return container_signal(p);
     };
     const auto rear=add(position,direction);
     int input=directional_input(position,direction);
@@ -373,6 +379,39 @@ int Simulation::comparator_output(BlockPos position,int state) const {
                                emitted_power(add(position,opposite(side)),position,true));
     if(property_value(state,"mode")=="subtract")return std::max(0,input-control);
     return input>=control?input:0;
+}
+
+std::optional<int> Simulation::container_signal(BlockPos position) const {
+    const auto banks=container_positions(position);
+    if(banks.empty())return std::nullopt;
+    double fullness=0;
+    int slots=0;
+    for(const auto bank:banks) {
+        const int count=container_slots(container_type(world_.block(bank)));
+        slots+=count;
+        const auto storage=containers.find(bank);
+        if(storage==containers.end())continue;
+        for(int slot=0;slot<count;++slot) {
+            const auto& item=storage->second.items[slot];
+            if(const auto* definition=simdata::item(item.item))
+                fullness+=static_cast<double>(item.count)/definition->stack;
+        }
+    }
+    return fullness>0?1+static_cast<int>(std::floor(fullness*14/slots)):0;
+}
+
+void Simulation::inventory_signal_changed(BlockPos position) {
+    for(const auto bank:container_positions(position)) {
+        for(auto direction:facing) {
+            const auto adjacent=add(bank,direction);
+            const auto indirect=add(adjacent,direction);
+            for(const auto candidate:{adjacent,indirect}) {
+                if(!circuits_.contains(candidate))continue;
+                const int state=world_.block(candidate);
+                if(comparator(state)&&observer_face(state)==opposite(direction))schedule_directional(candidate);
+            }
+        }
+    }
 }
 
 void Simulation::schedule_directional(BlockPos position) {
@@ -699,7 +738,9 @@ void Simulation::step() {
         if(pending==devices_.end()||pending->second.due>tick||pending->second.state!=s)continue;
         devices_.erase(p);
         const int current=world_.block(p);
-        if(comparator(s)&&comparator(current)) {
+        if(dropper(s)&&dropper(current)) {
+            dispense_dropper(p,current);
+        } else if(comparator(s)&&comparator(current)) {
             const int output=comparator_output(p,current);
             if(output)comparator_outputs_[p]=output;
             else comparator_outputs_.erase(p);
@@ -712,7 +753,7 @@ void Simulation::step() {
                 devices_.emplace(p,Event{tick+2,simdata::with_property(s,"powered","false")});
         } else if(simdata::circuit(current))world_.set(p,s);
     }
-    redstone();tick_pistons();entities();
+    redstone();tick_pistons();tick_hoppers();entities();
     const auto players=world_.players;for(auto* player:players)if(&player->world()==&world_)player->simulation_tick();
 }
 std::string Simulation::save() const {
@@ -727,6 +768,8 @@ std::string Simulation::save() const {
         nlohmann::json items=nlohmann::json::array();for(auto item:container.items)items.push_back(stack_json(item));
         j["containers"].push_back({{"position",{p.x,p.y,p.z}},{"type",container.type},{"items",std::move(items)},
             {"burn_left",container.burn_left},{"burn_total",container.burn_total},{"cook_progress",container.cook_progress},{"cook_total",container.cook_total},{"cook_input",container.cook_input}});
+        if(std::string_view(simdata::block(container.type).name)=="hopper")
+            j["containers"].back()["transfer_cooldown"]=container.transfer_cooldown;
     }
     for(const auto& [uuid,s]:saved_players) {
         auto& p=j["players"][uuid];p={{"position",{s.x,s.y,s.z}},{"health",s.health},{"food",s.food},{"saturation",s.saturation},{"exhaustion",s.exhaustion},{"mode",s.mode},{"items",nlohmann::json::array()}};
@@ -765,8 +808,11 @@ void Simulation::load(std::string_view text) {
             for(int i=0;i<27;++i)container.items[i]=read_stack(entry.at("items").at(i));
             container.burn_left=entry.value("burn_left",0);container.burn_total=entry.value("burn_total",0);
             container.cook_progress=entry.value("cook_progress",0);container.cook_total=entry.value("cook_total",200);container.cook_input=entry.value("cook_input",0);
+            container.transfer_cooldown=entry.value("transfer_cooldown",0);
+            if(container.transfer_cooldown < -1||container.transfer_cooldown>8)throw std::runtime_error("Invalid hopper cooldown");
             if(container.burn_left<0||container.burn_total<container.burn_left||container.burn_total>20000||container.cook_total<1||container.cook_total>2000||container.cook_progress<0||container.cook_progress>=container.cook_total||(container.cook_input&&!simdata::item(container.cook_input)))throw std::runtime_error("Invalid furnace progress");
-            if(furnace_kind(container.type))for(int i=3;i<27;++i)if(container.items[i].item)throw std::runtime_error("Invalid hidden furnace inventory");
+            for(int i=container_slots(container.type);i<27;++i)
+                if(container.items[i].item)throw std::runtime_error("Invalid hidden container inventory");
             containers.emplace(p,container);
         }
     }
@@ -774,7 +820,8 @@ void Simulation::load(std::string_view text) {
     for(const auto& e:j.at("devices")) {
         BlockPos p{e.at(0),e.at(1),e.at(2)};
         Event event{e.at(3),e.at(4)};
-        if(!World::valid(p)||event.due>tick+1200||(!simdata::circuit(event.state)&&!observer(event.state)&&!comparator(event.state)))
+        if(!World::valid(p)||event.due>tick+1200||
+           (!simdata::circuit(event.state)&&!observer(event.state)&&!comparator(event.state)&&!dropper(event.state)))
             throw std::runtime_error("Invalid redstone tick");
         if(observer(event.state)) {
             const int current=world_.block(p);

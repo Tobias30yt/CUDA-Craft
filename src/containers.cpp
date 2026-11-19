@@ -13,7 +13,12 @@ bool same(ItemStack a,ItemStack b){return a.item==b.item&&a.damage==b.damage;}
 }
 int Simulation::container_type(int state) {
     const auto& block=simdata::block(state);const std::string_view name=block.name;
-    return name=="chest"||name=="trapped_chest"||name=="barrel"||furnace_kind(state)?block.first:0;
+    return name=="chest"||name=="trapped_chest"||name=="barrel"||name=="hopper"||name=="dropper"||furnace_kind(state)?block.first:0;
+}
+int Simulation::container_slots(int state) {
+    if(furnace_kind(state))return 3;
+    const std::string_view name=simdata::block(state).name;
+    return name=="hopper"?5:name=="dropper"?9:27;
 }
 int Simulation::furnace_kind(int state){std::string_view name=simdata::block(state).name;return name=="furnace"?1:name=="blast_furnace"?2:name=="smoker"?3:0;}
 std::vector<BlockPos> Simulation::container_positions(BlockPos p) const {
@@ -70,7 +75,10 @@ bool GameSession::open_container(BlockPos p) {
     close_crafting();container_positions_=std::move(positions);container_anchor_=p;container_type_=Simulation::container_type(world_->block(p));
     container_window_=next_container_window_;next_container_window_=next_container_window_==100?2:next_container_window_+1;
     const int kind=Simulation::furnace_kind(container_type_);
-    send(Packet(0x39).var(container_window_).var(kind==1?14:kind==2?10:kind==3?22:container_positions_.size()==2?5:2).text(kind==1?"Furnace":kind==2?"Blast Furnace":kind==3?"Smoker":name=="barrel"?"Barrel":container_positions_.size()==2?"Large Chest":"Chest"));
+    const int menu=kind==1?14:kind==2?10:kind==3?22:name=="hopper"?16:name=="dropper"?6:container_positions_.size()==2?5:2;
+    const char* title=kind==1?"Furnace":kind==2?"Blast Furnace":kind==3?"Smoker":name=="hopper"?"Item Hopper":
+        name=="dropper"?"Dropper":name=="barrel"?"Barrel":container_positions_.size()==2?"Large Chest":"Chest";
+    send(Packet(0x39).var(container_window_).var(menu).text(title));
     inventory_sync();return true;
 }
 void GameSession::container_changed(BlockPos p,bool removed) {
@@ -120,6 +128,7 @@ void GameSession::container_click(int index,int button,int mode) {
         const int count=button?dst.count:1;if(world_->simulation().spawn(71,x,y+1,z,{dst.item,count,dst.damage})){dst.count-=count;if(!dst.count)dst={};}
     }
     world_->mark_dirty();
+    for(const auto bank:container_positions_)world_->simulation().inventory_signal_changed(bank);
     // Each viewer receives its own new revision; stale clicks are resynchronized.
     for(auto* peer:world_->players)if(peer->container_positions_==container_positions_)peer->inventory_sync();
 }
@@ -130,6 +139,144 @@ void GameSession::container_properties() {
     for(int i=0;i<4;++i)send(Packet(0x13).var(container_window_).u16(static_cast<std::uint16_t>(i)).u16(static_cast<std::uint16_t>(values[i])));
 }
 void GameSession::container_progress(BlockPos p){if(container_positions_.size()==1&&container_positions_.front()==p)container_properties();}
+
+void Simulation::update_droppers(BlockPos changed,int before,int after) {
+    using namespace simdata;
+    if(droppers_.empty())return;
+    if(std::string_view(block(before).name)=="dropper"&&block(before).first==block(after).first&&
+       property_value(before,"facing")==property_value(after,"facing"))return;
+    auto update=[&](BlockPos position) {
+        if(!droppers_.contains(position))return;
+        const int state=world_.block(position);
+        const bool powered=neighbor_power(position,true)>0||neighbor_power(offset(position,{0,1,0}),true)>0;
+        if(powered==(property_value(state,"triggered")=="true"))return;
+        const int next=with_property(state,"triggered",powered?"true":"false");
+        if(world_.set(position,next)&&powered&&devices_.size()<65536)
+            devices_.try_emplace(position,Event{tick+4,next});
+    };
+    constexpr BlockPos adjacent[]={{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
+    for(const auto source:{changed,offset(changed,{0,-1,0})}) {
+        update(source);
+        for(auto direction:adjacent) {
+            const auto neighbor=offset(source,direction);
+            update(neighbor);
+            for(auto second:adjacent)update(offset(neighbor,second));
+        }
+    }
+}
+
+void Simulation::dispense_dropper(BlockPos position,int state) {
+    using namespace simdata;
+    auto* source=container(position);
+    if(!source)return;
+    std::array<int,9> occupied{};
+    std::size_t count=0;
+    for(int slot=0;slot<9;++slot)if(source->items[slot].item)occupied[count++]=slot;
+    if(!count)return;
+    auto random=static_cast<std::uint64_t>(world_.options().seed)^packed_position(position)^(tick*0x9e3779b97f4a7c15ULL);
+    random^=random>>30; random*=0xbf58476d1ce4e5b9ULL; random^=random>>27;
+    auto& item_stack=source->items[occupied[random%count]];
+    const auto direction=property_value(state,"facing");
+    const BlockPos facing=direction=="up"?BlockPos{0,1,0}:direction=="down"?BlockPos{0,-1,0}:
+        direction=="north"?BlockPos{0,0,-1}:direction=="south"?BlockPos{0,0,1}:
+        direction=="west"?BlockPos{-1,0,0}:BlockPos{1,0,0};
+    const auto target=offset(position,facing);
+    auto notify=[&](BlockPos p) {
+        inventory_signal_changed(p);
+        for(auto* player:world_.players)player->container_changed(p);
+    };
+    bool transferred=false;
+    if(container_type(world_.block(target))) {
+        for(const auto bank:container_positions(target)) {
+            auto* receiver=container(bank,true);
+            if(!receiver||furnace_kind(receiver->type))continue;
+            for(int slot=0;slot<container_slots(receiver->type);++slot) {
+                auto& destination=receiver->items[slot];
+                if(destination.item&&(!same(destination,item_stack)||destination.count>=item(item_stack.item)->stack))continue;
+                destination={item_stack.item,destination.count+1,item_stack.damage};
+                notify(bank);
+                transferred=true;
+                break;
+            }
+            if(transferred)break;
+        }
+    } else {
+        transferred=spawn(71,target.x+.5,target.y+.5,target.z+.5,{item_stack.item,1,item_stack.damage})!=0;
+    }
+    if(!transferred)return;
+    if(!--item_stack.count)item_stack={};
+    notify(position);
+    world_.mark_dirty();
+}
+
+void Simulation::tick_hoppers() {
+    using namespace simdata;
+    auto changed=[&](BlockPos position) {
+        world_.mark_dirty();
+        inventory_signal_changed(position);
+        for(auto* player:world_.players)player->container_changed(position);
+    };
+    auto transfer=[&](BlockPos from,BlockPos to) {
+        if(from==to)return false;
+        auto* source=container(from);
+        if(!source||furnace_kind(source->type))return false; // Sided furnace slots are separate.
+        const int target_type=container_type(world_.block(to));
+        if(!target_type||furnace_kind(target_type))return false;
+        for(int i=0;i<container_slots(source->type);++i) {
+            auto& item=source->items[i];
+            if(!item.item)continue;
+            auto* target=container(to,true);
+            if(!target)return false;
+            const auto limit=simdata::item(item.item)->stack;
+            const int slots=container_slots(target->type);
+            const bool was_empty=std::none_of(target->items.begin(),target->items.begin()+slots,
+                                              [](const auto& stack){return stack.item!=0;});
+            for(int slot=0;slot<slots;++slot) {
+                auto& destination=target->items[slot];
+                if(destination.item&&(!same(destination,item)||destination.count>=limit))continue;
+                destination={item.item,destination.count+1,item.damage};
+                if(!--item.count)item={};
+                if(was_empty&&std::string_view(block(target->type).name)=="hopper"&&target->transfer_cooldown<=8)
+                    target->transfer_cooldown=target->last_transfer_tick==tick?7:8;
+                changed(from);
+                changed(to);
+                return true;
+            }
+        }
+        return false;
+    };
+    for(auto p:hoppers_) {
+        int state=world_.block(p);
+        const bool enabled=neighbor_power(p,true)==0;
+        const int next=with_property(state,"enabled",enabled?"true":"false");
+        if(next!=state)world_.set(p,next);
+        auto* hopper=container(p);
+        if(hopper) {
+            hopper->last_transfer_tick=tick;
+            if(hopper->transfer_cooldown>0) {
+                --hopper->transfer_cooldown;
+                world_.mark_dirty();
+            }
+            if(hopper->transfer_cooldown>0)continue;
+        }
+        if(!enabled)continue;
+        const auto facing=property_value(state,"facing");
+        const BlockPos direction=facing=="north"?BlockPos{0,0,-1}:facing=="south"?BlockPos{0,0,1}:
+            facing=="west"?BlockPos{-1,0,0}:facing=="east"?BlockPos{1,0,0}:BlockPos{0,-1,0};
+        bool moved=transfer(p,offset(p,direction));
+        const auto source=offset(p,{0,1,0});
+        for(const auto bank:container_positions(source)) {
+            if(transfer(bank,p)) { moved=true; break; }
+        }
+        if(moved) {
+            auto* current=container(p);
+            current->transfer_cooldown=8;
+            current->last_transfer_tick=tick;
+            world_.mark_dirty();
+        }
+    }
+}
+
 void Simulation::tick_furnaces() {
     for(auto& [p,c]:containers) {
         const int kind=furnace_kind(c.type);if(!kind)continue;
@@ -161,6 +308,7 @@ void Simulation::tick_furnaces() {
         const bool progress_changed=before.burn_left!=c.burn_left||before.burn_total!=c.burn_total||before.cook_progress!=c.cook_progress||before.cook_total!=c.cook_total||before.cook_input!=c.cook_input;
         if(items_changed||progress_changed) {
             world_.mark_dirty();
+            if(items_changed)inventory_signal_changed(p);
             for(auto* player:world_.players) {if(items_changed)player->container_changed(p);else player->container_progress(p);}
         }
     }

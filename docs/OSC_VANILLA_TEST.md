@@ -1,6 +1,6 @@
 # Orbital Strike Cannon: Vanilla-Abnahmetest für 1.21.11
 
-Stand: 18.11.2026. **Noch nicht lauffähig auf CUDA Craft.** Das ist ein
+Stand: 19.11.2026. **Vollständige Schussfolge weiterhin offen.** Das ist ein
 Integrationsziel, kein bestandener Test und kein Ersatz für die übrigen Vanilla-Tests.
 Der Nutzer hat nach der Versionsprüfung ausdrücklich Minecraft **1.21.11** und
 eine passende **Mk.6/MS** als Ziel gewählt.
@@ -44,6 +44,44 @@ Vanilla 1.21.11 bestätigen. **Bevorzugtes erweitertes Ziel:** MS-Hauptkanone un
 MS-Nether. Für das neu gespeicherte MS-Panel muss zuvor ein kompletter Vanilla-Lauf
 in 1.21.11 gelingen oder eine originale ältere Panel-Version beschafft werden.
 Ein bestandener Registry-Check allein reicht nicht für diese Freigabe.
+
+## Import der Mk.6.1-Originaldateien
+
+Der Prüfer setzt jede Datei separat in einer temporären Vanilla-Welt
+zusammen und liest die gespeicherten Chunks zurück. Die Teilregionen des
+Hauptaufbaus enthalten 807 identische Blocküberschneidungen. Für doppelte
+Block-Entitäten werden die verschiedenen lokalen Koordinaten erst auf
+dieselbe Weltposition bezogen und dann die Inhalte verglichen.
+
+| Originaldatei | Exakte Blockzustände auf beiden Servern | Geprüfte Vanilla-Block-Entitäten | Vanilla-Fahrzeuge | Wiederhergestellte Vanilla-Ticks |
+|---|---:|---:|---:|---:|
+| Mk.6.1 Hauptaufbau | 12.694 | 587 | 4 | 4 Block |
+| OSC 6 Control Panel | 3.407 | 239 | 1 | 53 Block, 1 Flüssigkeit |
+| OSC 6 Nether | 44 | 0 | 0 | 0 |
+
+Auf Vanilla werden Block-Entitäten anhand von Typ, gespeicherten Gegenständen,
+Komparatorwert und Hopper-Cooldown geprüft. Beim Fahrzeugvergleich zählen Typ
+und Position. Die Ticklisten im Anvil-Save enthalten Position, Typ, Verzögerung
+und Priorität. Die Reihenfolge gleicher Ticks wird innerhalb eines Chunks
+erhalten. Die Tests prüfen separate Platzierungen und Save-Rundläufe.
+Der zusammengeschaltete Originalaufbau und die Ausführung dieser Ticks wurden
+bisher nicht geprüft.
+
+Auf CUDA Craft bestätigt ein temporärer Save denselben Blockzustand an
+jeder belegten Position sowie im Hauptaufbau 313 unterstützte Inventare,
+70 aktive Komparatorwerte und vier geplante Komparator-Tick-Verzögerungen.
+Im Bedienpanel werden 64 Inventare, fünf Komparatorwerte und eine Verzögerung
+übernommen. Fahrzeuge, native Tickprioritäten und weitere Block-Entitäten
+fehlen noch im nativen Fixture-Import. Der Nether-Loader wurde separat
+auf einer flachen Referenzfläche platziert. Der Dimensionsübergang steht aus.
+
+```powershell
+python tools/check-vanilla-litematic.py ".tools/osc-research/The Orbital Strike Cannon Mk.6.1.litematic" --java "C:/Program Files/Java/jdk-23/bin/java.exe"
+python tools/check-native-litematic.py ".tools/osc-research/The Orbital Strike Cannon Mk.6.1.litematic" --probe build/cuda/redstone-probe.exe
+```
+
+Für einen Lauf mit fest vorgegebenen Eingaben kann man beiden Prüfern mit
+`--sha256` den Hash aus [osc-fixture-audit.json](osc-fixture-audit.json) übergeben.
 
 ## Was implementiert werden muss
 
@@ -123,6 +161,7 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 |---|---:|---:|
 | Observer und acht Kupferlampenvarianten | 9/9 | 9/9 |
 | Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 5/5 |
+| Fassinventar durch Vollblock, Hopper- und Dropper-Transfer | 3/3 | 3/3 |
 | Kolben, klebriger Kolben, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 8/8 | 8/8 |
 | Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 
@@ -136,7 +175,7 @@ Live-Lauf prüft Ein- und Ausschalten im bereits geladenen Chunk unabhängig
 voneinander. Der Client erhält jeweils den neuen Blockzustand und ein Lichtpaket,
 das den Wert über der Lampe von 0 auf 14 oder von 14 auf 0 ändert.
 
-Nach dem nativen Build führt CTest alle 23 Schaltungen und alle drei Lichtprüfungen
+Nach dem nativen Build führt CTest alle 26 Schaltungen und alle drei Lichtprüfungen
 regulär aus. Der folgende Befehl wiederholt auch den Vanilla-Vergleich:
 
 ```powershell
@@ -144,12 +183,12 @@ python tests/redstone_fixtures.py build/cuda/redstone-probe.exe --all --java "C:
 python tests/bulb_light_network_test.py build/cuda/cuda-craft.exe build/cuda/login-test-server.exe --live
 ```
 
-Die Testfälle für Inventartransfers, Schienen und Fahrzeuge, TNT-Bewegung,
+Weitere Testfälle für Inventartransfers, Schienen und Fahrzeuge, TNT-Bewegung,
 Chunk-Lebenszyklus sowie die komplette originale Mk.6.1/MS-Schussfolge stehen
 noch aus. Kolben verschieben Blöcke in einer Transaktion. Animation, bewegte
 Kollision und die genaue Reihenfolge komplexer Kolbenkreise stehen noch aus.
-Komparatoren lesen in der Teilabnahme Kupferlampen und Komposter. Weitere
-analoge Quellen, insbesondere Inventare, sind offen. Licht wird innerhalb
+Komparatoren lesen in der Teilabnahme Kupferlampen, Komposter und Inventare.
+Weitere analoge Quellen und der Zufallszustand der Dropper sind offen. Licht wird innerhalb
 eines Chunks berechnet. Die Ausbreitung über Chunkgrenzen bleibt offen.
 
 Noch wurde weder eine vollständige Vanilla-Referenzschussfolge aufgezeichnet noch
