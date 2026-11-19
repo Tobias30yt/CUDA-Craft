@@ -93,7 +93,15 @@ Vanilla-Trace belegt ist, steht sie als zu prüfende Anforderung, nicht als Befu
 6. TPS/MSPT, Peak-RAM und aktive Entitäten zusätzlich messen. Performance ist ein
    separates Kriterium; ein schneller falscher Treffer besteht den Vanilla-Test nicht.
 
-Der derzeitige Stand ist **Dateiaudit bestanden, Spielmechanik-Integration offen**.
+Der derzeitige Stand ist **Dateiaudit und erster Observer-Baustein bestanden**.
+Ein Observer an der Chunkgrenze zeigte auf dem offiziellen 1.21.11-Server
+nach einer Änderung vor seiner Vorderseite über vier Spielticks die Folge
+`aus, an, an, aus`. Die hintere Lampe leuchtete beim Einschalten, die seitliche
+blieb aus. Dieselbe Schaltung ist im nativen Simulationstest abgedeckt. Dort
+werden zusätzlich zusammengefasste Änderungen und Neustarts während des Impulses
+geprüft. Der Referenzlauf lässt sich mit
+`python tools/check-vanilla-observer.py --java PATH` wiederholen.
+
 Noch wurde weder eine vollständige Vanilla-Referenzschussfolge aufgezeichnet noch
 die Kanone im nativen Backend ausgeführt. Sie darf daher nicht als Beleg für
 Release-Reife oder allgemeine Vanilla-Parität genannt werden.

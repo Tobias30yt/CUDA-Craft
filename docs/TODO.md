@@ -4,7 +4,7 @@ Stand: 18.11.2026, Version 0.11.5, Minecraft Java 1.21.11.
 
 Die [Aufgabenliste](implementation-backlog.json) enthält 59 priorisierte Aufgaben
 mit Status, nächstem Schritt, Abnahmekriterium und Abhängigkeiten. Davon sind
-26 offen, 32 teilweise umgesetzt und eine erledigt. Diese Zahlen beschreiben
+25 offen, 33 teilweise umgesetzt und eine erledigt. Diese Zahlen beschreiben
 den ausgewählten Entwicklungsplan, keinen prozentualen Vanilla-Fertigstellungsgrad.
 
 ## Als Nächstes

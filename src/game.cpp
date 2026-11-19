@@ -266,7 +266,7 @@ void GameSession::handle(std::span<const std::uint8_t> payload) {
         constexpr int directions[6][3]={{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
         BlockPos target{clicked.x+directions[face][0],clicked.y+directions[face][1],clicked.z+directions[face][2]};
         if(world_->block(clicked)!=0 && replaceable(world_->block(clicked))) target=clicked;
-        int state=world_->simulation().placement(inventory_[held_slot].item,face,yaw);
+        int state=world_->simulation().placement(inventory_[held_slot].item,face,yaw,pitch);
         const bool top=face==0||(face>=2&&cursor_y>.5f);
         state=simdata::with_property(state,"half",top?"top":"bottom");
         if(std::string_view(simdata::block(state).name).ends_with("_slab"))state=simdata::with_property(state,"type",top?"top":"bottom");

@@ -30,13 +30,13 @@ struct Mob {
 class Simulation {
 public:
     explicit Simulation(World& world):world_(world){}
-    void changed(BlockPos p,int before,int after);
+    void changed(BlockPos p,int before,int after,bool notify_observers=true);
     void step();
     void activate(int cx,int cz,const std::vector<std::uint32_t>& blocks);
     bool interact(BlockPos p);
     bool fertilize(BlockPos p);
     static bool ticking_block(int state);
-    int placement(int item,int face,float yaw) const;
+    int placement(int item,int face,float yaw,float pitch=0) const;
     bool place_block(BlockPos position,int state);
     bool break_block(BlockPos position);
     static int container_type(int state);

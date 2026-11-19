@@ -66,6 +66,66 @@ void redstone_tests() {
     torch.simulation().interact({1,64,0});torch.advance_ticks(4);
     check(torch.block({0,65,0})==sd::redstone_torch_first,"torch reactivates");
 }
+void observer_tests() {
+    const BlockPos sensor{15,64,0}, front{16,64,0}, back{14,64,0}, side{15,64,1};
+    const int item=sd::item_id("observer");
+    const int unpowered=sd::with_property(sd::default_state("observer"),"facing","east");
+    const int powered=sd::with_property(unpowered,"powered","true");
+    const int lamp=sd::redstone_lamp_state;
+    auto fixture=[&](World& world) {
+        world.set(sensor,unpowered);
+        world.set(back,lamp);
+        world.set(side,lamp);
+    };
+    World w;
+    fixture(w);
+    check(w.simulation().placement(item,1,-90)==unpowered,"observer faces horizontal look direction");
+    check(sd::property_value(w.simulation().placement(item,1,0,90),"facing")=="down","observer detects below when placed looking down");
+    check(sd::property_value(w.simulation().placement(item,0,0,-90),"facing")=="up","observer detects above when placed looking up");
+    w.advance_ticks(4);
+    check(w.block(sensor)==unpowered,"side and rear updates do not trigger observer");
+    w.set(front,1);
+    w.advance_ticks(1);
+    check(w.block(sensor)==unpowered,"observer waits one more game tick");
+    w.set(front,0);
+    w.advance_ticks(1);
+    check(w.block(sensor)==powered,"front updates coalesce without delaying the pulse across a chunk boundary");
+    check(w.block(back)==sd::redstone_lamp_first&&w.block(side)==lamp,"observer only powers rear output");
+    w.set(front,1);
+    w.advance_ticks(1);
+    check(w.block(sensor)==powered,"observer pulse remains high on its second tick");
+    w.advance_ticks(3);
+    check(w.block(sensor)==unpowered,"updates while powered do not retrigger");
+    w.set(front,0);
+    w.set(sensor,1);
+    w.set(sensor,unpowered);
+    w.advance_ticks(4);
+    check(w.block(sensor)==unpowered,"replacing observer cancels its pending pulse");
+
+    const auto directory=std::filesystem::temp_directory_path()/
+        ("cuda-observer-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    {
+        World saved(directory);
+        fixture(saved);
+        saved.set(front,1);
+        saved.advance_ticks(1);
+    }
+    {
+        World loaded(directory);
+        check(loaded.block(sensor)==unpowered,"pending pulse persists unpowered");
+        loaded.advance_ticks(1);
+        check(loaded.block(sensor)==powered,"pending pulse triggers on the original tick after restart");
+    }
+    {
+        World loaded(directory);
+        loaded.advance_ticks(1);
+        check(loaded.block(sensor)==powered,"active pulse remains high after restart");
+        loaded.advance_ticks(12);
+        check(loaded.block(sensor)==unpowered&&loaded.block(back)==lamp,"restored pulse expires and reload creates no new pulse");
+    }
+    for(const char* file:{"blocks.json","native-world.lock"})std::filesystem::remove(directory/file);
+    std::filesystem::remove(directory);
+}
 struct Session {
     World world;
     int revision=0;float health=20;int food=20;bool died=false;int respawns=0,spawns=0;
@@ -382,4 +442,4 @@ void crafting_capacity_tests() {
     check(bulk.saved().inventory[9].count==64&&bulk.saved().crafting[0].item==0,"shift crafting fills remaining inventory capacity");
     check(bulk.world.simulation().mobs.size()==1&&bulk.world.simulation().mobs.begin()->second.drop.count==3,"partial shift output drops the remaining three planks exactly once");
 }
-int main(){try{water_tests();redstone_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+int main(){try{water_tests();redstone_tests();observer_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

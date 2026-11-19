@@ -15,6 +15,14 @@ constexpr BlockPos dirs[]={{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
 constexpr BlockPos facing[]={{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
 BlockPos add(BlockPos a,BlockPos b){return {a.x+b.x,a.y+b.y,a.z+b.z};}
 BlockPos opposite(BlockPos p){return {-p.x,-p.y,-p.z};}
+constexpr std::string_view direction_names[]={"down","up","north","south","west","east"};
+bool observer(int state) { return simdata::block(state).name == std::string_view("observer"); }
+bool observer_powered(int state) { return simdata::property_value(state,"powered")=="true"; }
+BlockPos observer_face(int state) {
+    const auto direction=simdata::property_value(state,"facing");
+    for(int i=0;i<6;++i)if(direction_names[i]==direction)return dirs[i];
+    return dirs[3];
+}
 BlockPos state_direction(int s){auto f=simdata::property_value(s,"facing");return f=="north"?facing[0]:f=="south"?facing[1]:f=="west"?facing[2]:facing[3];}
 bool paired_vertical(int s){const auto half=simdata::property_value(s,"half");return half=="lower"||half=="upper";}
 bool bed(int s){return std::string_view(simdata::block(s).name).ends_with("_bed");}
@@ -42,7 +50,7 @@ void Simulation::schedule_water(BlockPos p,std::uint64_t delay) {
     if(!inserted) i->second=std::min(i->second,due);
     world_.mark_dirty();
 }
-void Simulation::changed(BlockPos p,int before,int after) {
+void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) {
     if(std::string_view(simdata::block(after).name)=="nether_portal"&&portal_checks_.size()<65536)portal_checks_.insert(p);
     for(auto d:dirs){auto n=add(p,d);if(portal_checks_.size()<65536&&std::string_view(simdata::block(world_.block(n)).name)=="nether_portal")portal_checks_.insert(n);}
     const auto name=std::string_view(simdata::block(after).name);
@@ -51,9 +59,21 @@ void Simulation::changed(BlockPos p,int before,int after) {
     if(ticking_block(after)&&ticking_blocks_.size()<65536)ticking_blocks_.insert(p);else ticking_blocks_.erase(p);
     container_changed(p,before,after);
     devices_.erase(p);
-    if(simdata::circuit(after)) circuits_.insert(p); else circuits_.erase(p);
+    if(simdata::circuit(after)||observer(after)) circuits_.insert(p); else circuits_.erase(p);
     if(name.ends_with("_button")||name.ends_with("_pressure_plate")){circuits_.insert(p);redstone_dirty_=true;}
-    if(simdata::circuit(before)||simdata::circuit(after)||!circuits_.empty()) redstone_dirty_=true;
+    if(simdata::circuit(before)||simdata::circuit(after)||observer(before)||!circuits_.empty()) redstone_dirty_=true;
+    if(notify_observers && before!=after) {
+        for(auto direction:dirs) {
+            const auto neighbor=add(p,direction);
+            if(!circuits_.contains(neighbor))continue;
+            const int state=world_.block(neighbor);
+            if(observer(state)&&!observer_powered(state)&&add(neighbor,observer_face(state))==p
+                &&!devices_.contains(neighbor)&&devices_.size()<65536) {
+                devices_.emplace(neighbor,Event{tick+2,simdata::with_property(state,"powered","true")});
+                world_.mark_dirty();
+            }
+        }
+    }
     if(simdata::water(fluid_state(after))) schedule_water(p);
     for(auto d:dirs) { auto n=add(p,d); if(World::valid(n)&&simdata::water(fluid_state(world_.block(n)))) schedule_water(n); }
     if(connects(after))shape_updates_.insert(p);
@@ -133,7 +153,7 @@ void Simulation::flow(BlockPos p) {
     }
     for(int d=2;d<6;++d) if(distances[d-2]==best&&best<2000) world_.set(add(p,dirs[d]),86+spread);
 }
-int Simulation::placement(int item,int face,float yaw) const {
+int Simulation::placement(int item,int face,float yaw,float pitch) const {
     using namespace simdata;
     int look=(static_cast<int>(std::floor(yaw/90.0f+0.5f))%4+4)%4;
     const int toward[]={1,2,0,3};const int away[]={0,3,1,2};
@@ -151,6 +171,15 @@ int Simulation::placement(int item,int face,float yaw) const {
     if(item==redstone_block_item)return redstone_block_state;
     if(item==crafting_table_item)return crafting_table_state;
     int state=World::item_state(item);
+    if(observer(state)) {
+        constexpr double radians=3.14159265358979323846/180;
+        const double horizontal=std::cos(pitch*radians);
+        const double x=-std::sin(yaw*radians)*horizontal;
+        const double z=std::cos(yaw*radians)*horizontal;
+        const double y=-std::sin(pitch*radians);
+        const int direction=std::abs(y)>std::max(std::abs(x),std::abs(z))?(y>0?1:0):2+toward[look];
+        return with_property(state,"facing",direction_names[direction]);
+    }
     state=with_property(state,"axis",face<2?"y":face<4?"z":"x");
     constexpr const char* directions[]={"south","west","north","east"};
     const std::string_view name=block(state).name;
@@ -250,6 +279,7 @@ void Simulation::redstone() {
     auto emitted=[&](BlockPos from,BlockPos to,bool wires) {
         int s=world_.block(from);
         if(s==redstone_block_state)return 15;
+        if(observer(s))return observer_powered(s)&&to==add(from,opposite(observer_face(s)))?15:0;
         const auto name=std::string_view(block(s).name);
         if(name.ends_with("_button")||name.ends_with("_pressure_plate")) {
             if(property_value(s,"powered")=="true")return 15;
@@ -268,7 +298,7 @@ void Simulation::redstone() {
             for(auto e:dirs) {
                 const auto q=add(n,e);int s=world_.block(q);
                 // Strong power into a support block; avoids wire feedback loops.
-                if((lever(s)&&support(q,s)==n)||(torch(s)&&q.y==n.y-1)||repeater(s)||(wires&&wire(s)&&q.y==n.y+1))
+                if((lever(s)&&support(q,s)==n)||(torch(s)&&q.y==n.y-1)||repeater(s)||observer(s)||(wires&&wire(s)&&q.y==n.y+1))
                     best=std::max(best,emitted(q,n,wires));
             }
         }
@@ -296,7 +326,9 @@ void Simulation::redstone() {
         // Wire property order: east, north, power, south, west.
         auto connection=[&](int d) {
             auto n=add(p,dirs[d]);
-            if(circuit(world_.block(n)))return 1;
+            const int neighbor=world_.block(n);
+            if(observer(neighbor))return observer_face(neighbor)==dirs[d]?1:2;
+            if(circuit(neighbor))return 1;
             if(world_.solid(n)&&!world_.solid(add(p,dirs[1]))&&wire(world_.block(add(n,dirs[1]))))return 0;
             if(!world_.solid(n)&&wire(world_.block(add(n,dirs[0]))))return 1;
             return 2;
@@ -310,6 +342,7 @@ void Simulation::redstone() {
     }
     for(auto p:nodes) {
         const int state=world_.block(p);int next=state,delay=0;
+        if(observer(state))continue;
         if(torch(state)) {
             bool lit=power(support(p,state),true)==0;
             next=state-((state-redstone_torch_first)%2)+(lit?0:1);delay=2;
@@ -451,7 +484,17 @@ void Simulation::step() {
     for(auto p:due) {water_.erase(p);world_.mark_dirty();flow(p);}
     std::vector<std::pair<BlockPos,int>> events;
     for(const auto& [p,e]:devices_)if(e.due<=tick)events.emplace_back(p,e.state);
-    for(auto [p,s]:events) {devices_.erase(p);if(simdata::circuit(world_.block(p)))world_.set(p,s);}
+    for(auto [p,s]:events) {
+        const auto pending=devices_.find(p);
+        if(pending==devices_.end()||pending->second.due>tick||pending->second.state!=s)continue;
+        devices_.erase(p);
+        const int current=world_.block(p);
+        if(observer(s)) {
+            if(!observer(current)||observer_face(current)!=observer_face(s)||observer_powered(current)==observer_powered(s))continue;
+            if(world_.set(p,s)&&observer_powered(s))
+                devices_.emplace(p,Event{tick+2,simdata::with_property(s,"powered","false")});
+        } else if(simdata::circuit(current))world_.set(p,s);
+    }
     redstone();entities();
     const auto players=world_.players;for(auto* player:players)if(&player->world()==&world_)player->simulation_tick();
 }
@@ -499,7 +542,19 @@ void Simulation::load(std::string_view text) {
         }
     }
     for(const auto& e:j.at("water")) {BlockPos p{e.at(0),e.at(1),e.at(2)};auto t=e.at(3).get<std::uint64_t>();if(!World::valid(p)||t>tick+1200)throw std::runtime_error("Invalid saved water tick");water_[p]=t;}
-    for(const auto& e:j.at("devices")) {BlockPos p{e.at(0),e.at(1),e.at(2)};Event event{e.at(3),e.at(4)};if(!World::valid(p)||!simdata::circuit(event.state)||event.due>tick+1200)throw std::runtime_error("Invalid redstone tick");devices_[p]=event;}
+    for(const auto& e:j.at("devices")) {
+        BlockPos p{e.at(0),e.at(1),e.at(2)};
+        Event event{e.at(3),e.at(4)};
+        if(!World::valid(p)||event.due>tick+1200||(!simdata::circuit(event.state)&&!observer(event.state)))
+            throw std::runtime_error("Invalid redstone tick");
+        if(observer(event.state)) {
+            const int current=world_.block(p);
+            if(!observer(current)||observer_face(current)!=observer_face(event.state)
+                ||observer_powered(current)==observer_powered(event.state))
+                throw std::runtime_error("Invalid observer tick");
+        }
+        devices_[p]=event;
+    }
     for(const auto& [uuid,p]:j.at("players").items()) {
         if(uuid.size()!=32||uuid.find_first_not_of("0123456789abcdef")!=std::string::npos)throw std::runtime_error("Invalid saved player UUID");
         PlayerState s;s.x=p.at("position").at(0);s.y=p.at("position").at(1);s.z=p.at("position").at(2);s.health=p.at("health");s.food=p.at("food");s.saturation=p.at("saturation");s.exhaustion=p.at("exhaustion");s.mode=p.at("mode");

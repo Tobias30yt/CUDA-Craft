@@ -65,7 +65,7 @@ World::World(std::filesystem::path directory,TerrainOptions options,World* paren
         if (!valid(p) || p.y<=min_y()||p.y>=min_y()+height() || !simdata::valid_state(state)) throw std::runtime_error("Invalid saved block state");
         edits_[p]=state;
     }
-    for(const auto& [p,state]:edits_)simulation_->changed(p,0,state);
+    for(const auto& [p,state]:edits_)simulation_->changed(p,0,state,false);
     if(document.contains("simulation")) simulation_->load(document.at("simulation").dump());
     if(!parent_)for(int id:{1,2})if(std::filesystem::exists(directory_/(id==1?"DIM-1":"DIM1")/"blocks.json"))this->dimension(id);
 }
