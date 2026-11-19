@@ -60,6 +60,8 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     container_changed(p,before,after);
     devices_.erase(p);
     if(simdata::circuit(after)||observer(after)) circuits_.insert(p); else circuits_.erase(p);
+    if(simdata::copper_bulb(after))copper_bulbs_.insert(p);
+    else if(simdata::copper_bulb(before))copper_bulbs_.erase(p);
     if(name.ends_with("_button")||name.ends_with("_pressure_plate")){circuits_.insert(p);redstone_dirty_=true;}
     if(simdata::circuit(before)||simdata::circuit(after)||observer(before)||!circuits_.empty()) redstone_dirty_=true;
     if(notify_observers && before!=after) {
@@ -268,42 +270,73 @@ void Simulation::update_shapes() {
         if(state!=world_.block(p))world_.set(p,state);
     }
 }
+static BlockPos device_support(BlockPos p,int s) {
+    using namespace simdata;
+    if(lever(s)) {int o=s-lever_first;int face=o/8;return add(p,face==0?dirs[0]:face==2?dirs[1]:opposite(facing[(o%8)/2]));}
+    if(s>=redstone_wall_torch_first&&s<=redstone_wall_torch_last)return add(p,opposite(facing[(s-redstone_wall_torch_first)/2]));
+    return add(p,dirs[0]);
+}
+
+int Simulation::emitted_power(BlockPos from,BlockPos to,bool wires) const {
+    using namespace simdata;
+    int s=world_.block(from);
+    if(s==redstone_block_state)return 15;
+    if(observer(s))return observer_powered(s)&&to==add(from,opposite(observer_face(s)))?15:0;
+    const auto name=std::string_view(block(s).name);
+    if(name.ends_with("_button")||name.ends_with("_pressure_plate")) {
+        if(property_value(s,"powered")=="true")return 15;
+        const auto value=property_value(s,"power");if(!value.empty())return std::stoi(std::string(value));return 0;
+    }
+    if(lever(s))return (s-lever_first)%2==0?15:0;
+    if(torch(s))return (s-redstone_torch_first)%2==0&&to!=device_support(from,s)?15:0;
+    if(repeater(s))return (s-repeater_first)%2==0&&to==add(from,opposite(facing[((s-repeater_first)%16)/4]))?15:0;
+    return wires&&wire(s)?wire_power(s):0;
+}
+
+int Simulation::neighbor_power(BlockPos p,bool wires) const {
+    using namespace simdata;
+    int best=0;
+    for(auto d:dirs) {
+        const auto n=add(p,d);best=std::max(best,emitted_power(n,p,wires));
+        if(!world_.solid(n))continue;
+        for(auto e:dirs) {
+            const auto q=add(n,e);int s=world_.block(q);
+            // Strong power into a support block; avoids wire feedback loops.
+            if((lever(s)&&device_support(q,s)==n)||(torch(s)&&q.y==n.y-1)||repeater(s)||observer(s)||(wires&&wire(s)&&q.y==n.y+1))
+                best=std::max(best,emitted_power(q,n,wires));
+        }
+    }
+    return best;
+}
+
+void Simulation::update_copper_bulbs(BlockPos changed,int before,int after) {
+    using namespace simdata;
+    if(copper_bulbs_.empty())return;
+    // Switching a bulb's lit/powered bits does not alter the signal it emits.
+    if(copper_bulb(before)&&copper_bulb(after)&&block(before).first==block(after).first)return;
+    auto update=[&](BlockPos position) {
+        if(!copper_bulbs_.contains(position))return;
+        const int state=world_.block(position);
+        const bool powered=neighbor_power(position,true)>0;
+        if(powered==(property_value(state,"powered")=="true"))return;
+        int next=with_property(state,"powered",powered?"true":"false");
+        if(powered)next=with_property(next,"lit",property_value(state,"lit")=="true"?"false":"true");
+        world_.set(position,next);
+    };
+    update(changed);
+    for(auto direction:dirs) {
+        const auto neighbor=add(changed,direction);
+        update(neighbor);
+        if(!world_.solid(neighbor))continue;
+        for(auto offset:dirs) {
+            if(offset!=opposite(direction))update(add(neighbor,offset));
+        }
+    }
+}
+
 void Simulation::redstone() {
     using namespace simdata;
     if(!redstone_dirty_) return;
-    auto support=[&](BlockPos p,int s) {
-        if(lever(s)) {int o=s-lever_first;int face=o/8;return add(p,face==0?dirs[0]:face==2?dirs[1]:opposite(facing[(o%8)/2]));}
-        if(s>=redstone_wall_torch_first&&s<=redstone_wall_torch_last)return add(p,opposite(facing[(s-redstone_wall_torch_first)/2]));
-        return add(p,dirs[0]);
-    };
-    auto emitted=[&](BlockPos from,BlockPos to,bool wires) {
-        int s=world_.block(from);
-        if(s==redstone_block_state)return 15;
-        if(observer(s))return observer_powered(s)&&to==add(from,opposite(observer_face(s)))?15:0;
-        const auto name=std::string_view(block(s).name);
-        if(name.ends_with("_button")||name.ends_with("_pressure_plate")) {
-            if(property_value(s,"powered")=="true")return 15;
-            const auto value=property_value(s,"power");if(!value.empty())return std::stoi(std::string(value));return 0;
-        }
-        if(lever(s))return (s-lever_first)%2==0?15:0;
-        if(torch(s))return (s-redstone_torch_first)%2==0&&to!=support(from,s)?15:0;
-        if(repeater(s))return (s-repeater_first)%2==0&&to==add(from,opposite(facing[((s-repeater_first)%16)/4]))?15:0;
-        return wires&&wire(s)?wire_power(s):0;
-    };
-    auto power=[&](BlockPos p,bool wires) {
-        int best=0;
-        for(auto d:dirs) {
-            const auto n=add(p,d);best=std::max(best,emitted(n,p,wires));
-            if(!world_.solid(n))continue;
-            for(auto e:dirs) {
-                const auto q=add(n,e);int s=world_.block(q);
-                // Strong power into a support block; avoids wire feedback loops.
-                if((lever(s)&&support(q,s)==n)||(torch(s)&&q.y==n.y-1)||repeater(s)||observer(s)||(wires&&wire(s)&&q.y==n.y+1))
-                    best=std::max(best,emitted(q,n,wires));
-            }
-        }
-        return best;
-    };
     auto links=[&](BlockPos p) {
         std::vector<BlockPos> out;
         for(int d=2;d<6;++d) {
@@ -316,7 +349,7 @@ void Simulation::redstone() {
     };
     std::map<BlockPos,int> strength;std::deque<BlockPos> queue;
     const auto nodes=circuits_;
-    for(auto p:nodes) if(wire(world_.block(p))) {strength[p]=power(p,false);if(strength[p])queue.push_back(p);}
+    for(auto p:nodes) if(wire(world_.block(p))) {strength[p]=neighbor_power(p,false);if(strength[p])queue.push_back(p);}
     while(!queue.empty()) {
         auto p=queue.front();queue.pop_front();
         for(auto n:links(p)) if(strength.contains(n)&&strength[n]<strength[p]-1) {strength[n]=strength[p]-1;queue.push_back(n);}
@@ -344,17 +377,17 @@ void Simulation::redstone() {
         const int state=world_.block(p);int next=state,delay=0;
         if(observer(state))continue;
         if(torch(state)) {
-            bool lit=power(support(p,state),true)==0;
+            bool lit=neighbor_power(device_support(p,state),true)==0;
             next=state-((state-redstone_torch_first)%2)+(lit?0:1);delay=2;
         } else if(repeater(state)) {
             int off=state-repeater_first;auto f=facing[(off%16)/4];
-            auto input=add(p,f);bool on=emitted(input,p,true)>0;
-            if(world_.solid(input)) on=on||power(input,true)>0;
+            auto input=add(p,f);bool on=emitted_power(input,p,true)>0;
+            if(world_.solid(input)) on=on||neighbor_power(input,true)>0;
             BlockPos side{f.z,0,-f.x};bool locked=false;
-            for(auto d:{side,opposite(side)}) {auto q=add(p,d);locked|=repeater(world_.block(q))&&emitted(q,p,false)>0;}
+            for(auto d:{side,opposite(side)}) {auto q=add(p,d);locked|=repeater(world_.block(q))&&emitted_power(q,p,false)>0;}
             next=repeater_first+(off/4)*4+(locked?0:2)+(locked?off%2:on?0:1);
             delay=(off/16+1)*2;
-        } else if(lamp(state)) {bool on=power(p,true)>0;next=redstone_lamp_first+(on?0:1);delay=on?0:4;}
+        } else if(lamp(state)) {bool on=neighbor_power(p,true)>0;next=redstone_lamp_first+(on?0:1);delay=on?0:4;}
         if(next==state) {devices_.erase(p);continue;}
         if(delay==0)world_.set(p,next);
         else if(!devices_.contains(p)||devices_[p].state!=next)devices_[p]={tick+static_cast<unsigned>(delay),next};

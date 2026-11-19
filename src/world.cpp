@@ -148,6 +148,7 @@ bool World::set(BlockPos p,int state) {
     dirty_=true;
     simulation_->changed(p,previous,state);
     for(auto* player:players) player->block_changed(p,state);
+    simulation_->update_copper_bulbs(p,previous,state);
     return true;
 }
 bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
@@ -163,6 +164,7 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
     if(count>100000||(drops&&simulation_->mobs.size()+drops+1>4096))return false;
     for(const auto& c:changes)if(c.after==c.base)edits_.erase(c.p);else edits_[c.p]=c.after;
     for(const auto& c:changes)if(c.before!=c.after){dirty_=true;simulation_->changed(c.p,c.before,c.after);for(auto* player:players)player->block_changed(c.p,c.after);}
+    for(const auto& c:changes)if(c.before!=c.after)simulation_->update_copper_bulbs(c.p,c.before,c.after);
     return true;
 }
 void World::save() {
@@ -215,6 +217,7 @@ std::string World::place_template(std::string name,BlockPos origin,int variant) 
     edits_.swap(next);dirty_=true;
     std::set<std::pair<int,int>> refresh;
     for(const auto& [p,values]:changed)if(values.first!=values.second) {simulation_->changed(p,values.first,values.second);refresh.insert({terrain_math::floor_div(p.x,16),terrain_math::floor_div(p.z,16)});}
+    for(const auto& [p,values]:changed)if(values.first!=values.second)simulation_->update_copper_bulbs(p,values.first,values.second);
     for(const auto& [cx,cz]:refresh)for(auto* player:players)player->refresh_chunk(cx,cz);
     return "Placed "+name+" ("+std::to_string(changed.size())+" blocks). Block-entity data skipped: "+std::to_string(data.value("unsupported_block_entities",0))+"; entities skipped: "+std::to_string(data.value("unsupported_entities",0))+". Template pieces are not assembled into full structures.";
 }
@@ -345,7 +348,7 @@ protocol::Bytes World::chunk(int cx,int cz) const {
     spread(sky);
     for(int i=0;i<static_cast<int>(blocks.size());++i) {
         const int s=static_cast<int>(blocks[static_cast<std::size_t>(i)]);
-        const int emitted=simdata::lava(s)||s==simdata::redstone_lamp_first?15:s>=3169&&s<=3173?14:simdata::torch(s)&&(s-simdata::redstone_torch_first)%2==0?7:0;
+        const int emitted=simdata::lava(s)||s==simdata::redstone_lamp_first?15:s>=3169&&s<=3173?14:simdata::torch(s)&&(s-simdata::redstone_torch_first)%2==0?7:simdata::copper_bulb_light(s);
         if(emitted){light[static_cast<std::size_t>(i)]=static_cast<std::uint8_t>(emitted);queue.push_back(i);}
     }
     spread(light);

@@ -93,7 +93,7 @@ Vanilla-Trace belegt ist, steht sie als zu prüfende Anforderung, nicht als Befu
 6. TPS/MSPT, Peak-RAM und aktive Entitäten zusätzlich messen. Performance ist ein
    separates Kriterium; ein schneller falscher Treffer besteht den Vanilla-Test nicht.
 
-Der derzeitige Stand ist **Dateiaudit und erster Observer-Baustein bestanden**.
+Der derzeitige Stand ist **Dateiaudit, Observer-Basisimpuls und Kupferlampen-Flanken bestanden**.
 Ein Observer an der Chunkgrenze zeigte auf dem offiziellen 1.21.11-Server
 nach einer Änderung vor seiner Vorderseite über vier Spielticks die Folge
 `aus, an, an, aus`. Die hintere Lampe leuchtete beim Einschalten, die seitliche
@@ -101,6 +101,15 @@ blieb aus. Dieselbe Schaltung ist im nativen Simulationstest abgedeckt. Dort
 werden zusätzlich zusammengefasste Änderungen und Neustarts während des Impulses
 geprüft. Der Referenzlauf lässt sich mit
 `python tools/check-vanilla-observer.py --java PATH` wiederholen.
+
+Die gewachste Kupferlampe schaltet auf der ersten steigenden Flanke ein, bleibt
+nach dem Signalverlust an und schaltet auf der nächsten steigenden Flanke aus.
+Der native Test prüft alle acht Varianten sowie die Kopplung an einen Observer.
+Für den Vanilla-Lauf `--copper-bulb` an den Referenzbefehl anhängen. Er erfasst
+zusätzlich den Komparator-Ausgang: 15 bei leuchtender und 0 bei dunkler Lampe.
+Dieser Ausgang muss im nativen Komparator noch umgesetzt werden. Native
+Lichtwerte werden beim Erzeugen der Chunk-Daten berücksichtigt. Live-Lichtupdates
+für bereits geladene Chunks sind weiterhin offen.
 
 Noch wurde weder eine vollständige Vanilla-Referenzschussfolge aufgezeichnet noch
 die Kanone im nativen Backend ausgeführt. Sie darf daher nicht als Beleg für

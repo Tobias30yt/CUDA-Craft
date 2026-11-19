@@ -51,6 +51,14 @@ out+=['inline bool water(int s) { return s>=86 && s<=101; }','inline bool lava(i
       'inline bool torch(int s) { return s>=redstone_torch_first && s<=redstone_wall_torch_last; }',
       'inline bool lamp(int s) { return s>=redstone_lamp_first && s<=redstone_lamp_last; }',
       'inline bool circuit(int s) { return wire(s)||lever(s)||repeater(s)||torch(s)||lamp(s)||s==redstone_block_state; }',
+      'inline bool copper_bulb(int state) {',
+      '    return state>=26861 && state<=26892; // Eight bulb types, four states each in 1.21.11.',
+      '}',
+      'inline int copper_bulb_light(int state) {',
+      '    if(!copper_bulb(state)||property_value(state,"lit")!="true")return 0;',
+      '    constexpr int levels[]={15,12,8,4};',
+      '    return levels[((state-26861)/4)%4];',
+      '}',
       'inline bool replaceable(int s) { auto n=std::string_view(block(s).name); return s==0||water(s)||n=="short_grass"||n=="dandelion"||n=="poppy"||wire(s)||torch(s); }','}']
 (root/'include/cudacraft/simulation_data.hpp').write_text('\n'.join(out)+'\n')
 print('Generated simulation facts:',len(blocks),'blocks,',len(items),'items')

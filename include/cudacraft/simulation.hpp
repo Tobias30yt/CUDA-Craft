@@ -31,6 +31,7 @@ class Simulation {
 public:
     explicit Simulation(World& world):world_(world){}
     void changed(BlockPos p,int before,int after,bool notify_observers=true);
+    void update_copper_bulbs(BlockPos changed,int before,int after);
     void step();
     void activate(int cx,int cz,const std::vector<std::uint32_t>& blocks);
     bool interact(BlockPos p);
@@ -60,6 +61,7 @@ private:
     World& world_;
     std::map<BlockPos,std::uint64_t> water_;
     std::set<BlockPos> circuits_;
+    std::set<BlockPos> copper_bulbs_;
     std::set<BlockPos> shape_updates_;
     std::set<BlockPos> portal_checks_;
     std::set<BlockPos> ticking_blocks_;
@@ -71,6 +73,8 @@ private:
     void schedule_water(BlockPos p,std::uint64_t delay=5);
     void flow(BlockPos p);
     void redstone();
+    int emitted_power(BlockPos from,BlockPos to,bool wires) const;
+    int neighbor_power(BlockPos position,bool wires) const;
     void update_shapes();
     void tick_furnaces();
     void tick_blocks();

@@ -126,6 +126,47 @@ void observer_tests() {
     for(const char* file:{"blocks.json","native-world.lock"})std::filesystem::remove(directory/file);
     std::filesystem::remove(directory);
 }
+void copper_bulb_tests() {
+    constexpr BlockPos bulb{16,64,0}, input{15,64,0}, lamp{17,64,0};
+    const char* types[]={"copper_bulb","exposed_copper_bulb","weathered_copper_bulb","oxidized_copper_bulb",
+                         "waxed_copper_bulb","waxed_exposed_copper_bulb","waxed_weathered_copper_bulb","waxed_oxidized_copper_bulb"};
+    constexpr int light_levels[]={15,12,8,4};
+    for(int i=0;i<8;++i) {
+        World w;
+        const int off=sd::default_state(types[i]);
+        const int lit=sd::with_property(off,"lit","true");
+        w.set(bulb,off);
+        w.set(lamp,sd::redstone_lamp_state);
+        w.set(input,sd::redstone_block_state);
+        check(w.block(bulb)==sd::with_property(lit,"powered","true"),"rising edge immediately lights bulb across a chunk boundary");
+        check(w.block(lamp)==sd::redstone_lamp_state,"lit bulb does not directly power adjacent lamp");
+        check(sd::copper_bulb_light(w.block(bulb))==light_levels[i%4],"each oxidation level emits its own light");
+        w.advance_ticks(8);
+        check(w.block(bulb)==sd::with_property(lit,"powered","true"),"held signal does not repeatedly flip bulb");
+        w.set(input,0);
+        check(w.block(bulb)==lit,"falling edge clears power but preserves light");
+        w.set(input,sd::redstone_block_state);
+        check(w.block(bulb)==sd::with_property(off,"powered","true")&&sd::copper_bulb_light(w.block(bulb))==0,
+              "second rising edge in the same tick darkens bulb");
+    }
+
+    World w;
+    const int off=sd::default_state("waxed_copper_bulb");
+    const int sensor=sd::with_property(sd::default_state("observer"),"facing","west");
+    w.set(bulb,off);
+    w.set(input,sensor);
+    w.set({14,64,0},1);
+    w.advance_ticks(1);
+    check(w.block(bulb)==off,"bulb waits for observer output");
+    w.advance_ticks(1);
+    check(sd::property_value(w.block(bulb),"lit")=="true"&&sd::property_value(w.block(bulb),"powered")=="true",
+          "bulb switches on the observer output tick");
+    w.advance_ticks(2);
+    check(w.block(bulb)==sd::with_property(off,"lit","true"),"bulb retains light after observer pulse ends");
+    w.set({14,64,0},0);
+    w.advance_ticks(4);
+    check(w.block(bulb)==off,"second observer pulse completes bulb toggle");
+}
 struct Session {
     World world;
     int revision=0;float health=20;int food=20;bool died=false;int respawns=0,spawns=0;
@@ -442,4 +483,4 @@ void crafting_capacity_tests() {
     check(bulk.saved().inventory[9].count==64&&bulk.saved().crafting[0].item==0,"shift crafting fills remaining inventory capacity");
     check(bulk.world.simulation().mobs.size()==1&&bulk.world.simulation().mobs.begin()->second.drop.count==3,"partial shift output drops the remaining three planks exactly once");
 }
-int main(){try{water_tests();redstone_tests();observer_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+int main(){try{water_tests();redstone_tests();observer_tests();copper_bulb_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
