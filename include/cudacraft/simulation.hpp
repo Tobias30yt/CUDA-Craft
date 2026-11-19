@@ -33,12 +33,27 @@ struct Mob {
     std::uint64_t born=0,next_attack=0,knockback_until=0,angry_until=0;
     ItemStack drop{};
 };
+struct Vehicle {
+    int type=0;
+    double x=0,y=0,z=0,vx=0,vy=0,vz=0;
+    float yaw=0,pitch=0;
+    int portal_cooldown=0;
+    bool enabled=true;
+    std::array<ItemStack,27> items{};
+};
+struct PrimedTnt {
+    double x=0,y=0,z=0,vx=0,vy=0,vz=0;
+    int fuse=80;
+};
 class Simulation {
 public:
     explicit Simulation(World& world):world_(world){}
     void changed(BlockPos p,int before,int after,bool notify_observers=true);
     void update_copper_bulbs(BlockPos changed,int before,int after);
-    void update_droppers(BlockPos changed,int before,int after);
+    void update_ejectors(BlockPos changed,int before,int after);
+    void update_tnt(BlockPos changed);
+    bool ignite_tnt(BlockPos position,int fuse=80);
+    int spawn_tnt(PrimedTnt entity);
     void step();
     void activate(int cx,int cz,const std::vector<std::uint32_t>& blocks);
     bool interact(BlockPos p);
@@ -56,6 +71,8 @@ public:
     void container_changed(BlockPos position,int before,int after);
     void inventory_signal_changed(BlockPos position);
     int spawn(int type,double x,double y,double z,ItemStack drop={});
+    static int vehicle_slots(int type);
+    int spawn_vehicle(Vehicle vehicle);
     void attack(GameSession& player,int entity);
     std::string save() const;
     void load(std::string_view json);
@@ -63,6 +80,8 @@ public:
     std::uint64_t day_time=6000;
     std::map<std::string,PlayerState> saved_players;
     std::map<int,Mob> mobs;
+    std::map<int,Vehicle> vehicles;
+    std::map<int,PrimedTnt> primed_tnt;
     std::map<BlockPos,Container> containers;
     std::size_t pending_water() const { return water_.size(); }
 private:
@@ -72,7 +91,10 @@ private:
     std::set<BlockPos> copper_bulbs_;
     std::set<BlockPos> piston_checks_;
     std::set<BlockPos> hoppers_;
-    std::set<BlockPos> droppers_;
+    std::set<BlockPos> ejectors_;
+    std::set<BlockPos> powered_rails_;
+    std::set<BlockPos> detector_rails_;
+    std::set<BlockPos> tnt_blocks_;
     std::map<BlockPos,int> comparator_outputs_;
     std::set<BlockPos> shape_updates_;
     std::set<BlockPos> portal_checks_;
@@ -92,10 +114,17 @@ private:
     std::optional<int> container_signal(BlockPos position) const;
     void schedule_directional(BlockPos position);
     void tick_pistons();
+    void update_powered_rails();
     void update_shapes();
     void tick_furnaces();
     void tick_hoppers();
-    void dispense_dropper(BlockPos position,int state);
+    void tick_vehicles();
+    void tick_tnt();
+    void explode_tnt(int id,const PrimedTnt& source);
+    const Vehicle* detector_vehicle(BlockPos position) const;
+    int detector_inventory_signal(BlockPos position) const;
+    void update_detector_rail(BlockPos position,bool scheduled);
+    void dispense_container(BlockPos position,int state);
     void tick_blocks();
     void validate_portals();
     void entities();

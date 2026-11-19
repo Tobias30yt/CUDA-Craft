@@ -2,7 +2,9 @@
 #include "cudacraft/simulation.hpp"
 #include "cudacraft/world.hpp"
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <iostream>
 
 using namespace cudacraft;
@@ -15,7 +17,70 @@ int main(int argc,char** argv) {
         World world(argc==2?std::filesystem::path(argv[1]):std::filesystem::path{});
         const auto actions=json::parse(std::cin);
         int failures=0;
+        std::map<std::string,int> vehicles;
+        std::map<std::string,int> explosives;
         for(const auto& action:actions) {
+            if(action.contains("capture")) {
+                json states=json::array(),tnt=json::array();
+                for(const auto& entry:action.at("capture")) {
+                    const auto [x,y,z]=entry.get<std::array<int,3>>();
+                    states.push_back(world.block({x,y,z}));
+                }
+                for(const auto& [id,charge]:world.simulation().primed_tnt) {
+                    (void)id;
+                    tnt.push_back({{"position",{charge.x,charge.y,charge.z}},
+                                   {"velocity",{charge.vx,charge.vy,charge.vz}},{"fuse",charge.fuse}});
+                }
+                std::cout<<json{{"states",std::move(states)},{"tnt",std::move(tnt)}}.dump()<<'\n';
+                continue;
+            }
+            if(action.contains("tnt")) {
+                const auto label=action.at("tnt").get<std::string>();
+                const auto point=action.at("pos").get<std::array<double,3>>();
+                if(action.contains("check")&&!action.contains("fuse")) {
+                    if(world.simulation().primed_tnt.contains(explosives.at(label))) {
+                        ++failures;
+                        std::cerr<<action.at("check").get<std::string>()<<": TNT still exists\n";
+                    }
+                    continue;
+                }
+                const auto speed=action.at("velocity").get<std::array<double,3>>();
+                const int fuse=action.at("fuse");
+                if(!action.contains("check")) {
+                    const int id=world.simulation().spawn_tnt({point[0],point[1],point[2],speed[0],speed[1],speed[2],fuse});
+                    if(!id||!explosives.emplace(label,id).second)throw std::runtime_error("Fixture TNT spawn rejected");
+                    continue;
+                }
+                const auto tnt=world.simulation().primed_tnt.find(explosives.at(label));
+                const auto same=[](double a,double b){return std::abs(a-b)<1e-8;};
+                if(tnt==world.simulation().primed_tnt.end()||tnt->second.fuse!=fuse||
+                   !same(tnt->second.x,point[0])||!same(tnt->second.y,point[1])||!same(tnt->second.z,point[2])||
+                   !same(tnt->second.vx,speed[0])||!same(tnt->second.vy,speed[1])||!same(tnt->second.vz,speed[2])) {
+                    ++failures;
+                    std::cerr<<action.at("check").get<std::string>()<<": unexpected TNT position, motion or fuse\n";
+                }
+                continue;
+            }
+            if(action.contains("vehicle_present")) {
+                const auto point=action.at("pos").get<std::array<double,3>>();
+                const auto kind=action.at("vehicle_present").get<std::string>();
+                const int type=kind=="oak_boat"?89:kind=="hopper_minecart"?65:25;
+                const bool found=std::ranges::any_of(world.simulation().vehicles,[&](const auto& entry) {
+                    const auto& v=entry.second;
+                    return v.type==type&&std::hypot(v.x-point[0],v.y-point[1],v.z-point[2])<=1.5;
+                });
+                if(found!=action.at("expected").get<bool>()) {
+                    ++failures;
+                    std::cerr<<action.at("check").get<std::string>()<<": unexpected "<<kind<<" presence\n";
+                }
+                continue;
+            }
+            if(action.contains("remove_vehicle")) {
+                const auto label=action.at("remove_vehicle").get<std::string>();
+                world.simulation().vehicles.erase(vehicles.at(label));
+                vehicles.erase(label);
+                continue;
+            }
             if(action.contains("check_saved")) {
                 const auto actual=json::parse(world.simulation().save());
                 for(const auto& [field,expected]:action.at("check_saved").items()) {
@@ -28,6 +93,29 @@ int main(int argc,char** argv) {
             }
             if(action.contains("ticks")) {
                 world.advance_ticks(action.at("ticks").get<int>());
+                continue;
+            }
+            if(action.contains("vehicle")) {
+                const auto label=action.at("vehicle").get<std::string>();
+                const auto point=action.at("pos").get<std::array<double,3>>();
+                const auto speed=action.at("velocity").get<std::array<double,3>>();
+                if(action.contains("check")) {
+                    const auto& vehicle=world.simulation().vehicles.at(vehicles.at(label));
+                    const std::array actual{vehicle.x,vehicle.y,vehicle.z,vehicle.vx,vehicle.vy,vehicle.vz};
+                    const std::array expected{point[0],point[1],point[2],speed[0],speed[1],speed[2]};
+                    for(std::size_t i=0;i<actual.size();++i)if(std::abs(actual[i]-expected[i])>1e-8) {
+                        ++failures;
+                        std::cerr<<action.at("check").get<std::string>()<<": coordinate "<<i
+                                 <<" expected "<<expected[i]<<", found "<<actual[i]<<'\n';
+                    }
+                    continue;
+                }
+                Vehicle vehicle;
+                vehicle.type=action.at("kind")=="hopper_minecart"?65:25;
+                vehicle.x=point[0];vehicle.y=point[1];vehicle.z=point[2];
+                vehicle.vx=speed[0];vehicle.vy=speed[1];vehicle.vz=speed[2];
+                const int id=world.simulation().spawn_vehicle(vehicle);
+                if(!id||!vehicles.emplace(label,id).second)throw std::runtime_error("Fixture vehicle spawn rejected");
                 continue;
             }
             const auto xyz=action.at("pos").get<std::array<int,3>>();

@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import queue
 import re
@@ -116,7 +117,58 @@ def main():
                     if "ticks" in action:
                         step(action["ticks"])
                         continue
+                    if "remove_vehicle" in action:
+                        command(f'kill @e[tag={action["remove_vehicle"]},limit=1]',"Killed")
+                        continue
                     position = " ".join(map(str, action["pos"]))
+                    if "tnt" in action:
+                        key = action["tnt"]
+                        selector=f"@e[type=minecraft:tnt,tag={key},limit=1]"
+                        if "check" not in action:
+                            motion=",".join(f"{value}d" for value in action["velocity"])
+                            command(f'summon tnt {position} {{Tags:["{key}"],Motion:[{motion}],fuse:{action["fuse"]}s}}',
+                                    "Summoned new")
+                            continue
+                        label=action["check"]
+                        if "fuse" not in action:
+                            command(f"execute unless entity {selector} run say {label}",f"[Server] {label}")
+                        else:
+                            for field,expected in (("Pos",action["pos"]),("Motion",action["velocity"])):
+                                response=command(f"data get entity {selector} {field}","has the following entity data:")
+                                raw=response.rsplit("[",1)[1].split("]",1)[0]
+                                actual=[float(value.strip().rstrip("dDfF")) for value in raw.split(",")]
+                                if len(actual)!=3 or any(abs(a-b)>1e-8 for a,b in zip(actual,expected)):
+                                    raise AssertionError(f"{label} {field}: expected {expected}, got {actual}")
+                            response=command(f"data get entity {selector} fuse","has the following entity data:")
+                            fuse=int(response.rsplit(": ",1)[1].strip().rstrip("sS"))
+                            if fuse!=action["fuse"]:
+                                raise AssertionError(f"{label}: expected fuse {action['fuse']}, got {fuse}")
+                        print(label,flush=True)
+                        continue
+                    if "vehicle_present" in action:
+                        mode = "if" if action["expected"] else "unless"
+                        kind = action["vehicle_present"]
+                        label = action["check"]
+                        command(f"execute positioned {position} {mode} entity @e[type=minecraft:{kind},distance=..1.5] run say {label}",
+                                f"[Server] {label}")
+                        print(label,flush=True)
+                        continue
+                    if "vehicle" in action:
+                        key = action["vehicle"]
+                        if "check" in action:
+                            for field, expected in (("Pos",action["pos"]),("Motion",action["velocity"])):
+                                response = command(f"data get entity @e[tag={key},limit=1] {field}",
+                                                   "has the following entity data:")
+                                raw = response.rsplit("[",1)[1].split("]",1)[0]
+                                actual = [float(value.strip().rstrip("dDfF")) for value in raw.split(",")]
+                                if len(actual)!=3 or any(abs(a-b)>1e-8 for a,b in zip(actual,expected)):
+                                    raise AssertionError(f"{action['check']} {field}: expected {expected}, got {actual}")
+                            print(action["check"],flush=True)
+                        else:
+                            motion = ",".join(f"{value}d" for value in action["velocity"])
+                            command(f'summon {action["kind"]} {position} {{Tags:["{key}"],Motion:[{motion}]}}',
+                                    "Summoned new")
+                        continue
                     if "inventory" in action:
                         item = action["inventory"]
                         if "check" in action:
@@ -151,7 +203,8 @@ def main():
                     actions = json.loads(args.fixture.read_text(encoding="utf-8"))
                     positions = [action["pos"] for action in actions if "pos" in action]
                     xs, _, zs = zip(*positions)
-                    command(f"forceload add {min(xs)} {min(zs)} {max(xs)} {max(zs)}", "to be force loaded")
+                    bounds=tuple(map(math.floor,(min(xs),min(zs),max(xs),max(zs))))
+                    command("forceload add " + " ".join(map(str,bounds)), "to be force loaded")
                     command("tick freeze", "frozen")
                     shared_fixture(actions)
                     return

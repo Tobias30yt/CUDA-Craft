@@ -76,7 +76,7 @@ void GameSession::respawn() {
     if(world_->dimension_id()){health_=20;food_=20;saturation_=5;exhaustion_=0;air_=300;change_dimension(0);return;}
     health_=20;food_=20;saturation_=5;exhaustion_=0;air_=300;falling_=false;hurt_until_=world_->simulation().tick+40;
     send(Packet(0x50).var(0).str("minecraft:overworld").u64(world_->seed_hash()).u8(static_cast<std::uint8_t>(mode_)).u8(static_cast<std::uint8_t>(mode_)).u8(0).u8(world_->options().generator=="flat").u8(0).var(0).var(63).u8(0));
-    loaded_.clear();light_refresh_.clear();seen_mobs_.clear();center_x_=center_z_=100000;
+    loaded_.clear();light_refresh_.clear();seen_mobs_.clear();seen_vehicles_.clear();seen_tnt_.clear();center_x_=center_z_=100000;
     teleport_home();send(Packet(0x3e).u8(mode_==1?0x0d:0).f32(.05f).f32(.1f));send(Packet(0x26).u8(13).f32(0));
     health_sync();inventory_sync();save_player();
 }
@@ -207,6 +207,55 @@ void GameSession::sync_mobs() {
             else if(const auto* kind=mobdata::find(m.type))metadata.u8(static_cast<std::uint8_t>(kind->health_index)).var(3).f32(m.health);
             metadata.u8(255);send(metadata);
         } else if(now%4==0||m.vx!=0||m.vy!=0||m.vz!=0)send(Packet(0x23).var(id).f64(m.x).f64(m.y).f64(m.z).f64(m.vx).f64(m.vy).f64(m.vz).f32(m.yaw).f32(0).u8(m.vy==0));
+    }
+    const auto& vehicles=world_->simulation().vehicles;
+    auto visible=[&](const Vehicle& v) {
+        return sees(static_cast<int>(std::floor(v.x/16)),static_cast<int>(std::floor(v.z/16)));
+    };
+    for(auto it=seen_vehicles_.begin();it!=seen_vehicles_.end();) {
+        const auto vehicle=vehicles.find(*it);
+        if(vehicle==vehicles.end()||!visible(vehicle->second)) {
+            send(Packet(0x4b).var(1).var(*it));
+            it=seen_vehicles_.erase(it);
+        } else ++it;
+    }
+    auto angle=[](float value) {
+        return static_cast<std::uint8_t>(static_cast<int>(std::fmod(value,360.0f)*256.0f/360.0f)&255);
+    };
+    for(const auto& [id,vehicle]:vehicles) {
+        if(!visible(vehicle))continue;
+        if(seen_vehicles_.insert(id).second) {
+            const auto uuid=Packet().u64(world_->seed_hash()).u64(static_cast<std::uint64_t>(id));
+            send(Packet(0x01).var(id).raw(uuid.data).var(vehicle.type)
+                .f64(vehicle.x).f64(vehicle.y).f64(vehicle.z).u8(0)
+                .u8(angle(vehicle.pitch)).u8(angle(vehicle.yaw)).u8(angle(vehicle.yaw)).var(0));
+        } else if(now%4==0) {
+            send(Packet(0x23).var(id).f64(vehicle.x).f64(vehicle.y).f64(vehicle.z)
+                .f64(vehicle.vx).f64(vehicle.vy).f64(vehicle.vz).f32(vehicle.yaw).f32(vehicle.pitch).u8(vehicle.vy==0));
+        }
+    }
+    const auto& tnt_entities=world_->simulation().primed_tnt;
+    auto visible_tnt=[&](const PrimedTnt& tnt) {
+        return sees(static_cast<int>(std::floor(tnt.x/16)),static_cast<int>(std::floor(tnt.z/16)));
+    };
+    for(auto it=seen_tnt_.begin();it!=seen_tnt_.end();) {
+        const auto tnt=tnt_entities.find(*it);
+        if(tnt==tnt_entities.end()||!visible_tnt(tnt->second)) {
+            send(Packet(0x4b).var(1).var(*it));
+            it=seen_tnt_.erase(it);
+        } else ++it;
+    }
+    for(const auto& [id,tnt]:tnt_entities) {
+        if(!visible_tnt(tnt))continue;
+        if(seen_tnt_.insert(id).second) {
+            const auto uuid=Packet().u64(world_->seed_hash()).u64(static_cast<std::uint64_t>(id));
+            send(Packet(0x01).var(id).raw(uuid.data).var(132).f64(tnt.x).f64(tnt.y).f64(tnt.z)
+                .u8(0).u8(0).u8(0).u8(0).var(0));
+            send(Packet(0x61).var(id).u8(8).var(1).var(tnt.fuse).u8(255));
+        } else if(now%4==0) {
+            send(Packet(0x23).var(id).f64(tnt.x).f64(tnt.y).f64(tnt.z)
+                .f64(tnt.vx).f64(tnt.vy).f64(tnt.vz).f32(0).f32(0).u8(tnt.vy==0));
+        }
     }
 }
 void GameSession::mob_hurt(int id){if(seen_mobs_.contains(id))send(Packet(0x29).var(id).f32(0));}

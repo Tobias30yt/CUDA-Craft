@@ -21,7 +21,17 @@ def resolve_state(state, reports):
         raise ValueError(f"Unknown block state {state['Name']} {properties}") from error
 
 
-def build_snapshot(blocks, records, block_ticks, reports, item_ids, offset):
+def decode_items(entries,slots,item_ids,position):
+    stacks = [[0,0,0] for _ in range(slots)]
+    for item in entries:
+        slot = item["Slot"]
+        if item.get("components") or not 0 <= slot < slots or stacks[slot][0]:
+            raise ValueError(f"Unrepresentable inventory at {position}")
+        stacks[slot] = [item_ids[item["id"]],item["count"],0]
+    return stacks
+
+
+def build_snapshot(blocks, records, entities, block_ticks, reports, item_ids, offset):
     states, edits, assertions, outputs, inventories, pending = {}, [], [], [], [], []
     for position, state in sorted(blocks.items()):
         key = state["Name"], tuple(sorted(state.get("Properties", {}).items()))
@@ -34,15 +44,10 @@ def build_snapshot(blocks, records, block_ticks, reports, item_ids, offset):
     for position, entry in sorted(records.values(),key=lambda record:record[0]):
         if entry["id"] == "minecraft:comparator" and entry.get("OutputSignal",0):
             outputs.append([*add(position,offset),entry["OutputSignal"]])
-        elif entry["id"] in ("minecraft:chest","minecraft:barrel","minecraft:hopper","minecraft:dropper"):
+        elif entry["id"] in ("minecraft:chest","minecraft:barrel","minecraft:hopper","minecraft:dropper","minecraft:dispenser"):
             is_hopper = entry["id"] == "minecraft:hopper"
-            limit = 5 if is_hopper else 9 if entry["id"] == "minecraft:dropper" else 27
-            stacks = [[0,0,0] for _ in range(27)]
-            for item in entry.get("Items",()):
-                slot = item["Slot"]
-                if item.get("components") or not 0 <= slot < limit or stacks[slot][0]:
-                    raise ValueError(f"Unrepresentable inventory at {position}")
-                stacks[slot] = [item_ids[item["id"]],item["count"],0]
+            limit = 5 if is_hopper else 9 if entry["id"] in ("minecraft:dropper","minecraft:dispenser") else 27
+            stacks = decode_items(entry.get("Items",()),limit,item_ids,position)+[[0,0,0] for _ in range(27-limit)]
             block = reports[blocks[position]["Name"]]
             inventory = dict(position=add(position,offset),type=min(s["id"] for s in block["states"]),
                              items=stacks,burn_left=0,burn_total=0,cook_progress=0,cook_total=200,cook_input=0)
@@ -51,11 +56,24 @@ def build_snapshot(blocks, records, block_ticks, reports, item_ids, offset):
             inventories.append(inventory)
     for position, entry in sorted(block_ticks,key=lambda record:record[0]):
         state = blocks.get(position)
-        if entry["Block"] in ("minecraft:comparator","minecraft:dropper") and state and state["Name"] == entry["Block"]:
+        if entry["Block"] in ("minecraft:comparator","minecraft:dropper","minecraft:dispenser") and state and state["Name"] == entry["Block"]:
             pending.append([*add(position,offset),entry["Time"],resolve_state(state,reports)])
     simulation = dict(version=1,tick=0,time=6000,water=[],devices=pending,mobs=[],players={},
                       comparators=outputs,containers=inventories)
-    assertions.append(dict(check_saved={key:simulation[key] for key in ("comparators","containers","devices")}))
+    vehicles = []
+    vehicle_types = {"minecraft:chest_minecart":(25,27),"minecraft:hopper_minecart":(65,5),"minecraft:oak_boat":(89,0)}
+    for position, entity in entities:
+        if entity["id"] not in vehicle_types or entity.get("Passengers"):
+            continue
+        type_id, slots = vehicle_types[entity["id"]]
+        vehicles.append(dict(id=len(vehicles)+1,type=type_id,position=add(position,offset),
+                             velocity=entity.get("Motion",[0,0,0]),rotation=entity.get("Rotation",[0,0]),
+                             portal_cooldown=entity.get("PortalCooldown",0),enabled=bool(entity.get("Enabled",1)),
+                             items=decode_items(entity.get("Items",()),slots,item_ids,position)))
+    if vehicles:
+        simulation["vehicles"]=vehicles
+    assertions.append(dict(check_saved={key:simulation[key] for key in
+                                        ("comparators","containers","devices","vehicles") if key in simulation}))
     return dict(format=2,protocol=774,generator="cuda-craft-flat-v1",seed=0,edits=edits,
                 simulation=simulation), assertions
 
@@ -71,7 +89,7 @@ def main():
     reports = json.loads((ROOT/".tools/vanilla-1.21.11/reports-1.21.11/reports/blocks.json").read_text(encoding="utf-8"))
     items = json.loads((ROOT/".tools/reference/items.json").read_text(encoding="utf-8"))
     item_ids = {"minecraft:"+item["name"]:item["id"] for item in items}
-    document, assertions = build_snapshot(blocks,records,ticks,reports,item_ids,(0,96,0))
+    document, assertions = build_snapshot(blocks,records,entities,ticks,reports,item_ids,(0,96,0))
     with tempfile.TemporaryDirectory(prefix="cuda-fixture-") as folder:
         world = Path(folder)
         (world/"blocks.json").write_text(json.dumps(document,separators=(",",":")),encoding="utf-8")
@@ -80,9 +98,11 @@ def main():
     simulation = document["simulation"]
     print(f"Native save reopened and matched all {len(blocks)} block states.")
     print(f"Verified {len(simulation['comparators'])} nonzero comparator outputs, "
-          f"{len(simulation['containers'])} chest/barrel/hopper/dropper inventories and "
+          f"{len(simulation['containers'])} supported block inventories and "
           f"{len(simulation['devices'])} supported block tick delays after reload.")
-    print(f"Structural check only. Unapplied: {len(entities)} entity records, "
+    vehicles = len(simulation.get("vehicles",[]))
+    print(f"Verified position, motion, rotation, inventory and portal cooldown of {vehicles} saved vehicles.")
+    print(f"Structural check only. Unapplied: {len(entities)-vehicles} entity records, "
           f"{len(ticks)-len(simulation['devices'])} other block ticks, {len(fluid_ticks)} fluid ticks "
           "and remaining block-entity data. Native tick priorities are not represented.")
 

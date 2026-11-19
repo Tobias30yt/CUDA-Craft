@@ -68,11 +68,12 @@ Der zusammengeschaltete Originalaufbau und die Ausführung dieser Ticks wurden
 bisher nicht geprüft.
 
 Auf CUDA Craft bestätigt ein temporärer Save denselben Blockzustand an
-jeder belegten Position sowie im Hauptaufbau 313 unterstützte Inventare,
+jeder belegten Position sowie im Hauptaufbau 316 unterstützte Inventare,
 70 aktive Komparatorwerte und vier geplante Komparator-Tick-Verzögerungen.
-Im Bedienpanel werden 64 Inventare, fünf Komparatorwerte und eine Verzögerung
-übernommen. Fahrzeuge, native Tickprioritäten und weitere Block-Entitäten
-fehlen noch im nativen Fixture-Import. Der Nether-Loader wurde separat
+Im Bedienpanel werden 65 Inventare, fünf Komparatorwerte und zwei Verzögerungen
+übernommen. Beim erneuten Öffnen stimmen außerdem die gespeicherten Fahrzeugdaten
+für vier Fahrzeuge im Hauptaufbau und eines im Bedienpanel. Native Tickprioritäten
+und weitere Block-Entitäten fehlen noch im Fixture-Import. Der Nether-Loader wurde separat
 auf einer flachen Referenzfläche platziert. Der Dimensionsübergang steht aus.
 
 ```powershell
@@ -162,6 +163,8 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Observer und acht Kupferlampenvarianten | 9/9 | 9/9 |
 | Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 5/5 |
 | Fassinventar durch Vollblock, Hopper- und Dropper-Transfer | 3/3 | 3/3 |
+| Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
+| TNT-Zündzeit, freie Bewegung und Explosion neben Stein und Obsidian | 1/1 | 1/1 |
 | Kolben, klebriger Kolben, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 8/8 | 8/8 |
 | Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 
@@ -175,7 +178,7 @@ Live-Lauf prüft Ein- und Ausschalten im bereits geladenen Chunk unabhängig
 voneinander. Der Client erhält jeweils den neuen Blockzustand und ein Lichtpaket,
 das den Wert über der Lampe von 0 auf 14 oder von 14 auf 0 ändert.
 
-Nach dem nativen Build führt CTest alle 26 Schaltungen und alle drei Lichtprüfungen
+Nach dem nativen Build führt CTest alle 33 Schaltungen und alle drei Lichtprüfungen
 regulär aus. Der folgende Befehl wiederholt auch den Vanilla-Vergleich:
 
 ```powershell
@@ -183,9 +186,9 @@ python tests/redstone_fixtures.py build/cuda/redstone-probe.exe --all --java "C:
 python tests/bulb_light_network_test.py build/cuda/cuda-craft.exe build/cuda/login-test-server.exe --live
 ```
 
-Weitere Testfälle für Inventartransfers, Schienen und Fahrzeuge, TNT-Bewegung,
-Chunk-Lebenszyklus sowie die komplette originale Mk.6.1/MS-Schussfolge stehen
-noch aus. Kolben verschieben Blöcke in einer Transaktion. Animation, bewegte
+Schienenkurven, TNT-Duplizierung, die Explosionsexposition, der Chunk-Lebenszyklus
+und die komplette originale Mk.6.1/MS-Schussfolge stehen noch aus.
+Kolben verschieben Blöcke in einer Transaktion. Animation, bewegte
 Kollision und die genaue Reihenfolge komplexer Kolbenkreise stehen noch aus.
 Komparatoren lesen in der Teilabnahme Kupferlampen, Komposter und Inventare.
 Weitere analoge Quellen und der Zufallszustand der Dropper sind offen. Licht wird innerhalb

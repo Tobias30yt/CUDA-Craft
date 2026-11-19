@@ -74,6 +74,8 @@ private:
     std::uint64_t mining_start_=0;
     bool mining_active_=false;
     std::set<int> seen_mobs_;
+    std::set<int> seen_vehicles_;
+    std::set<int> seen_tnt_;
     std::uint64_t last_mob_sync_=~std::uint64_t{0};
     std::set<std::pair<int,int>> loaded_;
     std::deque<std::pair<int,int>> pending_;

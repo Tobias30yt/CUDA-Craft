@@ -150,7 +150,8 @@ bool World::set(BlockPos p,int state) {
     for(auto* player:players) player->block_changed(p,state);
     queue_bulb_light(p,previous,state);
     simulation_->update_copper_bulbs(p,previous,state);
-    simulation_->update_droppers(p,previous,state);
+    simulation_->update_ejectors(p,previous,state);
+    simulation_->update_tnt(p);
     return true;
 }
 bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
@@ -169,7 +170,8 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
     for(const auto& c:changes)if(c.before!=c.after) {
         queue_bulb_light(c.p,c.before,c.after);
         simulation_->update_copper_bulbs(c.p,c.before,c.after);
-        simulation_->update_droppers(c.p,c.before,c.after);
+        simulation_->update_ejectors(c.p,c.before,c.after);
+        simulation_->update_tnt(c.p);
     }
     return true;
 }
@@ -225,7 +227,8 @@ std::string World::place_template(std::string name,BlockPos origin,int variant) 
     for(const auto& [p,values]:changed)if(values.first!=values.second) {simulation_->changed(p,values.first,values.second);refresh.insert({terrain_math::floor_div(p.x,16),terrain_math::floor_div(p.z,16)});}
     for(const auto& [p,values]:changed)if(values.first!=values.second) {
         simulation_->update_copper_bulbs(p,values.first,values.second);
-        simulation_->update_droppers(p,values.first,values.second);
+        simulation_->update_ejectors(p,values.first,values.second);
+        simulation_->update_tnt(p);
     }
     for(const auto& [cx,cz]:refresh)for(auto* player:players)player->refresh_chunk(cx,cz);
     return "Placed "+name+" ("+std::to_string(changed.size())+" blocks). Block-entity data skipped: "+std::to_string(data.value("unsupported_block_entities",0))+"; entities skipped: "+std::to_string(data.value("unsupported_entities",0))+". Template pieces are not assembled into full structures.";

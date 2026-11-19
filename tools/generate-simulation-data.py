@@ -16,7 +16,11 @@ out=['// Generated 1.21.11 registry facts. See tools/game-data-manifest.json.', 
 for b in blocks:
     tool={'mineable/pickaxe':1,'mineable/axe':2,'mineable/shovel':3}.get(b.get('material'),0)
     out.append('{'+','.join(map(str,[b['minStateId'],b['maxStateId'],b['defaultState'],byitem.get(b['name'],{}).get('id',0),b.get('drops',[0])[0] if b.get('drops') else 0]))+','+str(float(b.get('hardness') if b.get('hardness') is not None else -1))+'f,'+str(b['boundingBox']=='block').lower()+','+str(tool)+','+json.dumps(b['name'])+'},')
+out += ['};','inline constexpr float block_resistance[]={']
+for start in range(0,len(blocks),16):
+    out.append(','.join(f"{float(b['resistance'])}f" for b in blocks[start:start+16])+',')
 out+=['};','inline const Block& block(int state) { auto i=std::lower_bound(std::begin(blocks),std::end(blocks),state,[](const Block& b,int s){return b.last<s;}); return i!=std::end(blocks) && state>=i->first?*i:blocks[0]; }',
+      'inline float blast_resistance(int state) { return block_resistance[&block(state)-blocks]; }',
       'inline int default_state(std::string_view name) { for(const auto& b:blocks) if(name==b.name)return b.state; return 0; }',
       'inline bool valid_state(int state) { return state>=0 && state<=blocks[std::size(blocks)-1].last; }',
       'struct Item { int id,stack,durability,tool,tier; const char* name; };','inline constexpr Item items[]={']

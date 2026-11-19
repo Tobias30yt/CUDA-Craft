@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+import struct
 import subprocess
 import sys
 import tempfile
@@ -157,6 +158,97 @@ def dropper_transfer_actions():
     ]
 
 
+def powered_rail_actions(kind):
+    line=[(x,80,0) for x in range(14,24)]
+    other=(24,80,0)
+    signal=(13,80,0)
+    other_kind="activator_rail" if kind=="powered_rail" else "powered_rail"
+    return [
+        *floor(*line,other),
+        *[place(p,kind,shape="east_west") for p in line],
+        place(other,other_kind,shape="east_west"),place(signal,"redstone_block"),step(4),
+        check("rail adjacent to source powers",line[0],kind,powered="true"),
+        check("power reaches the eighth chained rail",line[8],kind,powered="true"),
+        check("ninth chained rail remains off",line[9],kind,powered="false"),
+        place(signal,"air"),place((23,80,1),"redstone_block"),step(4),
+        check("direct power reaches the last rail",line[9],kind,powered="true"),
+        check("power does not cross rail types",other,other_kind,powered="false"),
+        place((23,80,1),"air"),step(4),
+        check("rail power clears",line[8],kind,powered="false"),
+    ]
+
+
+def cart_straight_actions():
+    track = [(x,80,0) for x in range(13,21)]
+    def f32(value):
+        return struct.unpack("<f",struct.pack("<f",value))[0]
+    speed=.1
+    position=15.75
+    friction=f32(f32(.98)+f32(15*f32(.001)))
+    actions=[
+        *floor(*track),*[place(p,"rail",shape="east_west") for p in track],
+        dict(vehicle="cart",kind="chest_minecart",pos=(position,80.0625,.5),velocity=(speed,0,0)),
+    ]
+    for tick in range(1,7):
+        position+=speed
+        speed*=friction
+        actions += [step(),dict(vehicle="cart",check=f"cart tick {tick}",pos=(position,80.0625,.5),velocity=(speed,0,0))]
+    return actions
+
+
+def dispenser_vehicle_actions(kind):
+    signal, dispenser, front = (15,80,0),(16,80,0),(17,80,0)
+    if kind=="oak_boat":
+        track = place(front,"water")
+    else:
+        track = place(front,"rail",shape="east_west")
+    marker=(17.625,80.2,.5) if kind=="chest_minecart" else (17.75,81.5,.5)
+    return [
+        *floor(front),track,place(dispenser,"dispenser",facing="east"),
+        inventory_edit(dispenser,0,kind,1),place(signal,"redstone_block"),step(3),
+        dict(pos=marker,vehicle_present=kind,expected=False,check="vehicle is absent after three ticks"),
+        step(),dict(pos=marker,vehicle_present=kind,expected=True,check="vehicle is present after four ticks"),
+        dict(inventory_edit(dispenser,0,kind,0),check="dispensed vehicle consumed exactly one item"),
+    ]
+
+
+def detector_rail_actions():
+    position, wire = (16,80,0),(16,80,1)
+    return [
+        *floor(position,wire),place(position,"detector_rail",shape="east_west"),place(wire,"redstone_wire"),
+        dict(vehicle="detected",kind="chest_minecart",pos=(16.5,80.0625,.5),velocity=(0,0,0)),
+        step(),check("cart powers detector",position,"detector_rail",powered="true"),
+        step(),check("occupied detector emits fifteen",wire,"redstone_wire",power="15"),
+        dict(remove_vehicle="detected"),step(18),
+        check("detector holds power until its scheduled check",position,"detector_rail",powered="true"),
+        step(),check("empty detector clears after twenty ticks",position,"detector_rail",powered="false"),
+        check("detector output clears",wire,"redstone_wire",power="0"),
+    ]
+
+
+def tnt_fuse_actions():
+    position=(16.5,85,.5)
+    stone, obsidian=(17,84,0),(15,84,0)
+    actions=[
+        place(stone,"stone"),place(obsidian,"obsidian"),
+        dict(tnt="charge",pos=position,velocity=(0,0,0),fuse=4),
+    ]
+    y=position[1]
+    vy=0
+    for tick in range(1,4):
+        vy-=.04
+        y+=vy
+        vy*=.98
+        actions += [step(),dict(tnt="charge",check=f"primed TNT tick {tick}",pos=(16.5,y,.5),
+                               velocity=(0,vy,0),fuse=4-tick)]
+    actions += [
+        step(),dict(tnt="charge",check="entity disappears when fuse expires",pos=position),
+        check("blast removes neighboring stone",stone,"air"),
+        check("blast leaves obsidian",obsidian,"obsidian"),
+    ]
+    return actions
+
+
 def piston_actions(sticky):
     signal, piston, front, moved = [(x, 80, 0) for x in range(14, 18)]
     kind = "sticky_piston" if sticky else "piston"
@@ -245,6 +337,13 @@ CASES.update({
     "comparator_inventory": comparator_inventory_actions(),
     "hopper_transfer": hopper_transfer_actions(),
     "dropper_transfer": dropper_transfer_actions(),
+    "powered_rail": powered_rail_actions("powered_rail"),
+    "activator_rail": powered_rail_actions("activator_rail"),
+    "cart_straight": cart_straight_actions(),
+    "dispenser_chest_minecart": dispenser_vehicle_actions("chest_minecart"),
+    "dispenser_oak_boat": dispenser_vehicle_actions("oak_boat"),
+    "detector_rail": detector_rail_actions(),
+    "tnt_fuse": tnt_fuse_actions(),
     "piston_push": piston_actions(False),
     "sticky_piston_pull": piston_actions(True),
     "piston_limit_12": piston_limit_actions(12),
@@ -261,11 +360,18 @@ def vanilla_actions(names):
     # Offset by whole chunks to preserve the same boundary crossings.
     for i, name in enumerate(names):
         for action in CASES[name]:
+            if "remove_vehicle" in action:
+                yield dict(remove_vehicle=f"fixture_{i}_{action['remove_vehicle']}")
+                continue
             if "pos" not in action:
                 yield action
                 continue
             x, y, z = action["pos"]
             moved = dict(action, pos=(x + 32 * (i % 4), y, z + 32 * (i // 4)))
+            if "vehicle" in moved:
+                moved["vehicle"] = f"fixture_{i}_{moved['vehicle']}"
+            if "tnt" in moved:
+                moved["tnt"] = f"fixture_{i}_{moved['tnt']}"
             if "check" in moved:
                 moved["check"] = name + " / " + moved["check"]
             yield moved

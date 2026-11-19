@@ -13,12 +13,13 @@ bool same(ItemStack a,ItemStack b){return a.item==b.item&&a.damage==b.damage;}
 }
 int Simulation::container_type(int state) {
     const auto& block=simdata::block(state);const std::string_view name=block.name;
-    return name=="chest"||name=="trapped_chest"||name=="barrel"||name=="hopper"||name=="dropper"||furnace_kind(state)?block.first:0;
+    return name=="chest"||name=="trapped_chest"||name=="barrel"||name=="hopper"||name=="dropper"||
+        name=="dispenser"||furnace_kind(state)?block.first:0;
 }
 int Simulation::container_slots(int state) {
     if(furnace_kind(state))return 3;
     const std::string_view name=simdata::block(state).name;
-    return name=="hopper"?5:name=="dropper"?9:27;
+    return name=="hopper"?5:(name=="dropper"||name=="dispenser")?9:27;
 }
 int Simulation::furnace_kind(int state){std::string_view name=simdata::block(state).name;return name=="furnace"?1:name=="blast_furnace"?2:name=="smoker"?3:0;}
 std::vector<BlockPos> Simulation::container_positions(BlockPos p) const {
@@ -75,9 +76,9 @@ bool GameSession::open_container(BlockPos p) {
     close_crafting();container_positions_=std::move(positions);container_anchor_=p;container_type_=Simulation::container_type(world_->block(p));
     container_window_=next_container_window_;next_container_window_=next_container_window_==100?2:next_container_window_+1;
     const int kind=Simulation::furnace_kind(container_type_);
-    const int menu=kind==1?14:kind==2?10:kind==3?22:name=="hopper"?16:name=="dropper"?6:container_positions_.size()==2?5:2;
+    const int menu=kind==1?14:kind==2?10:kind==3?22:name=="hopper"?16:(name=="dropper"||name=="dispenser")?6:container_positions_.size()==2?5:2;
     const char* title=kind==1?"Furnace":kind==2?"Blast Furnace":kind==3?"Smoker":name=="hopper"?"Item Hopper":
-        name=="dropper"?"Dropper":name=="barrel"?"Barrel":container_positions_.size()==2?"Large Chest":"Chest";
+        name=="dropper"?"Dropper":name=="dispenser"?"Dispenser":name=="barrel"?"Barrel":container_positions_.size()==2?"Large Chest":"Chest";
     send(Packet(0x39).var(container_window_).var(menu).text(title));
     inventory_sync();return true;
 }
@@ -140,13 +141,14 @@ void GameSession::container_properties() {
 }
 void GameSession::container_progress(BlockPos p){if(container_positions_.size()==1&&container_positions_.front()==p)container_properties();}
 
-void Simulation::update_droppers(BlockPos changed,int before,int after) {
+void Simulation::update_ejectors(BlockPos changed,int before,int after) {
     using namespace simdata;
-    if(droppers_.empty())return;
-    if(std::string_view(block(before).name)=="dropper"&&block(before).first==block(after).first&&
+    if(ejectors_.empty())return;
+    if((std::string_view(block(before).name)=="dropper"||std::string_view(block(before).name)=="dispenser")&&
+       block(before).first==block(after).first&&
        property_value(before,"facing")==property_value(after,"facing"))return;
     auto update=[&](BlockPos position) {
-        if(!droppers_.contains(position))return;
+        if(!ejectors_.contains(position))return;
         const int state=world_.block(position);
         const bool powered=neighbor_power(position,true)>0||neighbor_power(offset(position,{0,1,0}),true)>0;
         if(powered==(property_value(state,"triggered")=="true"))return;
@@ -165,7 +167,7 @@ void Simulation::update_droppers(BlockPos changed,int before,int after) {
     }
 }
 
-void Simulation::dispense_dropper(BlockPos position,int state) {
+void Simulation::dispense_container(BlockPos position,int state) {
     using namespace simdata;
     auto* source=container(position);
     if(!source)return;
@@ -186,7 +188,41 @@ void Simulation::dispense_dropper(BlockPos position,int state) {
         for(auto* player:world_.players)player->container_changed(p);
     };
     bool transferred=false;
-    if(container_type(world_.block(target))) {
+    if(std::string_view(block(state).name)=="dispenser") {
+        const std::string_view item_name=item(item_stack.item)->name;
+        const auto below=offset(target,{0,-1,0});
+        const int in_front=world_.block(target);
+        const int under_front=world_.block(below);
+        Vehicle vehicle;
+        if(item_name=="chest_minecart"||item_name=="hopper_minecart") {
+            auto is_rail=[](int block_state) {
+                const std::string_view name=block(block_state).name;
+                return name=="rail"||name=="detector_rail"||name=="powered_rail"||name=="activator_rail";
+            };
+            std::optional<double> height;
+            if(is_rail(in_front))
+                height=property_value(in_front,"shape").starts_with("ascending_")?.6:.1;
+            else if(in_front==0&&is_rail(under_front))
+                height=facing.y!=-1&&property_value(under_front,"shape").starts_with("ascending_")?-.4:-.9;
+            if(height) {
+                vehicle.type=item_name=="chest_minecart"?25:65;
+                vehicle.x=position.x+.5+facing.x*1.125;
+                vehicle.y=position.y+facing.y+*height;
+                vehicle.z=position.z+.5+facing.z*1.125;
+            }
+        } else if(item_name=="oak_boat") {
+            auto water_at=[](int block_state){return water(block_state)||property_value(block_state,"waterlogged")=="true";};
+            if(water_at(in_front)||(in_front==0&&water_at(under_front))) {
+                vehicle.type=89;
+                vehicle.x=position.x+.5+facing.x*1.25;
+                vehicle.y=position.y+.5+facing.y*1.125+static_cast<int>(water_at(in_front));
+                vehicle.z=position.z+.5+facing.z*1.25;
+                vehicle.yaw=facing.x==1?270.f:facing.x==-1?90.f:facing.z==-1?180.f:0.f;
+            }
+        }
+        if(vehicle.type)transferred=spawn_vehicle(vehicle)!=0;
+        else transferred=spawn(71,target.x+.5,target.y+.5,target.z+.5,{item_stack.item,1,item_stack.damage})!=0;
+    } else if(container_type(world_.block(target))) {
         for(const auto bank:container_positions(target)) {
             auto* receiver=container(bank,true);
             if(!receiver||furnace_kind(receiver->type))continue;
