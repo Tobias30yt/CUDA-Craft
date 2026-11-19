@@ -17,6 +17,11 @@ BlockPos add(BlockPos a,BlockPos b){return {a.x+b.x,a.y+b.y,a.z+b.z};}
 BlockPos opposite(BlockPos p){return {-p.x,-p.y,-p.z};}
 constexpr std::string_view direction_names[]={"down","up","north","south","west","east"};
 bool observer(int state) { return simdata::block(state).name == std::string_view("observer"); }
+bool comparator(int state) { return std::string_view(simdata::block(state).name)=="comparator"; }
+bool piston(int state) {
+    const std::string_view name=simdata::block(state).name;
+    return name=="piston"||name=="sticky_piston";
+}
 bool observer_powered(int state) { return simdata::property_value(state,"powered")=="true"; }
 BlockPos observer_face(int state) {
     const auto direction=simdata::property_value(state,"facing");
@@ -59,7 +64,10 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     if(ticking_block(after)&&ticking_blocks_.size()<65536)ticking_blocks_.insert(p);else ticking_blocks_.erase(p);
     container_changed(p,before,after);
     devices_.erase(p);
-    if(simdata::circuit(after)||observer(after)) circuits_.insert(p); else circuits_.erase(p);
+    if(simdata::circuit(after)||observer(after)||comparator(after)) circuits_.insert(p); else circuits_.erase(p);
+    if(comparator(before)&&(!comparator(after)||observer_face(before)!=observer_face(after)))
+        comparator_outputs_.erase(p);
+    if(piston(after))piston_checks_.insert(p);
     if(simdata::copper_bulb(after))copper_bulbs_.insert(p);
     else if(simdata::copper_bulb(before))copper_bulbs_.erase(p);
     if(name.ends_with("_button")||name.ends_with("_pressure_plate")){circuits_.insert(p);redstone_dirty_=true;}
@@ -80,6 +88,14 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     for(auto d:dirs) { auto n=add(p,d); if(World::valid(n)&&simdata::water(fluid_state(world_.block(n)))) schedule_water(n); }
     if(connects(after))shape_updates_.insert(p);
     for(auto d:dirs) {auto n=add(p,d);if(World::valid(n)&&connects(world_.block(n)))shape_updates_.insert(n);}
+    if(notify_observers&&before!=after) {
+        if(comparator(after)||simdata::repeater(after))schedule_directional(p);
+        for(auto d:dirs) {
+            const auto neighbor=add(p,d);
+            if(piston(world_.block(neighbor)))piston_checks_.insert(neighbor);
+            if(circuits_.contains(neighbor))schedule_directional(neighbor);
+        }
+    }
 }
 void Simulation::activate(int cx,int cz,const std::vector<std::uint32_t>& blocks) {
     // Activate exposed water, not every cell of an ocean. Edits also wake neighbors.
@@ -173,14 +189,15 @@ int Simulation::placement(int item,int face,float yaw,float pitch) const {
     if(item==redstone_block_item)return redstone_block_state;
     if(item==crafting_table_item)return crafting_table_state;
     int state=World::item_state(item);
-    if(observer(state)) {
+    if(observer(state)||piston(state)) {
         constexpr double radians=3.14159265358979323846/180;
         const double horizontal=std::cos(pitch*radians);
         const double x=-std::sin(yaw*radians)*horizontal;
         const double z=std::cos(yaw*radians)*horizontal;
         const double y=-std::sin(pitch*radians);
         const int direction=std::abs(y)>std::max(std::abs(x),std::abs(z))?(y>0?1:0):2+toward[look];
-        return with_property(state,"facing",direction_names[direction]);
+        const auto index=piston(state)?direction^1:direction;
+        return with_property(state,"facing",direction_names[index]);
     }
     state=with_property(state,"axis",face<2?"y":face<4?"z":"x");
     constexpr const char* directions[]={"south","west","north","east"};
@@ -197,6 +214,10 @@ bool Simulation::interact(BlockPos p) {
     if(simdata::lever(state)) return world_.set(p,simdata::lever_first+((state-simdata::lever_first)^1));
     if(simdata::repeater(state)) { int offset=state-simdata::repeater_first; return world_.set(p,simdata::repeater_first+((offset/16+1)%4)*16+offset%16); }
     const std::string_view name=simdata::block(state).name;
+    if(comparator(state)) {
+        const auto mode=simdata::property_value(state,"mode");
+        return world_.set(p,simdata::with_property(state,"mode",mode=="compare"?"subtract":"compare"));
+    }
     if(name.ends_with("_door")||name.ends_with("_trapdoor")||name.ends_with("_fence_gate")) {
         if(name=="iron_door"||name=="iron_trapdoor")return true;
         const auto value=simdata::property_value(state,"open")=="true"?"false":"true";
@@ -243,6 +264,18 @@ bool Simulation::place_block(BlockPos p,int state) {
 bool Simulation::break_block(BlockPos p) {
     using namespace simdata;
     const int state=world_.block(p);BlockPos other=p;bool paired=false;
+    if(piston(state)&&property_value(state,"extended")=="true") {
+        const auto head=add(p,observer_face(state));
+        const int head_state=world_.block(head);
+        if(std::string_view(block(head_state).name)=="piston_head"&&observer_face(head_state)==observer_face(state))
+            return world_.set_blocks({{p,0},{head,0}});
+    }
+    if(std::string_view(block(state).name)=="piston_head") {
+        const auto base=add(p,opposite(observer_face(state)));
+        const int base_state=world_.block(base);
+        if(piston(base_state)&&observer_face(base_state)==observer_face(state)&&property_value(base_state,"extended")=="true")
+            return world_.set_blocks({{p,0},{base,0}});
+    }
     if(paired_vertical(state)){other=add(p,{0,property_value(state,"half")=="lower"?1:-1,0});paired=true;}
     else if(bed(state)){auto direction=state_direction(state);other=add(p,property_value(state,"part")=="foot"?direction:opposite(direction));paired=true;}
     std::vector<std::pair<BlockPos,int>> changes{{p,property_value(state,"waterlogged")=="true"?water_state:0}};
@@ -282,6 +315,10 @@ int Simulation::emitted_power(BlockPos from,BlockPos to,bool wires) const {
     int s=world_.block(from);
     if(s==redstone_block_state)return 15;
     if(observer(s))return observer_powered(s)&&to==add(from,opposite(observer_face(s)))?15:0;
+    if(comparator(s)) {
+        const auto output=comparator_outputs_.find(from);
+        return output!=comparator_outputs_.end()&&to==add(from,opposite(observer_face(s)))?output->second:0;
+    }
     const auto name=std::string_view(block(s).name);
     if(name.ends_with("_button")||name.ends_with("_pressure_plate")) {
         if(property_value(s,"powered")=="true")return 15;
@@ -302,11 +339,142 @@ int Simulation::neighbor_power(BlockPos p,bool wires) const {
         for(auto e:dirs) {
             const auto q=add(n,e);int s=world_.block(q);
             // Strong power into a support block; avoids wire feedback loops.
-            if((lever(s)&&device_support(q,s)==n)||(torch(s)&&q.y==n.y-1)||repeater(s)||observer(s)||(wires&&wire(s)&&q.y==n.y+1))
+            if((lever(s)&&device_support(q,s)==n)||(torch(s)&&q.y==n.y-1)||repeater(s)||observer(s)||comparator(s)||(wires&&wire(s)&&q.y==n.y+1))
                 best=std::max(best,emitted_power(q,n,wires));
         }
     }
     return best;
+}
+
+int Simulation::directional_input(BlockPos position,BlockPos direction) const {
+    const auto input=add(position,direction);
+    const int direct=emitted_power(input,position,true);
+    if(!world_.solid(input))return direct;
+    return std::max(direct,neighbor_power(input,true));
+}
+
+int Simulation::comparator_output(BlockPos position,int state) const {
+    using namespace simdata;
+    const auto direction=observer_face(state);
+    auto analog=[&](BlockPos p)->std::optional<int> {
+        const int value=world_.block(p);
+        if(copper_bulb(value))return property_value(value,"lit")=="true"?15:0;
+        if(std::string_view(block(value).name)=="composter")return std::stoi(std::string(property_value(value,"level")));
+        return std::nullopt;
+    };
+    const auto rear=add(position,direction);
+    int input=directional_input(position,direction);
+    if(const auto value=analog(rear))input=*value;
+    else if(input<15&&full_cube(world_.block(rear))) {
+        if(const auto through_block=analog(add(rear,direction)))input=*through_block;
+    }
+    const BlockPos side{direction.z,0,-direction.x};
+    const int control=std::max(emitted_power(add(position,side),position,true),
+                               emitted_power(add(position,opposite(side)),position,true));
+    if(property_value(state,"mode")=="subtract")return std::max(0,input-control);
+    return input>=control?input:0;
+}
+
+void Simulation::schedule_directional(BlockPos position) {
+    using namespace simdata;
+    if(devices_.size()>=65536)return;
+    const int state=world_.block(position);
+    if(devices_.contains(position))return;
+    if(comparator(state)) {
+        const auto output=comparator_outputs_.find(position);
+        const int previous=output==comparator_outputs_.end()?0:output->second;
+        if(comparator_output(position,state)==previous)return;
+        devices_.emplace(position,Event{tick+2,state});
+    } else if(repeater(state)) {
+        const auto direction=observer_face(state);
+        const bool powered=property_value(state,"powered")=="true";
+        const bool desired=directional_input(position,direction)>0;
+        if(desired==powered||property_value(state,"locked")=="true")return;
+        const int delay=2*((state-repeater_first)/16+1);
+        devices_.emplace(position,Event{tick+static_cast<unsigned>(delay),with_property(state,"powered",desired?"true":"false")});
+    } else return;
+    world_.mark_dirty();
+}
+
+void Simulation::tick_pistons() {
+    using namespace simdata;
+    for(int count=0;count<128&&!piston_checks_.empty();++count) {
+        const auto position=*piston_checks_.begin();
+        piston_checks_.erase(piston_checks_.begin());
+        const int state=world_.block(position);
+        if(!piston(state))continue;
+        const auto direction=observer_face(state);
+        const auto head=add(position,direction);
+        const bool sticky=std::string_view(block(state).name)=="sticky_piston";
+        bool power=false;
+        for(auto offset:dirs) {
+            if(offset!=direction&&directional_input(position,offset)>0)power=true;
+        }
+        const auto above=add(position,dirs[1]);
+        for(auto offset:dirs) {
+            if(offset!=dirs[0]&&directional_input(above,offset)>0)power=true;
+        }
+        const bool extended=property_value(state,"extended")=="true";
+        if(power==extended)continue;
+        const auto in_bounds=[&](BlockPos p) {
+            return World::valid(p)&&p.y>world_.min_y()&&p.y<world_.min_y()+world_.height();
+        };
+        if(!in_bounds(head))continue;
+
+        const auto motion=power?direction:opposite(direction);
+        const auto start=power?head:add(head,direction);
+        std::map<BlockPos,int> moving;
+        auto collect=[&](auto&& self,BlockPos p,bool adjacent)->bool {
+            if(!power&&p==head)return true;
+            if(!in_bounds(p)||p==position)return adjacent;
+            const int current=world_.block(p);
+            if(current==0||water(current)||lava(current))return true;
+            if(moving.contains(p))return true;
+            const auto& definition=block(current);
+            const std::string_view name=definition.name;
+            if(definition.hardness<0||container_type(current)||name=="obsidian"||
+                name=="crying_obsidian"||name=="respawn_anchor"||name=="reinforced_deepslate"||
+                name=="piston_head"||name=="moving_piston"||name=="nether_portal"||
+                (piston(current)&&property_value(current,"extended")=="true")||
+                !definition.solid)
+                return adjacent;
+            if(moving.size()==12)return false;
+            moving.emplace(p,current);
+            if(!self(self,add(p,motion),false))return false;
+            if(name=="slime_block"||name=="honey_block") {
+                for(auto offset:dirs) {
+                    if(offset==motion)continue;
+                    const auto neighbor=add(p,offset);
+                    const std::string_view other=block(world_.block(neighbor)).name;
+                    if((name=="slime_block"&&other=="honey_block")||
+                        (name=="honey_block"&&other=="slime_block"))continue;
+                    if(!self(self,neighbor,true))return false;
+                }
+            }
+            return true;
+        };
+
+        const int old_head=world_.block(head);
+        const bool own_head=std::string_view(block(old_head).name)=="piston_head"&&observer_face(old_head)==direction;
+        if(power||(sticky&&(own_head||old_head==0))) {
+            if(!collect(collect,start,false)) {
+                if(power)continue;
+                moving.clear();
+            }
+        }
+        std::map<BlockPos,int> changes;
+        changes[position]=with_property(state,"extended",power?"true":"false");
+        if(!power&&own_head)
+            changes[head]=0;
+        for(const auto& [p,value]:moving) { (void)value; changes[p]=0; }
+        for(const auto& [p,value]:moving)changes[add(p,motion)]=value;
+        if(power) {
+            int piston_head=default_state("piston_head");
+            piston_head=with_property(piston_head,"facing",property_value(state,"facing"));
+            changes[head]=with_property(piston_head,"type",sticky?"sticky":"normal");
+        }
+        world_.set_blocks(std::vector<std::pair<BlockPos,int>>(changes.begin(),changes.end()));
+    }
 }
 
 void Simulation::update_copper_bulbs(BlockPos changed,int before,int after) {
@@ -361,6 +529,7 @@ void Simulation::redstone() {
             auto n=add(p,dirs[d]);
             const int neighbor=world_.block(n);
             if(observer(neighbor))return observer_face(neighbor)==dirs[d]?1:2;
+            if(comparator(neighbor))return observer_face(neighbor)==dirs[d]||observer_face(neighbor)==opposite(dirs[d])?1:2;
             if(circuit(neighbor))return 1;
             if(world_.solid(n)&&!world_.solid(add(p,dirs[1]))&&wire(world_.block(add(n,dirs[1]))))return 0;
             if(!world_.solid(n)&&wire(world_.block(add(n,dirs[0]))))return 1;
@@ -376,6 +545,7 @@ void Simulation::redstone() {
     for(auto p:nodes) {
         const int state=world_.block(p);int next=state,delay=0;
         if(observer(state))continue;
+        if(comparator(state)){schedule_directional(p);continue;}
         if(torch(state)) {
             bool lit=neighbor_power(device_support(p,state),true)==0;
             next=state-((state-redstone_torch_first)%2)+(lit?0:1);delay=2;
@@ -388,7 +558,14 @@ void Simulation::redstone() {
             next=repeater_first+(off/4)*4+(locked?0:2)+(locked?off%2:on?0:1);
             delay=(off/16+1)*2;
         } else if(lamp(state)) {bool on=neighbor_power(p,true)>0;next=redstone_lamp_first+(on?0:1);delay=on?0:4;}
-        if(next==state) {devices_.erase(p);continue;}
+        if(next==state) {
+            const auto pending=devices_.find(p);
+            const bool pending_rise=repeater(state)&&property_value(state,"locked")=="false"
+                &&property_value(state,"powered")=="false"&&pending!=devices_.end()
+                &&property_value(pending->second.state,"powered")=="true";
+            if(!pending_rise)devices_.erase(p);
+            continue;
+        }
         if(delay==0)world_.set(p,next);
         else if(!devices_.contains(p)||devices_[p].state!=next)devices_[p]={tick+static_cast<unsigned>(delay),next};
     }
@@ -522,13 +699,20 @@ void Simulation::step() {
         if(pending==devices_.end()||pending->second.due>tick||pending->second.state!=s)continue;
         devices_.erase(p);
         const int current=world_.block(p);
-        if(observer(s)) {
+        if(comparator(s)&&comparator(current)) {
+            const int output=comparator_output(p,current);
+            if(output)comparator_outputs_[p]=output;
+            else comparator_outputs_.erase(p);
+            world_.set(p,simdata::with_property(current,"powered",output?"true":"false"));
+            world_.mark_dirty();
+            redstone_dirty_=true;
+        } else if(observer(s)) {
             if(!observer(current)||observer_face(current)!=observer_face(s)||observer_powered(current)==observer_powered(s))continue;
             if(world_.set(p,s)&&observer_powered(s))
                 devices_.emplace(p,Event{tick+2,simdata::with_property(s,"powered","false")});
         } else if(simdata::circuit(current))world_.set(p,s);
     }
-    redstone();entities();
+    redstone();tick_pistons();entities();
     const auto players=world_.players;for(auto* player:players)if(&player->world()==&world_)player->simulation_tick();
 }
 std::string Simulation::save() const {
@@ -536,6 +720,8 @@ std::string Simulation::save() const {
         {"players",nlohmann::json::object()},{"mobs",nlohmann::json::array()}};
     for(auto [p,t]:water_)j["water"].push_back({p.x,p.y,p.z,t});
     for(auto [p,e]:devices_)j["devices"].push_back({p.x,p.y,p.z,e.due,e.state});
+    j["comparators"]=nlohmann::json::array();
+    for(const auto& [p,output]:comparator_outputs_)j["comparators"].push_back({p.x,p.y,p.z,output});
     j["containers"]=nlohmann::json::array();
     for(const auto& [p,container]:containers) {
         nlohmann::json items=nlohmann::json::array();for(auto item:container.items)items.push_back(stack_json(item));
@@ -558,7 +744,17 @@ void Simulation::load(std::string_view text) {
     tick=j.at("tick").get<std::uint64_t>();day_time=j.at("time").get<std::uint64_t>();
     if(tick>1000000000000ULL||day_time>1000000000000ULL)throw std::runtime_error("Invalid simulation time");
     if(j.at("water").size()>65536||j.at("devices").size()>65536||j.at("mobs").size()>4096||j.at("players").size()>1024)throw std::runtime_error("Simulation save capacity exceeded");
-    water_.clear();devices_.clear();
+    water_.clear();devices_.clear();comparator_outputs_.clear();
+    if(j.contains("comparators")) {
+        const auto& saved=j.at("comparators");
+        if(!saved.is_array()||saved.size()>100000)throw std::runtime_error("Invalid comparator data");
+        for(const auto& entry:saved) {
+            BlockPos p{entry.at(0),entry.at(1),entry.at(2)};
+            const int output=entry.at(3);
+            if(!World::valid(p)||!comparator(world_.block(p))||output<1||output>15||!comparator_outputs_.emplace(p,output).second)
+                throw std::runtime_error("Invalid saved comparator output");
+        }
+    }
     containers.clear();
     if(j.contains("containers")) {
         const auto& saved=j.at("containers");if(!saved.is_array()||saved.size()>4096)throw std::runtime_error("Container save capacity exceeded");
@@ -578,7 +774,7 @@ void Simulation::load(std::string_view text) {
     for(const auto& e:j.at("devices")) {
         BlockPos p{e.at(0),e.at(1),e.at(2)};
         Event event{e.at(3),e.at(4)};
-        if(!World::valid(p)||event.due>tick+1200||(!simdata::circuit(event.state)&&!observer(event.state)))
+        if(!World::valid(p)||event.due>tick+1200||(!simdata::circuit(event.state)&&!observer(event.state)&&!comparator(event.state)))
             throw std::runtime_error("Invalid redstone tick");
         if(observer(event.state)) {
             const int current=world_.block(p);

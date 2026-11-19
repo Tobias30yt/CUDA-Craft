@@ -76,7 +76,7 @@ void GameSession::respawn() {
     if(world_->dimension_id()){health_=20;food_=20;saturation_=5;exhaustion_=0;air_=300;change_dimension(0);return;}
     health_=20;food_=20;saturation_=5;exhaustion_=0;air_=300;falling_=false;hurt_until_=world_->simulation().tick+40;
     send(Packet(0x50).var(0).str("minecraft:overworld").u64(world_->seed_hash()).u8(static_cast<std::uint8_t>(mode_)).u8(static_cast<std::uint8_t>(mode_)).u8(0).u8(world_->options().generator=="flat").u8(0).var(0).var(63).u8(0));
-    loaded_.clear();seen_mobs_.clear();center_x_=center_z_=100000;
+    loaded_.clear();light_refresh_.clear();seen_mobs_.clear();center_x_=center_z_=100000;
     teleport_home();send(Packet(0x3e).u8(mode_==1?0x0d:0).f32(.05f).f32(.1f));send(Packet(0x26).u8(13).f32(0));
     health_sync();inventory_sync();save_player();
 }

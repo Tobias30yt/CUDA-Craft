@@ -17,6 +17,7 @@ public:
     void poll();
     void block_changed(BlockPos p, int state);
     void refresh_chunk(int cx,int cz) {if(sees(cx,cz))refresh_.insert({cx,cz});}
+    void refresh_light(int cx,int cz) {if(sees(cx,cz))light_refresh_.insert({cx,cz});}
     void container_changed(BlockPos position,bool removed=false);
     void container_properties();
     void container_progress(BlockPos position);
@@ -77,6 +78,7 @@ private:
     std::set<std::pair<int,int>> loaded_;
     std::deque<std::pair<int,int>> pending_;
     std::set<std::pair<int,int>> refresh_;
+    std::set<std::pair<int,int>> light_refresh_;
     int center_x_=100000, center_z_=100000, selected_=0, inventory_revision_=0;
     int teleport_=1;
     bool awaiting_teleport_=true, joined_=false, expired_=false;
@@ -84,6 +86,7 @@ private:
     std::uint64_t keepalive_=0;
     std::chrono::steady_clock::time_point last_keepalive_=std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point last_chunks_=std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point last_light_=last_chunks_;
     void send(const Packet& p) { try {send_(p.data);} catch(const protocol::Error&) {expired_=true;} }
     void update_view();
     void teleport_home();

@@ -27,7 +27,7 @@ Spielerstand. Online-Mehrspieler erfordert einen normal angemeldeten Launcher.
 Der Starter liest keine Kontotokens; entsprechende Session-Key-401-Meldungen
 im Vanilla-Log sind beim lokalen Profil zu erwarten.
 
-Alternativ den gebauten Mod `fabric-client/build/libs/cuda-craft-client-0.11.5.jar`
+Alternativ den gebauten Mod `fabric-client/build/libs/cuda-craft-client-0.11.6.jar`
 und die passende Fabric API in einen eigenen Fabric-1.21.11-Launcher eintragen.
 Die native EXE gehoert unter `<Spielordner>/cudacraft/native/cuda-craft.exe`,
 die importierten Vorlagen unter `cudacraft/native/data/structures`.

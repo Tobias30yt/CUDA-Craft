@@ -62,6 +62,8 @@ private:
     std::map<BlockPos,std::uint64_t> water_;
     std::set<BlockPos> circuits_;
     std::set<BlockPos> copper_bulbs_;
+    std::set<BlockPos> piston_checks_;
+    std::map<BlockPos,int> comparator_outputs_;
     std::set<BlockPos> shape_updates_;
     std::set<BlockPos> portal_checks_;
     std::set<BlockPos> ticking_blocks_;
@@ -75,6 +77,10 @@ private:
     void redstone();
     int emitted_power(BlockPos from,BlockPos to,bool wires) const;
     int neighbor_power(BlockPos position,bool wires) const;
+    int directional_input(BlockPos position,BlockPos direction) const;
+    int comparator_output(BlockPos position,int state) const;
+    void schedule_directional(BlockPos position);
+    void tick_pistons();
     void update_shapes();
     void tick_furnaces();
     void tick_blocks();

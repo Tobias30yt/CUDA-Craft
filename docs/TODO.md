@@ -1,6 +1,6 @@
 # CUDA Craft – nächste Implementierungen
 
-Stand: 18.11.2026, Version 0.11.5, Minecraft Java 1.21.11.
+Stand: 19.11.2026, Version 0.11.6, Minecraft Java 1.21.11.
 
 Die [Aufgabenliste](implementation-backlog.json) enthält 59 priorisierte Aufgaben
 mit Status, nächstem Schritt, Abnahmekriterium und Abhängigkeiten. Davon sind

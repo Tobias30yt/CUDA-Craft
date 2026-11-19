@@ -5,7 +5,11 @@ Zielversion: **Minecraft Java 1.21.11, Protokoll 774**.
 
 Modrinth App: [Paket importieren oder manuell installieren](docs/MODRINTH.md).
 
-**Stand 0.11.5: Welt-Sperren, verlässliche Shutdown-Meldungen und portable Builds.**
+**Stand 0.11.6: Komparatoren, Kolben, Repeater-Kurzpulse und Live-Licht.**
+Die 23 Redstone-Schaltungen und die drei Lichtprüfungen bestehen auf CUDA Craft.
+Der [Testplan](docs/OSC_VANILLA_TEST.md) nennt die abgedeckten Schaltungen und
+die noch ausstehenden Tests für die vollständige Mk.6.1/MS-Kanone.
+
 Gleichzeitiges Öffnen derselben Welt wird vom nativen Backend verhindert.
 Der Fabric-Client meldet Speicherfehler und erzwungene Abbrüche. Die Windows-EXE
 bindet die C++-Laufzeit statisch ein; ein Pakettest prüft den entpackten Server.

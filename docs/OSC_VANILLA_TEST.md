@@ -93,7 +93,7 @@ Vanilla-Trace belegt ist, steht sie als zu prüfende Anforderung, nicht als Befu
 6. TPS/MSPT, Peak-RAM und aktive Entitäten zusätzlich messen. Performance ist ein
    separates Kriterium; ein schneller falscher Treffer besteht den Vanilla-Test nicht.
 
-Der derzeitige Stand ist **Dateiaudit, Observer-Basisimpuls und Kupferlampen-Flanken bestanden**.
+Der derzeitige Stand ist **Dateiaudit und automatisierte Redstone-Teilabnahme bestanden**.
 Ein Observer an der Chunkgrenze zeigte auf dem offiziellen 1.21.11-Server
 nach einer Änderung vor seiner Vorderseite über vier Spielticks die Folge
 `aus, an, an, aus`. Die hintere Lampe leuchtete beim Einschalten, die seitliche
@@ -107,9 +107,8 @@ nach dem Signalverlust an und schaltet auf der nächsten steigenden Flanke aus.
 Der native Test prüft alle acht Varianten sowie die Kopplung an einen Observer.
 Für den Vanilla-Lauf `--copper-bulb` an den Referenzbefehl anhängen. Er erfasst
 zusätzlich den Komparator-Ausgang: 15 bei leuchtender und 0 bei dunkler Lampe.
-Dieser Ausgang muss im nativen Komparator noch umgesetzt werden. Native
-Lichtwerte werden beim Erzeugen der Chunk-Daten berücksichtigt. Live-Lichtupdates
-für bereits geladene Chunks sind weiterhin offen.
+Der native Komparator liefert diese Werte nach zwei Ticks. Lichtänderungen von
+Kupferlampen werden auch an Clients mit bereits geladenen Chunks gesendet.
 
 ## Automatisierte Teilabnahme
 
@@ -123,9 +122,9 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Testgruppe | Vanilla 1.21.11 | CUDA Craft |
 |---|---:|---:|
 | Observer und acht Kupferlampenvarianten | 9/9 | 9/9 |
-| Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 0/5 |
-| Kolben, klebriger Kolben, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 8/8 | 0/8 |
-| Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 0/1 |
+| Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 5/5 |
+| Kolben, klebriger Kolben, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 8/8 | 8/8 |
+| Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 
 Beim Grenzfall mit 13 Blöcken muss derselbe Kolben anschließend die verkürzte
 Reihe bewegen. So fällt ein unbeweglicher Kolben auch in diesem Test durch.
@@ -134,12 +133,11 @@ Der [Licht-Netzwerktest](../tests/bulb_light_network_test.py) liest die
 Blocklichtdaten aus den Spielpaketen. Beim Laden des Chunks sind die Werte
 15, 12, 8 und 4 samt Abschwächung im Nachbarblock korrekt. Der optionale
 Live-Lauf prüft Ein- und Ausschalten im bereits geladenen Chunk unabhängig
-voneinander. Der Client erhält jeweils den neuen Blockzustand. Das Licht über
-der Lampe bleibt aber beim Einschalten bei 0 und beim Ausschalten bei 14.
+voneinander. Der Client erhält jeweils den neuen Blockzustand und ein Lichtpaket,
+das den Wert über der Lampe von 0 auf 14 oder von 14 auf 0 ändert.
 
-Nach dem nativen Build führt CTest die neun unterstützten Schaltungen und den
-Initiallicht-Test bei jedem regulären Lauf aus. Die erweiterte Abnahme liefert
-einen Fehlerstatus, solange ein Sollwert abweicht:
+Nach dem nativen Build führt CTest alle 23 Schaltungen und alle drei Lichtprüfungen
+regulär aus. Der folgende Befehl wiederholt auch den Vanilla-Vergleich:
 
 ```powershell
 python tests/redstone_fixtures.py build/cuda/redstone-probe.exe --all --java "C:/Program Files/Java/jdk-23/bin/java.exe"
@@ -148,7 +146,11 @@ python tests/bulb_light_network_test.py build/cuda/cuda-craft.exe build/cuda/log
 
 Die Testfälle für Inventartransfers, Schienen und Fahrzeuge, TNT-Bewegung,
 Chunk-Lebenszyklus sowie die komplette originale Mk.6.1/MS-Schussfolge stehen
-noch aus. Die Teilabnahme prüft bisher einzelne Schaltungen.
+noch aus. Kolben verschieben Blöcke in einer Transaktion. Animation, bewegte
+Kollision und die genaue Reihenfolge komplexer Kolbenkreise stehen noch aus.
+Komparatoren lesen in der Teilabnahme Kupferlampen und Komposter. Weitere
+analoge Quellen, insbesondere Inventare, sind offen. Licht wird innerhalb
+eines Chunks berechnet. Die Ausbreitung über Chunkgrenzen bleibt offen.
 
 Noch wurde weder eine vollständige Vanilla-Referenzschussfolge aufgezeichnet noch
 die Kanone im nativen Backend ausgeführt. Sie darf daher nicht als Beleg für

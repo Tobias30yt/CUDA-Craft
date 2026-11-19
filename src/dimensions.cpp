@@ -200,7 +200,7 @@ void GameSession::change_dimension(int id,bool through_portal) {
     std::erase(world_->players,this);
     for(auto* p:world_->players){p->send(Packet(0x4b).var(1).var(entity_id));p->send(Packet(0x43).var(1).raw(profile.uuid));}
     world_=&destination;world_->players.push_back(this);
-    loaded_.clear();pending_.clear();refresh_.clear();seen_mobs_.clear();center_x_=center_z_=100000;last_mob_sync_=~std::uint64_t{0};
+    loaded_.clear();pending_.clear();refresh_.clear();light_refresh_.clear();seen_mobs_.clear();center_x_=center_z_=100000;last_mob_sync_=~std::uint64_t{0};
     portal_ticks_=0;portal_cooldown_=world_->simulation().tick+100;attack_after_=eat_at_=0;hurt_until_=world_->simulation().tick+40;
     send(Packet(0x50).var(world_->dimension_type()).str(world_->dimension_name()).u64(world_->seed_hash()).u8(static_cast<std::uint8_t>(mode_)).u8(static_cast<std::uint8_t>(mode_)).u8(0).u8(world_->options().generator=="flat").u8(0).var(0).var(id==1?32:63).u8(3));
     if(arrival) {

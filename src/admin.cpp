@@ -131,7 +131,7 @@ void Administration::execute(std::string command,GameSession* sender,Reply reply
         if(cmd=="help") {
             arity(1,2);if(a.size()==2){for(auto d:definitions)if(a[1]==d.name&&(!d.op||op)){reply(d.usage);return;}reply("Unknown or unavailable command.");}
             else {std::string line="Commands:";for(const auto& c:commands(sender)){if(line.size()+c.size()>180){reply(line);line="";}line+=' '+c;}reply(line);reply("help <command> shows syntax. @s means yourself; coordinates accept ~ offsets.");}
-        } else if(cmd=="version"){arity(1,1);reply("CUDA Craft 0.11.5 | Minecraft Java 1.21.11 | protocol 774");}
+        } else if(cmd=="version"){arity(1,1);reply("CUDA Craft 0.11.6 | Minecraft Java 1.21.11 | protocol 774");}
         else if(cmd=="whoami"){arity(1,1);reply(sender?sender->profile.name+" | UUID "+uuid(sender->profile)+(op?" | operator":" | player"):"Server console | full permissions");}
         else if(cmd=="list"){arity(1,1);std::string list="Online ("+std::to_string(world_.all_players().size())+"):";for(auto* p:world_.all_players())list+=' '+p->profile.name;reply(list);}
         else if(cmd=="seed"){arity(1,1);reply("Seed: "+std::to_string(world_.options().seed)+" | generator: "+world_.options().generator);}

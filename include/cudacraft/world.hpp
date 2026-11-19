@@ -23,7 +23,7 @@ public:
     bool set(BlockPos p, int state);
     bool set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks);
     std::string place_template(std::string name, BlockPos origin, int variant=0);
-    protocol::Bytes chunk(int x, int z) const;
+    protocol::Bytes chunk(int x, int z, bool light_only=false) const;
     void save();
     void tick();
     long tick_wait_microseconds() const;
@@ -58,6 +58,8 @@ public:
     int biome(int x, int y, int z) const;
     std::uint64_t seed_hash() const;
 private:
+    void queue_bulb_light(BlockPos p,int before,int after);
+    void append_chunk_light(Packet& packet,const std::vector<std::uint32_t>& blocks) const;
     // Destroy last, after dimension saves and all other world-owned state.
     std::unique_ptr<WorldLock> lock_;
     World* parent_=nullptr;

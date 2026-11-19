@@ -1,6 +1,25 @@
 # Validation record
 
-Date: 2026-11-18. CUDA Craft 0.11.5. Minecraft Java 1.21.11 / protocol 774.
+Date: 2026-11-19. CUDA Craft 0.11.6. Minecraft Java 1.21.11 / protocol 774.
+
+## Version 0.11.6 additions
+
+- The Windows x64 release build passed **22/22 CTest suites** in 107.27 seconds.
+  The Fabric build passed seven JUnit tests. A real 1.21.11 Fabric client joined
+  the native world, exercised container and crafting menus, saved and shut down.
+- The extracted Modrinth package passed all seven storage and status checks.
+  The native executable installed in the local client matches the verified build.
+- The 23 existing Vanilla reference circuits pass in the native simulation. They
+  include comparator compare and subtract modes, bulb and composter input,
+  ordinary and sticky pistons, push limits, honey and slime adhesion,
+  quasi-connectivity, and a short repeater pulse. CTest runs all 23 cases.
+- All three bulb lighting network cases pass, including stand-alone light
+  updates when a bulb turns on or off in a loaded chunk. Light propagation into
+  adjacent chunks remains open.
+- A save/reopen regression checks that a comparator retains its previous analog
+  output and applies a pending change on the original scheduled tick.
+- Piston block movement is atomic within one tick. Moving collision, exact
+  Vanilla block event order and the complete cannon remain open.
 
 ## Version 0.11.5 additions
 

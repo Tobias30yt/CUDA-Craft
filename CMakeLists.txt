@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(CUDACraft VERSION 0.11.5 LANGUAGES C CXX)
+project(CUDACraft VERSION 0.11.6 LANGUAGES C CXX)
 
 # The portable Windows pack must not depend on an installed VC++ redistributable.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -165,9 +165,9 @@ if(BUILD_TESTING)
     add_executable(redstone-probe tests/redstone_probe.cpp)
     target_link_libraries(redstone-probe PRIVATE cudacraft_game)
     target_include_directories(redstone-probe SYSTEM PRIVATE third_party)
-    add_test(NAME redstone-fixtures COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/redstone_fixtures.py" "$<TARGET_FILE:redstone-probe>")
+    add_test(NAME redstone-fixtures COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/redstone_fixtures.py" "$<TARGET_FILE:redstone-probe>" --all)
     set_tests_properties(redstone-fixtures PROPERTIES TIMEOUT 60)
-    add_test(NAME bulb-light-network COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/bulb_light_network_test.py" "$<TARGET_FILE:cuda-craft>" "$<TARGET_FILE:login-test-server>")
+    add_test(NAME bulb-light-network COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/bulb_light_network_test.py" "$<TARGET_FILE:cuda-craft>" "$<TARGET_FILE:login-test-server>" --live)
     set_tests_properties(bulb-light-network PROPERTIES TIMEOUT 45)
     target_link_libraries(terrain-tests PRIVATE cudacraft_game)
     add_test(NAME terrain COMMAND terrain-tests)

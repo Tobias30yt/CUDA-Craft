@@ -233,6 +233,32 @@ void persistence_tests() {
     // Only remove the individual test-owned save files in the unique directory.
     std::filesystem::remove(path/"blocks.json");std::filesystem::remove(path/"native-world.lock");std::filesystem::remove(path);
 }
+void comparator_persistence_test() {
+    const auto path=std::filesystem::temp_directory_path()/
+        ("cuda-comparator-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    const BlockPos source{15,64,0}, comparator{16,64,0}, output{17,64,0};
+    const int compost=sd::default_state("composter");
+    {
+        World w(path);
+        w.set(source,sd::with_property(compost,"level","7"));
+        w.set(comparator,sd::with_property(sd::default_state("comparator"),"facing","west"));
+        w.set(output,sd::redstone_wire_state);
+        w.advance_ticks(3);
+        check(sd::wire_power(w.block(output))==7,"comparator emits initial analog value");
+        w.set(source,sd::with_property(compost,"level","5"));
+        w.advance_ticks(1);
+        check(sd::wire_power(w.block(output))==7,"pending analog change retains previous output");
+    }
+    {
+        World w(path);
+        check(sd::wire_power(w.block(output))==7,"old comparator output survives reopening");
+        w.advance_ticks(1);
+        check(sd::wire_power(w.block(output))==5,"pending analog change survives reopening on the same tick");
+    }
+    std::filesystem::remove(path/"blocks.json");
+    std::filesystem::remove(path/"native-world.lock");
+    std::filesystem::remove(path);
+}
 void needs_and_mob_tests() {
     Session s;PlayerState initial;initial.mode=0;initial.food=10;initial.saturation=0;initial.x=.5;initial.z=.5;initial.inventory[36]={sd::bread_item,2,0};
     s.world.simulation().saved_players[std::string(32,'0')]=initial;s.begin();
@@ -483,4 +509,4 @@ void crafting_capacity_tests() {
     check(bulk.saved().inventory[9].count==64&&bulk.saved().crafting[0].item==0,"shift crafting fills remaining inventory capacity");
     check(bulk.world.simulation().mobs.size()==1&&bulk.world.simulation().mobs.begin()->second.drop.count==3,"partial shift output drops the remaining three planks exactly once");
 }
-int main(){try{water_tests();redstone_tests();observer_tests();copper_bulb_tests();survival_tests();persistence_tests();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+int main(){try{water_tests();redstone_tests();observer_tests();copper_bulb_tests();survival_tests();persistence_tests();comparator_persistence_test();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

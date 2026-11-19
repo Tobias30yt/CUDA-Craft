@@ -164,6 +164,14 @@ void GameSession::poll() {
         }
         send(Packet(0x0b).var(count));
     }
+    if(!light_refresh_.empty()&&now-last_light_>=std::chrono::milliseconds(50)) {
+        last_light_=now;
+        for(int count=0;count<2&&!light_refresh_.empty();++count) {
+            auto [cx,cz]=*light_refresh_.begin();
+            light_refresh_.erase(light_refresh_.begin());
+            if(sees(cx,cz))send_(world_->chunk(cx,cz,true));
+        }
+    }
     sync_mobs();
 }
 void GameSession::handle(std::span<const std::uint8_t> payload) {
@@ -282,7 +290,8 @@ void GameSession::handle(std::span<const std::uint8_t> payload) {
         bool intersects=false;
         for(const auto* player:world_->players) if(target.x+1>player->x-0.3 && target.x<player->x+0.3 && target.z+1>player->z-0.3 && target.z<player->z+0.3 && target.y+1>player->y && target.y<player->y+1.8) intersects=true;
         bool support=true;
-        if(simdata::wire(state)||simdata::repeater(state)||state==simdata::redstone_torch_state||state==3169)support=world_->solid({target.x,target.y-1,target.z});
+        if(simdata::wire(state)||simdata::repeater(state)||std::string_view(simdata::block(state).name)=="comparator"||
+           state==simdata::redstone_torch_state||state==3169)support=world_->solid({target.x,target.y-1,target.z});
         if(!awaiting_teleport_ && alive()&&state && reachable(clicked) && World::valid(target) && world_->block(clicked)!=0 && (replaceable(world_->block(target))||merging) && (!intersects||!simdata::block(state).solid) && support) {
             if(world_->simulation().place_block(target,state)&&survival())set_slot(held_slot,inventory_[held_slot].item,inventory_[held_slot].count-1,inventory_[held_slot].damage);
         }

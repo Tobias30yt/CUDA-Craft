@@ -148,6 +148,7 @@ bool World::set(BlockPos p,int state) {
     dirty_=true;
     simulation_->changed(p,previous,state);
     for(auto* player:players) player->block_changed(p,state);
+    queue_bulb_light(p,previous,state);
     simulation_->update_copper_bulbs(p,previous,state);
     return true;
 }
@@ -164,7 +165,10 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
     if(count>100000||(drops&&simulation_->mobs.size()+drops+1>4096))return false;
     for(const auto& c:changes)if(c.after==c.base)edits_.erase(c.p);else edits_[c.p]=c.after;
     for(const auto& c:changes)if(c.before!=c.after){dirty_=true;simulation_->changed(c.p,c.before,c.after);for(auto* player:players)player->block_changed(c.p,c.after);}
-    for(const auto& c:changes)if(c.before!=c.after)simulation_->update_copper_bulbs(c.p,c.before,c.after);
+    for(const auto& c:changes)if(c.before!=c.after) {
+        queue_bulb_light(c.p,c.before,c.after);
+        simulation_->update_copper_bulbs(c.p,c.before,c.after);
+    }
     return true;
 }
 void World::save() {
@@ -237,11 +241,21 @@ void World::activate_chunk(int cx,int cz) {
     for(const auto& [p,state]:edits_)if(terrain_math::floor_div(p.x,16)==cx&&terrain_math::floor_div(p.z,16)==cz)blocks[(p.y+64)*256+(p.z&15)*16+(p.x&15)]=static_cast<unsigned>(state);
     simulation_->activate(cx,cz,blocks);
 }
-protocol::Bytes World::chunk(int cx,int cz) const {
-    Packet result(0x2c); result.u32(static_cast<std::uint32_t>(cx)).u32(static_cast<std::uint32_t>(cz));
+void World::queue_bulb_light(BlockPos p,int before,int after) {
+    if(players.empty()||simdata::copper_bulb_light(before)==simdata::copper_bulb_light(after))return;
+    for(auto* player:players)player->refresh_light(terrain_math::floor_div(p.x,16),terrain_math::floor_div(p.z,16));
+}
+protocol::Bytes World::chunk(int cx,int cz,bool light_only) const {
+    Packet result(light_only?0x2f:0x2c);
+    if(light_only)result.var(cx).var(cz);
+    else result.u32(static_cast<std::uint32_t>(cx)).u32(static_cast<std::uint32_t>(cz));
     auto blocks=options_.generator=="flat"?base_:terrain(cx,cz).blocks;
     for(const auto& [p,state]:edits_) if(terrain_math::floor_div(p.x,16)==cx && terrain_math::floor_div(p.z,16)==cz)
         blocks[static_cast<std::size_t>((p.y+64)*256+(p.z&15)*16+(p.x&15))]=static_cast<std::uint32_t>(state);
+    if(light_only) {
+        append_chunk_light(result,blocks);
+        return result.data;
+    }
     auto get=[&](int x,int y,int z) { return static_cast<int>(blocks[static_cast<std::size_t>((y+64)*256+z*16+x)]); };
     std::array<int,256> heights{},motion_heights{};
     for(int z=0;z<16;++z) for(int x=0;x<16;++x) {
@@ -314,6 +328,10 @@ protocol::Bytes World::chunk(int cx,int cz) const {
         }
     }
     result.var(static_cast<int>(sections.data.size())).raw(sections.data).var(0); // no block entities
+    append_chunk_light(result,blocks);
+    return result.data;
+}
+void World::append_chunk_light(Packet& result,const std::vector<std::uint32_t>& blocks) const {
     using namespace terrain_ids;
     auto opacity=[](int state) {
         if(simdata::water(state))return 1;
@@ -368,6 +386,5 @@ protocol::Bytes World::chunk(int cx,int cz) const {
             }
         }
     }
-    return result.data;
 }
 }
