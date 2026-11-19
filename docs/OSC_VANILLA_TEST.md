@@ -111,6 +111,45 @@ Dieser Ausgang muss im nativen Komparator noch umgesetzt werden. Native
 Lichtwerte werden beim Erzeugen der Chunk-Daten berücksichtigt. Live-Lichtupdates
 für bereits geladene Chunks sind weiterhin offen.
 
+## Automatisierte Teilabnahme
+
+Die [gemeinsamen Schaltungen](../tests/redstone_fixtures.py) verwenden auf beiden
+Servern dieselben Blocknamen, Eigenschaften, Eingaben und Sollwerte. Für den
+Vanilla-Lauf wird nach jedem Schritt die Spielzeit abgefragt. Dadurch wird eine
+Messung nach genau zwei Ticks von einem Test nach bloßer Wartezeit unterschieden.
+Der native Lauf nutzt die tatsächliche Weltsimulation und meldet für jede
+Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
+
+| Testgruppe | Vanilla 1.21.11 | CUDA Craft |
+|---|---:|---:|
+| Observer und acht Kupferlampenvarianten | 9/9 | 9/9 |
+| Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 0/5 |
+| Kolben, klebriger Kolben, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 8/8 | 0/8 |
+| Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 0/1 |
+
+Beim Grenzfall mit 13 Blöcken muss derselbe Kolben anschließend die verkürzte
+Reihe bewegen. So fällt ein unbeweglicher Kolben auch in diesem Test durch.
+
+Der [Licht-Netzwerktest](../tests/bulb_light_network_test.py) liest die
+Blocklichtdaten aus den Spielpaketen. Beim Laden des Chunks sind die Werte
+15, 12, 8 und 4 samt Abschwächung im Nachbarblock korrekt. Der optionale
+Live-Lauf prüft Ein- und Ausschalten im bereits geladenen Chunk unabhängig
+voneinander. Der Client erhält jeweils den neuen Blockzustand. Das Licht über
+der Lampe bleibt aber beim Einschalten bei 0 und beim Ausschalten bei 14.
+
+Nach dem nativen Build führt CTest die neun unterstützten Schaltungen und den
+Initiallicht-Test bei jedem regulären Lauf aus. Die erweiterte Abnahme liefert
+einen Fehlerstatus, solange ein Sollwert abweicht:
+
+```powershell
+python tests/redstone_fixtures.py build/cuda/redstone-probe.exe --all --java "C:/Program Files/Java/jdk-23/bin/java.exe"
+python tests/bulb_light_network_test.py build/cuda/cuda-craft.exe build/cuda/login-test-server.exe --live
+```
+
+Die Testfälle für Inventartransfers, Schienen und Fahrzeuge, TNT-Bewegung,
+Chunk-Lebenszyklus sowie die komplette originale Mk.6.1/MS-Schussfolge stehen
+noch aus. Die Teilabnahme prüft bisher einzelne Schaltungen.
+
 Noch wurde weder eine vollständige Vanilla-Referenzschussfolge aufgezeichnet noch
 die Kanone im nativen Backend ausgeführt. Sie darf daher nicht als Beleg für
 Release-Reife oder allgemeine Vanilla-Parität genannt werden.

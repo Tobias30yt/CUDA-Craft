@@ -1,8 +1,10 @@
 """Check observer or copper bulb fixtures on the local official 1.21.11 server."""
 import argparse
 import hashlib
+import json
 from pathlib import Path
 import queue
+import re
 import subprocess
 import tempfile
 import threading
@@ -17,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--java", required=True)
     parser.add_argument("--copper-bulb", action="store_true")
+    parser.add_argument("--fixture", type=Path, help="Run shared native/vanilla fixture actions")
     args = parser.parse_args()
     jar = reference.ROOT / ".tools/vanilla-1.21.11/server.jar"
     if hashlib.sha1(jar.read_bytes()).hexdigest() != reference.SHA1:
@@ -52,7 +55,7 @@ def main():
                     if line is None:
                         break
                     if marker.lower() in line.lower():
-                        return
+                        return line
                     recent.append(line)
                 raise RuntimeError(f"Missing server response {marker!r}:\n" + "".join(recent[-15:]))
 
@@ -62,7 +65,7 @@ def main():
 
             def command(instruction, marker):
                 send(instruction)
-                wait_for(marker)
+                return wait_for(marker)
 
             def expect(position, state, label):
                 command(f"execute if block {position} {state} run say {label}", f"[Server] {label}")
@@ -72,8 +75,21 @@ def main():
                 command(f"setblock {position} {block}", "Changed the block")
 
             def step(ticks):
+                def game_time():
+                    line = command("time query gametime", "The time is ")
+                    return int(re.search(r"The time is (\d+)", line).group(1))
+
+                target = game_time() + ticks
                 command(f"tick step {ticks}", "Stepping")
-                time.sleep(max(.25, ticks * .075))
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline:
+                    observed = game_time()
+                    if observed == target:
+                        return
+                    if observed > target:
+                        raise RuntimeError(f"Tick step overshot {target}, got {observed}")
+                    time.sleep(.05)
+                raise RuntimeError(f"Tick step did not reach {target}")
 
             def bulb_fixture():
                 place("16 64 0", "waxed_copper_bulb")
@@ -95,10 +111,33 @@ def main():
                 step(4)
                 expect("18 64 0", "redstone_wire[power=0]", "comparator reads 0 from dark bulb")
 
+            def shared_fixture(actions):
+                for action in actions:
+                    if "ticks" in action:
+                        step(action["ticks"])
+                        continue
+                    position = " ".join(map(str, action["pos"]))
+                    properties = action.get("properties", {})
+                    block = action["block"]
+                    if properties:
+                        block += "[" + ",".join(f"{key}={value}" for key, value in properties.items()) + "]"
+                    if "check" in action:
+                        expect(position, block, action["check"])
+                    else:
+                        place(position, block)
+
             worker = threading.Thread(target=read, daemon=True)
             worker.start()
             try:
                 wait_for("Done (", 120)
+                if args.fixture:
+                    actions = json.loads(args.fixture.read_text(encoding="utf-8"))
+                    positions = [action["pos"] for action in actions if "pos" in action]
+                    xs, _, zs = zip(*positions)
+                    command(f"forceload add {min(xs)} {min(zs)} {max(xs)} {max(zs)}", "to be force loaded")
+                    command("tick freeze", "frozen")
+                    shared_fixture(actions)
+                    return
                 command("forceload add 0 0 31 15", "to be force loaded")
                 command("tick freeze", "frozen")
                 if args.copper_bulb:

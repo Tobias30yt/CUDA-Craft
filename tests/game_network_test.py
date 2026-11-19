@@ -21,7 +21,27 @@ def unpack(value):
     x=value>>38;z=(value>>12)&0x3ffffff;y=value&4095
     return (x-(0x4000000 if x&0x2000000 else 0),y-(4096 if y&2048 else 0),z-(0x4000000 if z&0x2000000 else 0))
 
-def decode_chunk(r,biomes_out=None,section_count=24):
+def decode_light(r):
+    masks=[[struct.unpack('>Q',r.read(8))[0] for _ in range(r.varint())] for _ in range(4)]
+    layers=[]
+    for active,empty in ((masks[0],masks[2]),(masks[1],masks[3])):
+        sections=[64*i+bit for i,word in enumerate(active) for bit in range(64) if word & (1<<bit)]
+        assert r.varint()==len(sections)
+        layer={}
+        for section in sections:
+            payload=r.array()
+            assert len(payload)==2048
+            layer[section]=payload
+        for i,word in enumerate(empty):
+            for bit in range(64):
+                if word & (1<<bit):
+                    section=64*i+bit
+                    assert section not in layer
+                    layer[section]=bytes(2048)
+        layers.append(layer)
+    return layers
+
+def decode_chunk(r,biomes_out=None,section_count=24,light_out=None):
     cx,cz=struct.unpack('>ii',r.read(8))
     heightmaps={}
     for _ in range(r.varint()):
@@ -57,17 +77,15 @@ def decode_chunk(r,biomes_out=None,section_count=24):
     if biomes_out is not None:biomes_out[cx,cz]=biomes
     body.end()
     assert r.varint()==0
-    for _ in range(4):
-        r.read(8*r.varint())
-    for _ in range(2):
-        for _ in range(r.varint()):assert len(r.array())==2048
+    _,block_light=decode_light(r)
+    if light_out is not None:light_out[cx,cz]=block_light
     r.end()
     return (cx,cz),states,heightmaps
 
 class Player(login.Client):
     def __init__(self,server,name='CudaTester'):
         super().__init__(server)
-        self.chunks={};self.biomes={};self.changes={};self.acks=set();self.spawned=set();self.keepalives=0;self.teleported=False;self.messages=[];self.dimension='minecraft:overworld';self.min_y=-64
+        self.chunks={};self.biomes={};self.block_light={};self.light_updates=set();self.changes={};self.acks=set();self.spawned=set();self.keepalives=0;self.teleported=False;self.messages=[];self.dimension='minecraft:overworld';self.min_y=-64
         identity=bytes(range(15))+b'\x10' if name=='SecondTester' else bytes(range(16))
         self.begin(name,uuid=identity);self.success(name);self.configure()
         self.until(lambda:self.teleported and (math.floor(self.position[0]/16),math.floor(self.position[2]/16)) in self.chunks,timeout=15)
@@ -83,11 +101,17 @@ class Player(login.Client):
             self.seed_hash=struct.unpack('>Q',r.read(8))[0]
         elif pid==0x50:
             r.varint();self.dimension=r.string();self.min_y=-64 if self.dimension=='minecraft:overworld' else 0
-            self.chunks.clear();self.biomes.clear();self.changes.clear();self.spawned.clear();self.teleported=False
+            self.chunks.clear();self.biomes.clear();self.block_light.clear();self.light_updates.clear();self.changes.clear();self.spawned.clear();self.teleported=False
         elif pid==0x46:
             teleport=r.varint();self.position=struct.unpack('>ddd',r.read(24));self.send(b'\0'+vi(teleport));self.teleported=True
         elif pid==0x2c:
-            key,states,maps=decode_chunk(r,self.biomes,24 if self.min_y==-64 else 16);self.chunks[key]=(states,maps)
+            key,states,maps=decode_chunk(r,self.biomes,24 if self.min_y==-64 else 16,self.block_light);self.chunks[key]=(states,maps)
+        elif pid==0x2f:
+            key=tuple((value if value<2**31 else value-2**32) for value in (r.varint(),r.varint()))
+            _,block_light=decode_light(r)
+            self.block_light.setdefault(key,{}).update(block_light)
+            self.light_updates.add(key)
+            r.end()
         elif pid==0x0b:self.send(b'\x0a'+struct.pack('>f',20))
         elif pid==0x2b:self.send(b'\x1b'+r.read(8));self.keepalives+=1
         elif pid==0x08:
@@ -109,6 +133,12 @@ class Player(login.Client):
         if (x,y,z) in self.changes:return self.changes[x,y,z]
         states,_=self.chunks[x//16,z//16]
         return states[(y-self.min_y)*256+(z&15)*16+(x&15)]
+    def light(self,x,y,z):
+        section=(y-self.min_y)//16+1
+        layer=self.block_light.get((x//16,z//16),{}).get(section)
+        if layer is None:return None
+        index=(y&15)*256+(z&15)*16+(x&15)
+        return (layer[index//2] >> (4*(index%2))) & 15
 
 class GameTests(unittest.TestCase):
     def setUp(self):
