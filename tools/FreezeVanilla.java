@@ -33,7 +33,7 @@ class FreezeVanilla {
             ObjectReference.INVOKE_SINGLE_THREADED);
     }
 
-    private static void pressButton(VirtualMachine vm, ThreadReference thread, ObjectReference server,
+    private static void interact(VirtualMachine vm, ThreadReference thread, ObjectReference server,
                                     String[] args, int index) throws Exception {
         var world = (ObjectReference) invoke(thread, server, "N", "()Laxf;"); // MinecraftServer.overworld()
         var positions = (ClassType) vm.classesByName("is").getFirst(); // BlockPos
@@ -42,9 +42,13 @@ class FreezeVanilla {
             vm.mirrorOf(Integer.parseInt(args[index+1])), vm.mirrorOf(Integer.parseInt(args[index+2]))),
             ObjectReference.INVOKE_SINGLE_THREADED);
         var state = (ObjectReference) invoke(thread, world, "a_", "(Lis;)Leoh;", pos); // Level.getBlockState()
-        var button = (ObjectReference) invoke(thread, state, "b", "()Ldzq;"); // BlockState.getBlock()
-        if (!button.referenceType().name().equals("eab")) throw new IllegalStateException("Fixture button is absent");
-        invoke(thread, button, "a", "(Leoh;Ldwo;Lis;Lddm;)V", state, world, pos, null); // ButtonBlock.press()
+        var block = (ObjectReference) invoke(thread, state, "b", "()Ldzq;"); // BlockState.getBlock()
+        String method = switch (block.referenceType().name()) {
+            case "eab" -> "a"; // ButtonBlock.press()
+            case "eel" -> "b"; // LeverBlock.pull()
+            default -> throw new IllegalStateException("Fixture control is absent: " + pos);
+        };
+        invoke(thread, block, method, "(Leoh;Ldwo;Lis;Lddm;)V", state, world, pos, null);
     }
 
     public static void main(String[] args) throws Exception {
@@ -82,7 +86,7 @@ class FreezeVanilla {
                         beforeTick.request().disable();
                         tickManager.invokeMethod(beforeTick.thread(), setFrozen,
                             List.of(vm.mirrorOf(true)), ObjectReference.INVOKE_SINGLE_THREADED);
-                        for (int i=1; i<args.length; i+=3) pressButton(vm, beforeTick.thread(), server, args, i);
+                        for (int i=1; i<args.length; i+=3) interact(vm, beforeTick.thread(), server, args, i);
                         events.resume();
                         return;
                     }

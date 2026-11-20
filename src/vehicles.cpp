@@ -105,7 +105,9 @@ bool Simulation::transfer_vehicle(int id,Vehicle& vehicle,BlockPos entrance) {
     const double radius=width(vehicle)/2;
     if(vehicle.vy<0&&destination.clip_motion({x-radius,y,z-radius},
                                               {x+radius,y+height(vehicle),z+radius},1,vehicle.vy)==0)vehicle.vy=0;
-    destination.simulation().vehicles.insert(vehicles.extract(id));
+    auto arrival_vehicle=vehicles.extract(id);
+    arrival_vehicle.key()=world_.root().next_entity++;
+    destination.simulation().vehicles.insert(std::move(arrival_vehicle));
     world_.mark_dirty();
     destination.mark_dirty();
     return true;
@@ -113,6 +115,18 @@ bool Simulation::transfer_vehicle(int id,Vehicle& vehicle,BlockPos entrance) {
 
 void Simulation::collect_vehicle_items(Vehicle& vehicle) {
     if(vehicle.type!=65||!vehicle.enabled)return;
+    const auto above=cell(vehicle.x,vehicle.y+1,vehicle.z);
+    if(const auto* bank=container(above);bank&&std::string_view(simdata::block(bank->type).name)=="jukebox"&&bank->items[0].item) {
+        auto empty=std::find_if(vehicle.items.begin(),vehicle.items.begin()+5,[](const ItemStack& stack){return !stack.item;});
+        if(empty!=vehicle.items.begin()+5) {
+            const auto record=bank->items[0];
+            if(set_jukebox_record(above,{})) {
+                *empty=record;
+                world_.mark_dirty();
+                return;
+            }
+        }
+    }
     for(auto it=mobs.begin();it!=mobs.end();++it) {
         auto& item=it->second;
         if(item.type!=71||std::abs(vehicle.x-item.x)>=.625||std::abs(vehicle.z-item.z)>=.625||
@@ -131,7 +145,7 @@ void Simulation::tick_vehicles() {
     for(auto current=vehicles.begin();current!=vehicles.end();) {
         auto& [id,vehicle]=*current++;
         const auto world_tick=world_.root().simulation().tick;
-        if(vehicle.last_world_tick==world_tick)continue;
+        if(vehicle.last_world_tick==world_tick||!world_.ticks_entities(vehicle.x,vehicle.z))continue;
         vehicle.last_world_tick=world_tick;
         const auto contact=std::exchange(vehicle.portal_entry,std::nullopt);
         if(contact&&vehicle.portal_cooldown==0&&transfer_vehicle(id,vehicle,*contact))continue;

@@ -1,4 +1,5 @@
 #include "cudacraft/game.hpp"
+#include "cudacraft/block_collision_data.hpp"
 #include "cudacraft/simulation_data.hpp"
 #include "cudacraft/smelting_data.hpp"
 #include <algorithm>
@@ -16,15 +17,34 @@ BlockPos facing_offset(int state) {
 BlockPos clockwise(int state){auto f=simdata::property_value(state,"facing");return f=="north"?BlockPos{1,0,0}:f=="east"?BlockPos{0,0,1}:f=="south"?BlockPos{-1,0,0}:BlockPos{0,0,-1};}
 BlockPos other_chest(BlockPos p,int state){auto d=clockwise(state);if(simdata::property_value(state,"type")=="right"){d.x=-d.x;d.z=-d.z;}return offset(p,d);}
 bool same(ItemStack a,ItemStack b){return a.item==b.item&&a.damage==b.damage;}
+struct Record {std::string_view name;int seconds;int signal;};
+const Record* record_info(int item) {
+    const auto* definition=simdata::item(item);
+    if(!definition)return nullptr;
+    std::string_view name=definition->name;
+    if(!name.starts_with("music_disc_"))return nullptr;
+    name.remove_prefix(11);
+    static constexpr Record records[]={
+        {"13",178,1},{"cat",185,2},{"blocks",345,3},{"chirp",185,4},
+        {"far",174,5},{"mall",197,6},{"mellohi",96,7},{"stal",150,8},
+        {"strad",188,9},{"ward",251,10},{"11",71,11},{"wait",238,12},
+        {"pigstep",149,13},{"otherside",195,14},{"5",178,15},{"relic",218,14},
+        {"creator",176,12},{"creator_music_box",73,11},{"precipice",299,13},
+        {"lava_chicken",134,9},{"tears",175,10}
+    };
+    auto found=std::ranges::find(records,name,&Record::name);
+    return found==std::end(records)?nullptr:&*found;
+}
 }
 int Simulation::container_type(int state) {
     const auto& block=simdata::block(state);const std::string_view name=block.name;
     return name=="chest"||name=="trapped_chest"||name=="barrel"||name=="hopper"||name=="dropper"||
-        name=="dispenser"||furnace_kind(state)?block.first:0;
+        name=="dispenser"||name=="jukebox"||furnace_kind(state)?block.first:0;
 }
 int Simulation::container_slots(int state) {
     if(furnace_kind(state))return 3;
     const std::string_view name=simdata::block(state).name;
+    if(name=="jukebox")return 1;
     return name=="hopper"?5:(name=="dropper"||name=="dispenser")?9:27;
 }
 int Simulation::furnace_kind(int state){std::string_view name=simdata::block(state).name;return name=="furnace"?1:name=="blast_furnace"?2:name=="smoker"?3:0;}
@@ -52,6 +72,7 @@ std::size_t Simulation::container_drops(BlockPos p,int replacement) const {
 void Simulation::container_changed(BlockPos p,int before,int after) {
     const bool removed=container_type(before)!=container_type(after);
     if(removed) {
+        playing_records_.erase(p);
         auto found=containers.find(p);
         if(found!=containers.end()) {
             // World mutations reserve entity capacity before changing the block.
@@ -68,6 +89,64 @@ void Simulation::container_changed(BlockPos p,int before,int after) {
     const bool layout_changed=removed||simdata::property_value(before,"type")!=simdata::property_value(after,"type")||simdata::property_value(before,"facing")!=simdata::property_value(after,"facing");
     if(layout_changed&&(container_type(before)||container_type(after)))for(auto* player:world_.players)player->container_changed(p,removed);
 }
+int Simulation::record_signal(int item) {
+    if(const auto* record=record_info(item))return record->signal;
+    return 0;
+}
+void Simulation::jukebox_signal_changed(BlockPos position) {
+    redstone_updates_.insert(position);
+    inventory_signal_changed(position);
+    const int state=world_.block(position);
+    update_power_receivers(position,state,state);
+    update_ejectors(position,state,state);
+    update_rail_power(position,state,state);
+    world_.mark_dirty();
+}
+bool Simulation::set_jukebox_record(BlockPos position,ItemStack disc) {
+    const int state=world_.block(position);
+    if(std::string_view(simdata::block(state).name)!="jukebox")return false;
+    const auto* record=record_info(disc.item);
+    if(disc.item&&(!record||disc.count!=1))return false;
+    auto* storage=container(position,disc.item!=0);
+    if(!storage||bool(storage->items[0].item)==bool(disc.item))return false;
+    auto& slot=storage->items[0];
+    const auto old=slot;
+    const auto playing=playing_records_.find(position);
+    const auto previous_end=playing==playing_records_.end()?0:playing->second;
+    slot=disc;
+    if(record)playing_records_[position]=tick+record->seconds*20+21;
+    else playing_records_.erase(position);
+    if(!world_.set(position,simdata::with_property(state,"has_record",disc.item?"true":"false"))) {
+        slot=old;
+        if(previous_end)playing_records_[position]=previous_end;
+        else playing_records_.erase(position);
+        return false;
+    }
+    jukebox_signal_changed(position);
+    return true;
+}
+bool Simulation::use_jukebox(BlockPos position,ItemStack held) {
+    const auto* storage=container(position);
+    if(!storage||std::string_view(simdata::block(storage->type).name)!="jukebox"||!storage->items[0].item)
+        return held.item&&set_jukebox_record(position,{held.item,1,held.damage});
+    const int id=spawn(71,position.x+.5,position.y+1.01,position.z+.5,storage->items[0]);
+    if(!id)return false;
+    if(!set_jukebox_record(position,{})) {
+        mobs.erase(id);
+        return false;
+    }
+    mobs.at(id).vy=.2;
+    return true;
+}
+void Simulation::tick_jukeboxes() {
+    for(auto it=playing_records_.begin();it!=playing_records_.end();) {
+        if(!world_.ticks_blocks(it->first)){++it->second;++it;continue;}
+        if(it->second>tick){++it;continue;}
+        const auto position=it->first;
+        it=playing_records_.erase(it);
+        jukebox_signal_changed(position);
+    }
+}
 bool GameSession::container_valid() const {
     if(container_positions_.empty()||!alive()||!reachable(container_anchor_))return false;
     if(world_->simulation().container_positions(container_positions_.front())!=container_positions_)return false;
@@ -75,8 +154,9 @@ bool GameSession::container_valid() const {
     return true;
 }
 bool GameSession::open_container(BlockPos p) {
-    auto positions=world_->simulation().container_positions(p);if(positions.empty())return false;
     const std::string_view name=simdata::block(world_->block(p)).name;
+    if(name=="jukebox")return false;
+    auto positions=world_->simulation().container_positions(p);if(positions.empty())return false;
     if(name=="chest"||name=="trapped_chest")for(auto q:positions)if(world_->solid({q.x,q.y+1,q.z})){tell("The chest lid is blocked.");return true;}
     for(auto q:positions)if(!world_->simulation().container(q,true)){tell("Container storage capacity reached.");return true;}
     close_crafting();container_positions_=std::move(positions);container_anchor_=p;container_type_=Simulation::container_type(world_->block(p));
@@ -200,6 +280,29 @@ void Simulation::dispense_container(BlockPos position,int state) {
         inventory_signal_changed(p);
         for(auto* player:world_.players)player->container_changed(p);
     };
+    auto eject=[&] {
+        const double height=facing.y?.125:.15625;
+        const int id=spawn(71,position.x+.5+.7*facing.x,position.y+.5+.7*facing.y-height,
+                           position.z+.5+.7*facing.z,{item_stack.item,1,item_stack.damage});
+        if(!id)return false;
+        auto uniform=[&] {
+            random+=0x9e3779b97f4a7c15ULL;
+            auto bits=random;
+            bits=(bits^(bits>>30))*0xbf58476d1ce4e5b9ULL;
+            bits=(bits^(bits>>27))*0x94d049bb133111ebULL;
+            return static_cast<double>((bits^(bits>>31))>>11)*0x1p-53;
+        };
+        auto scatter=[&](double mean) {
+            const double left=uniform(),right=uniform();
+            return mean+(left-right)*.0172275*6;
+        };
+        const double speed=.2+uniform()*.1;
+        auto& drop=mobs.at(id);
+        drop.vx=scatter(facing.x*speed);
+        drop.vy=scatter(.2);
+        drop.vz=scatter(facing.z*speed);
+        return true;
+    };
     bool transferred=false;
     if(std::string_view(block(state).name)=="dispenser") {
         const std::string_view item_name=item(item_stack.item)->name;
@@ -234,9 +337,13 @@ void Simulation::dispense_container(BlockPos position,int state) {
             }
         }
         if(vehicle.type)transferred=spawn_vehicle(vehicle)!=0;
-        else transferred=spawn(71,target.x+.5,target.y+.5,target.z+.5,{item_stack.item,1,item_stack.damage})!=0;
+        else transferred=eject();
     } else if(container_type(world_.block(target))) {
         for(const auto bank:container_positions(target)) {
+            if(std::string_view(block(world_.block(bank)).name)=="jukebox") {
+                transferred=set_jukebox_record(bank,{item_stack.item,1,item_stack.damage});
+                break;
+            }
             auto* receiver=container(bank,true);
             if(!receiver||furnace_kind(receiver->type))continue;
             for(int slot=0;slot<container_slots(receiver->type);++slot) {
@@ -250,7 +357,7 @@ void Simulation::dispense_container(BlockPos position,int state) {
             if(transferred)break;
         }
     } else {
-        transferred=spawn(71,target.x+.5,target.y+.5,target.z+.5,{item_stack.item,1,item_stack.damage})!=0;
+        transferred=eject();
     }
     if(!transferred)return;
     if(!--item_stack.count)item_stack={};
@@ -271,9 +378,17 @@ void Simulation::tick_hoppers() {
         if(!source||furnace_kind(source->type))return false; // Sided furnace slots are separate.
         const int target_type=container_type(world_.block(to));
         if(!target_type||furnace_kind(target_type))return false;
+        const bool source_jukebox=std::string_view(block(source->type).name)=="jukebox";
+        const bool target_jukebox=std::string_view(block(target_type).name)=="jukebox";
         for(int i=0;i<container_slots(source->type);++i) {
             auto& item=source->items[i];
             if(!item.item)continue;
+            if(target_jukebox) {
+                if(!set_jukebox_record(to,{item.item,1,item.damage}))continue;
+                if(!--item.count)item={};
+                changed(from);
+                return true;
+            }
             auto* target=container(to,true);
             if(!target)return false;
             const auto limit=simdata::item(item.item)->stack;
@@ -282,9 +397,16 @@ void Simulation::tick_hoppers() {
                                               [](const auto& stack){return stack.item!=0;});
             for(int slot=0;slot<slots;++slot) {
                 auto& destination=target->items[slot];
+                if(source_jukebox&&destination.item)continue;
                 if(destination.item&&(!same(destination,item)||destination.count>=limit))continue;
-                destination={item.item,destination.count+1,item.damage};
-                if(!--item.count)item={};
+                if(source_jukebox) {
+                    const auto disc=item;
+                    if(!set_jukebox_record(from,{}))return false;
+                    destination=disc;
+                } else {
+                    destination={item.item,destination.count+1,item.damage};
+                    if(!--item.count)item={};
+                }
                 if(was_empty&&std::string_view(block(target->type).name)=="hopper"&&target->transfer_cooldown<=8)
                     target->transfer_cooldown=target->last_transfer_tick==tick?7:8;
                 changed(from);
@@ -295,6 +417,7 @@ void Simulation::tick_hoppers() {
         return false;
     };
     for(auto p:hoppers_) {
+        if(!world_.ticks_blocks(p))continue;
         int state=world_.block(p);
         const bool enabled=neighbor_power(p,true)==0;
         const int next=with_property(state,"enabled",enabled?"true":"false");
@@ -338,11 +461,16 @@ void Simulation::tick_hoppers() {
                     moved=true;
                     break;
                 }
-            } else if(!world_.solid(source)) {
-                for(auto it=mobs.begin();it!=mobs.end();++it) {
+            } else {
+                const int above=world_.block(source);
+                const std::string_view name=block(above).name;
+                const auto shapes=static_collision_boxes(above);
+                const bool full_block=shapes.size()==1&&shapes.front().min==std::array{0.,0.,0.}&&
+                                      shapes.front().max==std::array{1.,1.,1.};
+                if(!full_block||name=="beehive"||name=="bee_nest")for(auto it=mobs.begin();it!=mobs.end();++it) {
                     auto& item=it->second;
                     if(item.type!=71||std::abs(item.x-p.x-.5)>=.625||std::abs(item.z-p.z-.5)>=.625||
-                       item.y+.25<=p.y+.625||item.y>=p.y+2)continue;
+                       item.y+.25<=p.y+11./16||item.y>=p.y+2)continue;
                     auto* receiver=container(p,true);
                     if(!receiver)break;
                     const int left=store_item(std::span(receiver->items).first(5),item.drop);
@@ -366,6 +494,7 @@ void Simulation::tick_hoppers() {
 
 void Simulation::tick_furnaces() {
     for(auto& [p,c]:containers) {
+        if(!world_.ticks_blocks(p))continue;
         const int kind=furnace_kind(c.type);if(!kind)continue;
         const auto before=c;auto& input=c.items[0];auto& fuel=c.items[1];auto& output=c.items[2];
         const auto* recipe=smelting::recipe(kind,input.item);

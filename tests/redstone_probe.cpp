@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <tuple>
 
 using namespace cudacraft;
 using nlohmann::json;
@@ -19,8 +20,56 @@ int main(int argc,char** argv) {
         int failures=0;
         std::map<std::string,int> vehicles;
         std::map<std::string,int> explosives;
+        std::map<std::string,int> item_probes;
+        std::vector<int> resting_items;
         int remote_weight=0;
         for(const auto& action:actions) {
+            if(action.contains("item_probe")) {
+                const auto label=action.at("item_probe").get<std::string>();
+                const auto point=action.at("pos").get<std::array<double,3>>();
+                const auto speed=action.at("velocity").get<std::array<double,3>>();
+                if(!action.contains("check")) {
+                    const int id=world.simulation().spawn(71,point[0],point[1],point[2],{sd::item_id("stone"),1,0});
+                    if(!id||!item_probes.emplace(label,id).second)throw std::runtime_error("Fixture item spawn rejected");
+                    auto& item=world.simulation().mobs.at(id);
+                    std::tie(item.vx,item.vy,item.vz)=std::tuple{speed[0],speed[1],speed[2]};
+                } else {
+                    const auto& item=world.simulation().mobs.at(item_probes.at(label));
+                    const auto same=[](double a,double b){return std::abs(a-b)<=1e-8;};
+                    if(!same(item.x,point[0])||!same(item.y,point[1])||!same(item.z,point[2])||
+                       !same(item.vx,speed[0])||!same(item.vy,speed[1])||!same(item.vz,speed[2])) {
+                        ++failures;
+                        std::cerr<<action.at("check").get<std::string>()<<": unexpected item position or motion\n";
+                    }
+                }
+                continue;
+            }
+            if(action.contains("enable_chunk_tickets")) {
+                world.enable_chunk_tickets();
+                for(const auto& entry:action.at("enable_chunk_tickets")) {
+                    const auto [cx,cz]=entry.get<std::array<int,2>>();
+                    world.force_tick_chunk(cx,cz);
+                }
+                continue;
+            }
+            if(action.contains("spawn_resting_item")) {
+                const auto [x,y,z]=action.at("pos").get<std::array<double,3>>();
+                const int id=world.simulation().spawn(71,x,y,z,{sd::item_id("stone"),1,0});
+                if(!id)throw std::runtime_error("Fixture item spawn rejected");
+                world.simulation().mobs.at(id).item_on_ground=true;
+                resting_items.push_back(id);
+                continue;
+            }
+            if(action.contains("falling_item_count")) {
+                const auto observed=std::ranges::count_if(resting_items,[&](int id) {
+                    return !world.simulation().mobs.at(id).item_on_ground;
+                });
+                if(observed!=action.at("falling_item_count").get<int>()) {
+                    ++failures;
+                    std::cerr<<action.at("check").get<std::string>()<<": found "<<observed<<" falling items\n";
+                }
+                continue;
+            }
             if(action.contains("remote_weight")) {
                 if(action.at("remote_weight")=="remove") {
                     if(!world.simulation().mobs.erase(remote_weight))throw std::runtime_error("Remote weight is absent");
@@ -123,6 +172,15 @@ int main(int argc,char** argv) {
                 if(found!=action.at("expected").get<bool>()) {
                     ++failures;
                     std::cerr<<action.at("check").get<std::string>()<<": unexpected "<<kind<<" presence\n";
+                }
+                continue;
+            }
+            if(action.contains("vehicle_item")) {
+                const auto& vehicle=world.simulation().vehicles.at(vehicles.at(action.at("vehicle").get<std::string>()));
+                const int expected=sd::item_id(action.at("vehicle_item").get<std::string>());
+                if(vehicle.items[0]!=ItemStack{expected,1,0}) {
+                    ++failures;
+                    std::cerr<<action.at("check").get<std::string>()<<": missing expected minecart stack\n";
                 }
                 continue;
             }

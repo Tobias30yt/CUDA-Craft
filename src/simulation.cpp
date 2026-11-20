@@ -154,14 +154,28 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     if(connects(after))shape_updates_.insert(p);
     for(auto d:dirs) {auto n=add(p,d);if(World::valid(n)&&connects(world_.block(n)))shape_updates_.insert(n);}
     if(notify_observers&&before!=after) {
+        using namespace simdata;
+        auto wake_piston=[&](BlockPos position) {
+            if(piston(world_.block(position)))piston_checks_.insert(position);
+        };
         if((simdata::copper_bulb(before)||simdata::copper_bulb(after))&&
            simdata::property_value(before,"lit")!=simdata::property_value(after,"lit"))
             notify_analog_change(p);
         if(comparator(after)||simdata::repeater(after))schedule_directional(p);
         for(auto d:dirs) {
             const auto neighbor=add(p,d);
-            if(piston(world_.block(neighbor)))piston_checks_.insert(neighbor);
+            wake_piston(neighbor);
             if(circuits_.contains(neighbor))schedule_directional(neighbor);
+        }
+        // Dust updates the neighbors of each adjacent block when its power changes.
+        // A direct redstone-block edit, by contrast, must not wake a remote QC piston.
+        if(wire(before)&&wire(after)&&wire_power(before)!=wire_power(after)) {
+            for(auto direction:dirs)for(auto offset:dirs)wake_piston(add(add(p,direction),offset));
+        }
+        if((observer(before)&&observer(after)&&observer_powered(before)!=observer_powered(after))||
+           (repeater(before)&&repeater(after)&&property_value(before,"powered")!=property_value(after,"powered"))) {
+            const auto output=add(p,opposite(observer_face(after)));
+            for(auto offset:dirs)wake_piston(add(output,offset));
         }
     }
 }
@@ -398,6 +412,7 @@ int Simulation::emitted_power(BlockPos from,BlockPos to,bool wires) const {
             to==add(from,opposite(observer_face(s)))?output->second:0;
     }
     const auto name=std::string_view(block(s).name);
+    if(name=="jukebox")return playing_records_.contains(from)?15:0;
     if(name=="detector_rail")return property_value(s,"powered")=="true"?15:0;
     if(name=="daylight_detector"||name=="target")return std::stoi(std::string(property_value(s,"power")));
     if(name.ends_with("_button")||name.ends_with("_pressure_plate")) {
@@ -443,6 +458,10 @@ int Simulation::comparator_output(BlockPos position,int state) const {
         const int value=world_.block(p);
         if(copper_bulb(value))return property_value(value,"lit")=="true"?15:0;
         if(detector_rail(value))return detector_inventory_signal(p);
+        if(std::string_view(block(value).name)=="jukebox") {
+            auto found=containers.find(p);
+            return found==containers.end()?0:record_signal(found->second.items[0].item);
+        }
         if(std::string_view(block(value).name)=="composter")return std::stoi(std::string(property_value(value,"level")));
         return container_signal(p);
     };
@@ -541,9 +560,11 @@ void Simulation::schedule_directional(BlockPos position) {
 
 void Simulation::tick_pistons() {
     using namespace simdata;
+    std::vector<BlockPos> waiting;
     for(int count=0;count<128&&!piston_checks_.empty();++count) {
         const auto position=*piston_checks_.begin();
         piston_checks_.erase(piston_checks_.begin());
+        if(!world_.ticks_blocks(position)){waiting.push_back(position);--count;continue;}
         const int state=world_.block(position);
         if(!piston(state))continue;
         const auto direction=observer_face(state);
@@ -577,13 +598,14 @@ void Simulation::tick_pistons() {
             const auto& definition=block(current);
             const auto& physics=block_physics(current);
             const std::string_view name=definition.name;
+            const bool piston_base=piston(current);
             if(physics.push==PushReaction::destroy) {
                 if(power&&!adjacent)destroyed.insert(p);
                 return power||adjacent;
             }
-            if(definition.hardness<0||physics.block_entity||physics.push==PushReaction::block||
+            if(definition.hardness<0||physics.block_entity||(!piston_base&&physics.push==PushReaction::block)||
                 name=="piston_head"||name=="moving_piston"||name=="nether_portal"||
-                (piston(current)&&property_value(current,"extended")=="true")||
+                (piston_base&&property_value(current,"extended")=="true")||
                 (physics.push==PushReaction::push_only&&(!power||adjacent)))
                 return adjacent;
             if(moving.size()==12)return false;
@@ -606,7 +628,10 @@ void Simulation::tick_pistons() {
         const auto head_motion=moving_pistons_.find(head);
         const int actual_head=head_motion==moving_pistons_.end()?old_head:head_motion->second.state;
         const bool own_head=std::string_view(block(actual_head).name)=="piston_head"&&observer_face(actual_head)==direction;
-        if(power||(sticky&&(own_head||old_head==0))) {
+        const auto block_motion=moving_pistons_.find(start);
+        const bool finish_extension=!power&&sticky&&block_motion!=moving_pistons_.end()&&
+            block_motion->second.direction==direction&&observer_face(world_.block(start))==direction;
+        if(!finish_extension&&(power||(sticky&&(own_head||old_head==0)))) {
             if(!collect(collect,start,false)) {
                 if(power)continue;
                 moving.clear();
@@ -624,6 +649,10 @@ void Simulation::tick_pistons() {
         }
         if(!power&&own_head)
             changes[head]=0;
+        if(finish_extension) {
+            const int moved=block_motion->second.state;
+            changes[start]=std::string_view(block(moved).name)=="piston_head"?0:moved;
+        }
         for(auto p:destroyed)changes[p]=0;
         for(const auto& [p,value]:moving) { (void)value; changes[p]=0; }
         for(const auto& [p,value]:moving) {
@@ -643,6 +672,7 @@ void Simulation::tick_pistons() {
                 moving_pistons_[p]={value,tick+2,!power&&p==position?BlockPos{}:motion};
         }
     }
+    piston_checks_.insert(waiting.begin(),waiting.end());
 }
 
 std::optional<std::pair<int,std::array<double,3>>> Simulation::piston_collision(BlockPos position) const {
@@ -657,7 +687,8 @@ std::optional<std::pair<int,std::array<double,3>>> Simulation::piston_collision(
 void Simulation::finish_piston_motion() {
     std::vector<std::pair<BlockPos,int>> complete;
     for(auto it=moving_pistons_.begin();it!=moving_pistons_.end();) {
-        const auto& [position,motion]=*it;
+        auto& [position,motion]=*it;
+        if(!world_.ticks_blocks(position)){++motion.completes;++it;continue;}
         if(motion.completes>tick) {
             if(!primed_tnt.empty()&&motion.direction!=BlockPos{}) {
                 const auto [state,shift]=*piston_collision(position);
@@ -943,6 +974,7 @@ void Simulation::attack(GameSession& player,int entity) {
 void Simulation::entities() {
     std::vector<int> remove;
     for(auto& [id,m]:mobs) {
+        if(!world_.ticks_entities(m.x,m.z))continue;
         if(m.type==71)continue;
         const auto* kind=mobdata::find(m.type);
         const bool hostile=kind&&(kind->hostile||(kind->neutral&&tick<m.angry_until));
@@ -1023,10 +1055,10 @@ void Simulation::step() {
     tick_furnaces();
     tick_blocks();
     std::vector<BlockPos> due;
-    for(const auto& [p,t]:water_)if(t<=tick&&due.size()<2048)due.push_back(p);
+    for(const auto& [p,t]:water_)if(t<=tick&&due.size()<2048&&world_.ticks_blocks(p))due.push_back(p);
     for(auto p:due) {water_.erase(p);world_.mark_dirty();flow(p);}
     std::vector<std::pair<BlockPos,Event>> events;
-    for(const auto& [p,e]:devices_)if(e.due<=tick)events.emplace_back(p,e);
+    for(const auto& [p,e]:devices_)if(e.due<=tick&&world_.ticks_blocks(p))events.emplace_back(p,e);
     std::ranges::sort(events,[](const auto& a,const auto& b) {
         const auto& left=a.second;
         const auto& right=b.second;
@@ -1065,8 +1097,8 @@ void Simulation::step() {
             if(neighbor_power(p,true)==0)world_.set(p,simdata::with_property(current,"lit","false"));
         } else if(simdata::circuit(current))world_.set(p,s);
     }
-    redstone();tick_pistons();tick_vehicles();tick_tnt();tick_items();entities();tick_hoppers();finish_piston_motion();
-    if(tick%20==0)for(auto detector:daylight_detectors_)update_daylight(detector);
+    redstone();tick_pistons();tick_vehicles();tick_tnt();tick_items();entities();tick_hoppers();tick_jukeboxes();finish_piston_motion();
+    if(tick%20==0)for(auto detector:daylight_detectors_)if(world_.ticks_blocks(detector))update_daylight(detector);
     const auto players=world_.players;for(auto* player:players)if(&player->world()==&world_)player->simulation_tick();
 }
 std::string Simulation::save() const {
@@ -1096,6 +1128,8 @@ std::string Simulation::save() const {
             {"burn_left",container.burn_left},{"burn_total",container.burn_total},{"cook_progress",container.cook_progress},{"cook_total",container.cook_total},{"cook_input",container.cook_input}});
         if(std::string_view(simdata::block(container.type).name)=="hopper")
             j["containers"].back()["transfer_cooldown"]=container.transfer_cooldown;
+        if(const auto record=playing_records_.find(p);record!=playing_records_.end())
+            j["containers"].back()["record_end"]=record->second;
     }
     for(const auto& [uuid,s]:saved_players) {
         auto& p=j["players"][uuid];p={{"position",{s.x,s.y,s.z}},{"health",s.health},{"food",s.food},{"saturation",s.saturation},{"exhaustion",s.exhaustion},{"mode",s.mode},{"items",nlohmann::json::array()}};
@@ -1107,6 +1141,11 @@ std::string Simulation::save() const {
     for(const auto& [id,m]:mobs) {
         j["mobs"].push_back({{"id",id},{"type",m.type},{"position",{m.x,m.y,m.z}},{"velocity",{m.vx,m.vy,m.vz}},
                              {"health",m.health},{"born",m.born},{"drop",stack_json(m.drop)}});
+        if(m.type==71) {
+            j["mobs"].back()["item_ticks"]=m.item_ticks;
+            j["mobs"].back()["item_age"]=m.item_age;
+            j["mobs"].back()["item_on_ground"]=m.item_on_ground;
+        }
         if(m.portal_cooldown)j["mobs"].back()["portal_cooldown"]=m.portal_cooldown;
         if(const auto& p=m.portal_entry)j["mobs"].back()["portal_entry"]={p->x,p->y,p->z};
     }
@@ -1146,7 +1185,7 @@ void Simulation::load(std::string_view text) {
                 throw std::runtime_error("Invalid saved comparator output");
         }
     }
-    containers.clear();
+    containers.clear();playing_records_.clear();
     if(j.contains("containers")) {
         const auto& saved=j.at("containers");if(!saved.is_array()||saved.size()>4096)throw std::runtime_error("Container save capacity exceeded");
         for(const auto& entry:saved) {
@@ -1161,6 +1200,14 @@ void Simulation::load(std::string_view text) {
             if(container.burn_left<0||container.burn_total<container.burn_left||container.burn_total>20000||container.cook_total<1||container.cook_total>2000||container.cook_progress<0||container.cook_progress>=container.cook_total||(container.cook_input&&!simdata::item(container.cook_input)))throw std::runtime_error("Invalid furnace progress");
             for(int i=container_slots(container.type);i<27;++i)
                 if(container.items[i].item)throw std::runtime_error("Invalid hidden container inventory");
+            const auto record_end=entry.value("record_end",std::uint64_t{});
+            if(std::string_view(simdata::block(container.type).name)=="jukebox") {
+                const auto record=container.items[0];
+                if((record.item&&(record.count!=1||!record_signal(record.item)))||
+                   (record_end&&(!record.item||record_end<=tick||record_end-tick>7000)))
+                    throw std::runtime_error("Invalid saved jukebox record");
+                if(record_end)playing_records_.emplace(p,record_end);
+            } else if(record_end)throw std::runtime_error("Invalid record playback block");
             containers.emplace(p,container);
         }
     }
@@ -1205,6 +1252,12 @@ void Simulation::load(std::string_view text) {
         }
         const auto* kind=mobdata::find(m.type);
         if(m.id<1||m.id>100000000||!inside(m.x,m.y,m.z)||(m.type!=71&&!kind)||!std::isfinite(m.health)||m.health<=0||m.health>(kind?kind->health:20)||m.born>tick||(m.type==71&&!m.drop.item)||mobs.contains(m.id))throw std::runtime_error("Invalid saved mob");
+        if(m.type==71) {
+            m.item_ticks=p.value("item_ticks",static_cast<int>(std::min<std::uint64_t>(tick-m.born,6000)));
+            m.item_age=p.value("item_age",m.item_ticks);
+            m.item_on_ground=p.value("item_on_ground",false);
+            if(m.item_ticks<0||m.item_ticks>m.item_age||m.item_age>6001)throw std::runtime_error("Invalid item tick count");
+        }
         m.portal_cooldown=p.value("portal_cooldown",0);
         if(m.portal_cooldown<0||m.portal_cooldown>1200)throw std::runtime_error("Invalid item portal cooldown");
         if(p.contains("portal_entry")) {

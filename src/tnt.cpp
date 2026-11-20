@@ -1,9 +1,11 @@
 #include "cudacraft/simulation.hpp"
 #include "cudacraft/game.hpp"
+#include "cudacraft/block_collision_data.hpp"
 #include "cudacraft/simulation_data.hpp"
 #include "cudacraft/world.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
 
 namespace cudacraft {
@@ -30,6 +32,64 @@ double clip(const World& world,const PrimedTnt& tnt,int axis,double distance) {
     constexpr double height=.98f,radius=height/2;
     return world.clip_motion({tnt.x-radius,tnt.y,tnt.z-radius},
                              {tnt.x+radius,tnt.y+height,tnt.z+radius},axis,distance);
+}
+
+using Point=std::array<double,3>;
+bool blast_ray_clear(const World& world,const Point& from,const Point& to) {
+    Point direction{},next{},stride{};
+    std::array<int,3> cell{},step{};
+    for(int axis=0;axis<3;++axis) {
+        direction[axis]=to[axis]-from[axis];
+        cell[axis]=static_cast<int>(std::floor(from[axis]));
+        step[axis]=(direction[axis]>0)-(direction[axis]<0);
+        if(!step[axis]) {
+            next[axis]=stride[axis]=std::numeric_limits<double>::infinity();
+        } else {
+            const double boundary=cell[axis]+(step[axis]>0);
+            next[axis]=(boundary-from[axis])/direction[axis];
+            stride[axis]=std::abs(1/direction[axis]);
+        }
+    }
+    for(;;) {
+        const BlockPos position{cell[0],cell[1],cell[2]};
+        int state=world.block(position);
+        Point origin{double(position.x),double(position.y),double(position.z)};
+        if(const auto moved=world.simulation().piston_collision(position)) {
+            state=moved->first;
+            for(int axis=0;axis<3;++axis)origin[axis]+=moved->second[axis];
+        }
+        for(const auto& box:simdata::static_collision_boxes(state)) {
+            double start=0,end=1;
+            for(int axis=0;axis<3&&start<end;++axis) {
+                const double low=origin[axis]+box.min[axis],high=origin[axis]+box.max[axis];
+                if(!step[axis]) {
+                    if(from[axis]<=low||from[axis]>=high)end=0;
+                    continue;
+                }
+                const double a=(low-from[axis])/direction[axis],b=(high-from[axis])/direction[axis];
+                start=std::max(start,std::min(a,b));
+                end=std::min(end,std::max(a,b));
+            }
+            if(start<end)return false;
+        }
+        const auto axis=std::min_element(next.begin(),next.end())-next.begin();
+        if(next[axis]>=1)return true;
+        cell[axis]+=step[axis];
+        next[axis]+=stride[axis];
+    }
+}
+
+float tnt_exposure(const World& world,const PrimedTnt& tnt,const Point& blast) {
+    constexpr double size=.98f,radius=size/2;
+    constexpr double step=1/(2*size+1);
+    const double inset=(1-std::floor(1/step)*step)/2;
+    int visible=0,total=0;
+    for(double x=0;x<=1;x+=step)for(double y=0;y<=1;y+=step)for(double z=0;z<=1;z+=step) {
+        const Point point{tnt.x-radius+x*size+inset,tnt.y+y*size,tnt.z-radius+z*size+inset};
+        visible+=blast_ray_clear(world,point,blast);
+        ++total;
+    }
+    return static_cast<float>(visible)/total;
 }
 }
 
@@ -69,6 +129,7 @@ void Simulation::tick_tnt() {
         const auto found=primed_tnt.find(id);
         if(found==primed_tnt.end())continue;
         auto& tnt=found->second;
+        if(!world_.ticks_entities(tnt.x,tnt.z))continue;
         tnt.vy-=.04;
         const double dy=clip(world_,tnt,1,tnt.vy);
         tnt.y+=dy;
@@ -98,7 +159,7 @@ void Simulation::tick_tnt() {
 
 void Simulation::explode_tnt(int id,const PrimedTnt& source) {
     using namespace simdata;
-    const double x=source.x,y=source.y+.06125,z=source.z;
+    const double x=source.x,y=source.y+.98f*.0625,z=source.z;
     std::set<BlockPos> destroyed;
     std::uint64_t random=static_cast<std::uint64_t>(world_.options().seed)^tick^static_cast<std::uint64_t>(id);
     for(int a=0;a<16;++a)for(int b=0;b<16;++b)for(int c=0;c<16;++c) {
@@ -113,7 +174,8 @@ void Simulation::explode_tnt(int id,const PrimedTnt& source) {
             if(!World::valid(p))break;
             const int state=world_.block(p);
             if(state!=0) {
-                const auto resistance=blast_resistance(state);
+                const auto resistance=property_value(state,"waterlogged")=="true"?
+                    std::max(100.f,blast_resistance(state)):blast_resistance(state);
                 power-=(resistance+.3)*.3;
                 if(power>0&&block(state).hardness>=0&&p.y>world_.min_y())destroyed.insert(p);
             }
@@ -121,15 +183,13 @@ void Simulation::explode_tnt(int id,const PrimedTnt& source) {
             power-=.225;
         }
     }
-    auto impulse=[&](double px,double py,double pz,double& vx,double& vy,double& vz) {
-        const double dx=px-x,dy=py-y,dz=pz-z,distance=std::hypot(dx,dy,dz);
-        if(distance<=1e-7||distance>=8)return;
-        for(double step=.3;step<distance;step+=.3)
-            if(world_.solid(position(x+dx*step/distance,y+dy*step/distance,z+dz*step/distance)))return;
-        const double scale=(1-distance/8)/distance;
-        vx+=dx*scale;vy+=dy*scale;vz+=dz*scale;
-    };
-    for(auto& [other,tnt]:primed_tnt){(void)other;impulse(tnt.x,tnt.y+.49,tnt.z,tnt.vx,tnt.vy,tnt.vz);}
+    for(auto& [other,tnt]:primed_tnt) {
+        (void)other;
+        const double dx=tnt.x-x,dy=tnt.y-y,dz=tnt.z-z,distance=std::sqrt(dx*dx+dy*dy+dz*dz);
+        if(distance<=1e-5||distance>=8)continue;
+        const double scale=(1-distance/8)*tnt_exposure(world_,tnt,{x,y,z})/distance;
+        tnt.vx+=dx*scale;tnt.vy+=dy*scale;tnt.vz+=dz*scale;
+    }
     std::vector<std::pair<BlockPos,int>> changes;
     std::vector<BlockPos> chain;
     for(auto p:destroyed) {

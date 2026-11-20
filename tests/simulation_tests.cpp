@@ -488,6 +488,48 @@ void portal_linking_tests() {
         check(s.player.world().dimension_id()==0,"invalid source cannot bypass bounded portal cleanup backlog");
     }
 }
+void portal_ticket_tests() {
+    World world;
+    auto& nether=world.dimension(1);
+    world.enable_chunk_tickets();
+    world.add_portal_ticket({-1,80,0});
+    check(!nether.ticks_entities(-.5,.5),"portal tickets are dimension-local");
+    check(world.ticks_entities(-31.5,31.5)&&!world.ticks_entities(-47.5,31.5),
+          "portal destination and adjacent chunks tick entities across negative coordinates");
+    check(world.ticks_blocks({-48,80,47})&&!world.ticks_blocks({-49,80,47}),
+          "second ring ticks blocks only");
+    const int active=world.simulation().spawn_tnt({-.5,90,.5,0,0,0,32767});
+    const int dormant=world.simulation().spawn_tnt({-35.5,90,.5,0,0,0,32767});
+    world.advance_ticks(1);
+    check(world.simulation().primed_tnt.at(active).fuse==32766&&world.simulation().primed_tnt.at(dormant).fuse==32767,
+          "an entity in the block-only ring keeps its fuse");
+    world.force_tick_chunk(-3,0);
+    world.advance_ticks(1);
+    check(world.simulation().primed_tnt.at(dormant).fuse==32766,"a forced chunk resumes suspended TNT");
+    world.advance_ticks(297);
+    check(world.ticks_entities(-.5,.5),"portal ticket stays active for the documented lifetime");
+    world.advance_ticks(1);
+    check(!world.ticks_entities(-.5,.5)&&world.ticks_entities(-35.5,.5),
+          "portal ticket expires without clearing an independent forced chunk");
+}
+void portal_item_identity_test() {
+    World world;
+    auto& nether=world.dimension(1);
+    place_test_portal(world,{64,70,0});
+    place_test_portal(nether,{8,70,0});
+    const int id=world.simulation().spawn(71,64.5,70,.5,{sd::item_id("redstone"),1,0});
+    auto& item=world.simulation().mobs.at(id);
+    item.item_age=12;
+    item.item_ticks=12;
+    item.portal_entry=BlockPos{64,70,0};
+    world.advance_ticks(1);
+    check(!world.simulation().mobs.contains(id)&&nether.simulation().mobs.size()==1,
+          "portal transfer leaves a single item in the destination world");
+    const auto& [arrival_id,arrival]=*nether.simulation().mobs.begin();
+    check(arrival_id!=id&&arrival_id==arrival.id&&world.next_entity>arrival_id,
+          "cross-dimension item receives a new global runtime entity ID");
+    check(arrival.item_ticks==0&&arrival.item_age==13,"portal resets entity tick phase and retains item age");
+}
 void crafting_capacity_tests() {
     Session s;s.begin();s.command("clear");s.creative(36,sd::item_id("honey_bottle"),2);s.click(36);s.click(1);
     for(int i=9;i<=44;++i)s.creative(i,sd::item_id("diamond"),64);
@@ -509,4 +551,4 @@ void crafting_capacity_tests() {
     check(bulk.saved().inventory[9].count==64&&bulk.saved().crafting[0].item==0,"shift crafting fills remaining inventory capacity");
     check(bulk.world.simulation().mobs.size()==1&&bulk.world.simulation().mobs.begin()->second.drop.count==3,"partial shift output drops the remaining three planks exactly once");
 }
-int main(){try{water_tests();redstone_tests();observer_tests();copper_bulb_tests();survival_tests();persistence_tests();comparator_persistence_test();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}
+int main(){try{water_tests();redstone_tests();observer_tests();copper_bulb_tests();survival_tests();persistence_tests();comparator_persistence_test();needs_and_mob_tests();building_tests();storage_crafting_tests();knockback_tests();expansion_tests();portal_and_dimension_save_tests();portal_invalidation_tests();portal_linking_tests();portal_ticket_tests();portal_item_identity_test();crafting_capacity_tests();std::cout<<checks<<" simulation checks passed\n";return 0;}catch(const std::exception& e){std::cerr<<"After "<<checks<<" checks: "<<e.what()<<'\n';return 1;}}

@@ -158,6 +158,98 @@ def dropper_transfer_actions():
     ]
 
 
+def item_stagger_actions():
+    supports = [(x,79,0) for x in range(14,18)]
+    actions = [place(pos,"stone") for pos in supports]
+    actions.extend(dict(pos=(x+.5,80,.5),spawn_resting_item=True) for x,_,_ in supports)
+    actions.extend(place(pos,"air") for pos in supports)
+    for tick in range(1,5):
+        actions.extend([step(),dict(pos=(16,80,0),falling_item_count=tick,
+                                    check=f"{tick} of four items falling after tick {tick}")])
+    return actions
+
+
+def jukebox_sorter_actions():
+    source, jukebox, below = (15,80,0),(16,80,0),(16,79,0)
+    power, lamp, comparator, wire = (15,79,0),(16,81,0),(17,80,0),(18,80,0)
+    return [
+        *floor(comparator,wire),place(power,"redstone_block"),place(below,"hopper"),
+        place(source,"hopper",facing="east"),place(jukebox,"jukebox"),place(lamp,"redstone_lamp"),
+        place(comparator,"comparator",facing="west"),place(wire,"redstone_wire"),
+        inventory_edit(source,0,"stone",1),inventory_edit(source,1,"music_disc_stal",1),
+        step(2),check("locked sender holds the record",jukebox,"jukebox",has_record="false"),
+        place(power,"air"),place((16,78,0),"redstone_block"),step(4),
+        check("record inserted by hopper",jukebox,"jukebox",has_record="true"),
+        check("playing record powers adjacent lamp",lamp,"redstone_lamp",lit="true"),
+        check("selector reads Stal as eight",wire,"redstone_wire",power="8"),
+        dict(inventory_edit(source,0,"stone",1),check="incompatible item stays in the sender"),
+        place((16,78,0),"stone"),step(2),
+        check("playing power locks a block hopper below",below,"hopper",enabled="false"),
+        place(below,"rail",shape="east_west"),
+        dict(vehicle="sorter",kind="hopper_minecart",pos=(16.5,79.0625,.5),velocity=(0,0,0)),step(6),
+        dict(vehicle="sorter",pos=(16.5,79.0625,.5),vehicle_item="music_disc_stal",
+             check="hopper minecart extracts a playing record"),
+        check("jukebox clears when minecart extracts",jukebox,"jukebox",has_record="false"),
+        check("weak output stops",lamp,"redstone_lamp",lit="false"),
+        check("analog output returns to zero",wire,"redstone_wire",power="0"),
+    ]
+
+
+def hopper_trapdoor_actions():
+    hopper, cover, drop = (16,80,0),(16,81,0),(16.5,81.1875,.5)
+    return [
+        place(hopper,"hopper"), place(cover,"iron_trapdoor",half="bottom",open="false"),
+        dict(pos=drop,spawn_resting_item=True), step(),
+        dict(inventory_edit(hopper,0,"stone",1),check="hopper pulls through the closed trapdoor's partial shape"),
+    ]
+
+
+def item_landing_actions():
+    return [
+        place((16,81,0),"iron_trapdoor",half="bottom",open="false"),
+        dict(pos=(16.5,81.22,.5),item_probe="falling",velocity=(0,0,0)),step(),
+        dict(pos=(16.5,81.1875,.5),item_probe="falling",velocity=(0,0,0),
+             check="item stops at the trapdoor surface without bouncing"),
+    ]
+
+
+def piston_wire_wakeup_actions():
+    piston, support, dust, power = (16,80,0),(16,81,0),(16,82,0),(16,82,1)
+    return [
+        place(piston,"sticky_piston",facing="east"),place(support,"stone"),place(dust,"redstone_wire"),step(4),
+        check("piston starts retracted",piston,"sticky_piston",extended="false"),
+        place(power,"redstone_block"),step(4),
+        check("dust notifies the piston two blocks below",piston,"sticky_piston",extended="true"),
+        place(power,"air"),step(4),
+        check("dust removal of power wakes the piston again",piston,"sticky_piston",extended="false"),
+    ]
+
+
+def piston_moving_base_actions():
+    mover,near,far,source = (16,80,0),(17,80,0),(18,80,0),(15,80,0)
+    return [
+        place(mover,"sticky_piston",facing="east"),place(near,"sticky_piston",facing="up"),step(2),
+        place(source,"redstone_block"),step(3),
+        check("sticky piston extends with a retracted piston in front",far,"sticky_piston",facing="up",extended="false"),
+        place(source,"air"),step(3),
+        check("sticky piston pulls the moved piston base back",near,"sticky_piston",facing="up",extended="false"),
+        check("former position clears",far,"air"),
+    ]
+
+
+def piston_drop_pulse_actions():
+    piston,block,far,source = (16,80,0),(17,80,0),(18,80,0),(15,80,0)
+    return [
+        place(piston,"sticky_piston",facing="east"),place(block,"stone"),step(2),
+        place(source,"redstone_block"),step(),
+        check("load is still expanding",far,"moving_piston",facing="east"),
+        place(source,"air"),step(),
+        check("short pulse finishes the pushed block at once",far,"stone"),
+        check("head clears without pulling the load",block,"air"),
+        step(2),check("piston remains retracted",piston,"sticky_piston",extended="false"),
+    ]
+
+
 def powered_rail_actions(kind):
     line=[(x,80,0) for x in range(14,24)]
     other=(24,80,0)
@@ -247,6 +339,23 @@ def tnt_fuse_actions():
         check("blast leaves obsidian",obsidian,"obsidian"),
     ]
     return actions
+
+
+def tnt_impulse_actions():
+    source = (16.5,90,.5)
+    target = (18.5,90,.5)
+    height = struct.unpack("<f",struct.pack("<f",.98))[0]
+    dy = .04-height*.0625
+    distance = (4+dy*dy)**.5
+    scale = (1-distance/8)/distance
+    vx,vy = 2*scale,dy*scale-.04
+    return [
+        dict(tnt="source",pos=source,velocity=(0,0,0),fuse=1),
+        dict(tnt="target",pos=target,velocity=(0,0,0),fuse=12),
+        step(),dict(tnt="target",pos=(target[0]+vx,target[1]+vy,target[2]),
+                   velocity=(vx*.98,vy*.98,0),fuse=11,
+                   check="blast accelerates TNT along the vector to its base"),
+    ]
 
 
 def tnt_slab_actions():
@@ -415,6 +524,13 @@ CASES.update({
     "comparator_inventory": comparator_inventory_actions(),
     "hopper_transfer": hopper_transfer_actions(),
     "dropper_transfer": dropper_transfer_actions(),
+    "item_stagger": item_stagger_actions(),
+    "jukebox_sorter": jukebox_sorter_actions(),
+    "hopper_trapdoor": hopper_trapdoor_actions(),
+    "item_landing": item_landing_actions(),
+    "piston_wire_wakeup": piston_wire_wakeup_actions(),
+    "piston_moving_base": piston_moving_base_actions(),
+    "piston_drop_pulse": piston_drop_pulse_actions(),
     "powered_rail": powered_rail_actions("powered_rail"),
     "activator_rail": powered_rail_actions("activator_rail"),
     "cart_straight": cart_straight_actions(),
@@ -422,6 +538,7 @@ CASES.update({
     "dispenser_oak_boat": dispenser_vehicle_actions("oak_boat"),
     "detector_rail": detector_rail_actions(),
     "tnt_fuse": tnt_fuse_actions(),
+    "tnt_impulse": tnt_impulse_actions(),
     "tnt_slab": tnt_slab_actions(),
     "moving_slime": moving_slime_actions(),
     "daylight_detector": daylight_actions(),
@@ -455,6 +572,8 @@ def vanilla_actions(names):
                 moved["vehicle"] = f"fixture_{i}_{moved['vehicle']}"
             if "tnt" in moved:
                 moved["tnt"] = f"fixture_{i}_{moved['tnt']}"
+            if "item_probe" in moved:
+                moved["item_probe"] = f"fixture_{i}_{moved['item_probe']}"
             if "check" in moved:
                 moved["check"] = name + " / " + moved["check"]
             yield moved

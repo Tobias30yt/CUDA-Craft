@@ -52,7 +52,8 @@ void Simulation::validate_portals() {
 }
 void Simulation::tick_blocks() {
     validate_portals();
-    std::vector<BlockPos> releases;for(auto [p,due]:button_releases_)if(due<=tick)releases.push_back(p);
+    std::vector<BlockPos> releases;
+    for(auto [p,due]:button_releases_)if(due<=tick&&world_.ticks_blocks(p))releases.push_back(p);
     for(auto p:releases){button_releases_.erase(p);world_.set(p,simdata::with_property(world_.block(p),"powered","false"));}
     // Bounded round-robin work avoids starving positions late in the map.
     std::vector<BlockPos> batch;auto cursor=ticking_blocks_.upper_bound(block_cursor_);
@@ -61,6 +62,7 @@ void Simulation::tick_blocks() {
     for(std::size_t i=0;i<count;++i){batch.push_back(*cursor);if(++cursor==ticking_blocks_.end())cursor=ticking_blocks_.begin();}
     for(auto p:batch) {
         block_cursor_=p;const int s=world_.block(p);const std::string_view n=simdata::block(s).name;
+        if(!world_.ticks_blocks(p))continue;
         if(!ticking_block(s)){ticking_blocks_.erase(p);continue;}
         if(n.ends_with("_pressure_plate")) {
             int entities=0;auto inside=[&](double x,double y,double z){return x>p.x-.2&&x<p.x+1.2&&z>p.z-.2&&z<p.z+1.2&&y>=p.y&&y<p.y+.5;};

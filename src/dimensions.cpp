@@ -202,9 +202,12 @@ std::optional<PortalExit> World::entity_portal_exit(BlockPos entrance,const std:
     const double horizontal=std::clamp((along-width/2)/(source->width-width),0.0,1.0);
     const double vertical=std::clamp((y-source->origin.y)/(source->height-height),0.0,1.0);
     const double u=width/2+horizontal*(arrival->width-width);
-    return PortalExit{&destination,
-        {arrival->origin.x+(arrival->along_x?u:.5+normal),arrival->origin.y+vertical*(arrival->height-height),
-         arrival->origin.z+(arrival->along_x?.5+normal:u)},source->along_x!=arrival->along_x};
+    const std::array point{arrival->origin.x+(arrival->along_x?u:.5+normal),
+                           arrival->origin.y+vertical*(arrival->height-height),
+                           arrival->origin.z+(arrival->along_x?.5+normal:u)};
+    destination.add_portal_ticket({static_cast<int>(std::floor(point[0])),static_cast<int>(std::floor(point[1])),
+                                   static_cast<int>(std::floor(point[2]))});
+    return PortalExit{&destination,point,source->along_x!=arrival->along_x};
 }
 void GameSession::change_dimension(int id,bool through_portal) {
     if(id==world_->dimension_id())return;
@@ -233,6 +236,8 @@ void GameSession::change_dimension(int id,bool through_portal) {
     portal_ticks_=0;portal_cooldown_=world_->simulation().tick+100;attack_after_=eat_at_=0;hurt_until_=world_->simulation().tick+40;
     send(Packet(0x50).var(world_->dimension_type()).str(world_->dimension_name()).u64(world_->seed_hash()).u8(static_cast<std::uint8_t>(mode_)).u8(static_cast<std::uint8_t>(mode_)).u8(0).u8(world_->options().generator=="flat").u8(0).var(0).var(id==1?32:63).u8(3));
     if(arrival) {
+        destination.add_portal_ticket({static_cast<int>(std::floor(arrival_x)),static_cast<int>(std::floor(arrival_y)),
+                                       static_cast<int>(std::floor(arrival_z))});
         x=arrival_x;y=arrival_y;z=arrival_z;yaw=arrival_yaw;
         ++teleport_;awaiting_teleport_=true;falling_=false;fall_start_=y;mining_active_=false;eat_at_=0;
         send(Packet(0x46).var(teleport_).f64(x).f64(y).f64(z).f64(0).f64(0).f64(0).f32(yaw).f32(pitch).u32(0));update_view();

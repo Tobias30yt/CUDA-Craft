@@ -308,6 +308,33 @@ void World::activate_chunk(int cx,int cz) {
     for(const auto& [p,state]:edits_)if(terrain_math::floor_div(p.x,16)==cx&&terrain_math::floor_div(p.z,16)==cz)blocks[(p.y+64)*256+(p.z&15)*16+(p.x&15)]=static_cast<unsigned>(state);
     simulation_->activate(cx,cz,blocks);
 }
+void World::add_portal_ticket(BlockPos arrival) {
+    const std::pair chunk{terrain_math::floor_div(arrival.x,16),terrain_math::floor_div(arrival.z,16)};
+    const auto now=(parent_?parent_:this)->simulation().tick;
+    std::erase_if(portal_tickets_,[now](const auto& ticket){return ticket.second<=now;});
+    portal_tickets_[chunk]=now+300;
+}
+bool World::ticks_chunk(int cx,int cz,int extra_radius) const {
+    const auto& root=*(parent_?parent_:this);
+    if(!root.chunk_tickets_enabled_)return true;
+    auto distance=[cx,cz](std::pair<int,int> center){return std::max(std::abs(cx-center.first),std::abs(cz-center.second));};
+    const auto now=root.simulation().tick;
+    for(const auto& [center,expiry]:portal_tickets_)
+        if(expiry>now&&distance(center)<=1+extra_radius)return true;
+    for(auto center:forced_chunks_)
+        if(distance(center)<=extra_radius)return true;
+    for(const auto* player:players) {
+        const std::pair center{static_cast<int>(std::floor(player->x/16)),static_cast<int>(std::floor(player->z/16))};
+        if(distance(center)<=2+extra_radius)return true;
+    }
+    return false;
+}
+bool World::ticks_blocks(BlockPos position) const {
+    return ticks_chunk(terrain_math::floor_div(position.x,16),terrain_math::floor_div(position.z,16),1);
+}
+bool World::ticks_entities(double x,double z) const {
+    return ticks_chunk(static_cast<int>(std::floor(x/16)),static_cast<int>(std::floor(z/16)),0);
+}
 void World::queue_bulb_light(BlockPos p,int before,int after) {
     if(players.empty()||simdata::copper_bulb_light(before)==simdata::copper_bulb_light(after))return;
     for(auto* player:players)player->refresh_light(terrain_math::floor_div(p.x,16),terrain_math::floor_div(p.z,16));

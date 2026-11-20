@@ -1,7 +1,8 @@
 # Orbital Strike Cannon: Vanilla-Abnahmetest für 1.21.11
 
-Stand 20.11.2026. **Vollständige Schussfolge weiterhin offen.** Der
-Originalimport, die beiden Portal-Loader und separate Verhaltenstests bestehen.
+Stand 20.11.2026. **Die vollständige Schussfolge gelingt auf Vanilla 1.21.11.**
+Auf CUDA Craft bestehen der Originalimport, die beiden Portal-Loader und
+separate Verhaltenstests. Der native Zieltreffer ist offen.
 Der Nutzer hat nach der Versionsprüfung ausdrücklich Minecraft **1.21.11** und
 eine passende **Mk.6/MS** als Ziel gewählt.
 
@@ -40,7 +41,8 @@ Blockzahlen, Datenversionen und Inventar-/Entitätstypen ohne Bauplan-Geometrie.
 | Orbital Skybender 1.0 | 4903 | 9.309 | Neuerer Block `minecraft:potent_sulfur`: inkompatibel |
 
 **Baseline:** zuerst Mk.6.1 mit dem zugehörigen OSC-6-Panel und Nether-Aufbau in
-Vanilla 1.21.11 bestätigen. **Bevorzugtes erweitertes Ziel:** MS-Hauptkanone und
+Vanilla 1.21.11 bestätigen. Der Mk.6.1-Referenzschuss ist unten dokumentiert.
+**Bevorzugtes erweitertes Ziel:** MS-Hauptkanone und
 MS-Nether. Für das neu gespeicherte MS-Panel muss zuvor ein kompletter Vanilla-Lauf
 in 1.21.11 gelingen oder eine originale ältere Panel-Version beschafft werden.
 Ein bestandener Registry-Check allein reicht nicht für diese Freigabe.
@@ -122,6 +124,33 @@ zugehörigen Originaltasten. `--submit-at` drückt „Input Settings“.
 `--remote-at` stellt einen Gegenstand auf die Gewichtsplatte des
 Angel-Fernauslösers. Bei `--target` bleiben TNT-Ankunft und Blockänderungen
 in der Zielregion verpflichtende Prüfungen.
+
+### Reproduzierbarer Mk.6.1-Referenzschuss
+
+Die Einrichtung startet die beiden Original-Loader, betätigt die Originalhebel
+zu festen Spielticks und entfernt die anfänglichen Force-Load-Tickets in Tick
+100. Die Portal-Tickets halten die Maschine in Betrieb. Das Ziel bleibt geladen.
+Beim durchgehend erzwungenen Laden erhielt die Kanone in den Vergleichsläufen
+kein Startsignal. Die drei Tageslichtzustände, die Statuslampe und alle
+65 Eingabebits können im Trace geprüft werden.
+
+```powershell
+python tools/check-mk61-startup.py ".tools/osc-research/The Orbital Strike Cannon Mk.6.1.litematic" `
+  --java "C:/Program Files/Java/jdk-23/bin/java.exe" --probe build/cuda/redstone-probe.exe `
+  --nether ".tools/osc-research/OSC 6 Nether.litematic" --panel ".tools/osc-research/OSC 6 Control Panel.litematic" `
+  --button 15 12 -17 --button -17 12 15 --control-at 1 205 132 17 `
+  --control-at 35 18 141 -14 --control-at 35 -14 141 18 --control-at 50 7 141 -22 --control-at 50 3 143 -24 `
+  --portal-only-at 100 --grid tests/fixtures/mk61-target-80-64-32.json --grid-at 400 --submit-at 460 `
+  --watch 6 141 -24 --watch 6 141 -23 --watch 197 135 -1 --watch 200 135 2 `
+  --target 80 64 32 --sample-every 20 --ticks 2100 --output .tools/osc-research/mk61-shot.json
+```
+
+Die Matrix gilt für den Ursprung `0 128 0`, Ziel `80 64 32`, Passcode `940`,
+Nuke-Größe `1` und Magazinschacht `0`. Im ersten erfolgreichen Referenzlauf
+erschien TNT im Hauptaufbau in der Stichprobe bei Tick 760 und am Ziel bei
+Tick 1500. In der Zielregion waren am Ende 72 Blockzustände verändert. Die
+Referenzprüfung bleibt ein Fehler, bis CUDA Craft TNT am selben Ziel erzeugt
+und der Vergleich der Blockänderungen besteht.
 
 ## Was implementiert werden muss
 

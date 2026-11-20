@@ -28,9 +28,10 @@ void Simulation::tick_items() {
     const auto world_tick=world_.root().simulation().tick;
     for(auto it=mobs.begin();it!=mobs.end();) {
         auto& [id,item]=*it++;
-        if(item.type!=71||item.last_world_tick==world_tick)continue;
+        if(item.type!=71||item.last_world_tick==world_tick||!world_.ticks_entities(item.x,item.z))continue;
         item.last_world_tick=world_tick;
-        const auto age=tick-item.born;
+        ++item.item_ticks;
+        const int age=++item.item_age;
         if(age>=6000) {
             mobs.erase(id);
             world_.mark_dirty();
@@ -45,8 +46,11 @@ void Simulation::tick_items() {
                 if(exit->rotated)std::tie(item.vx,item.vz)=std::pair{item.vz,-item.vx};
                 item.portal_cooldown=300;
                 auto& arrival=exit->world->simulation();
-                item.born=arrival.tick-std::min(arrival.tick,age);
-                arrival.mobs.insert(mobs.extract(id));
+                item.born=std::min(item.born,arrival.tick);
+                auto arrival_item=mobs.extract(id);
+                arrival_item.key()=arrival_item.mapped().id=world_.root().next_entity++;
+                arrival_item.mapped().item_ticks=0;
+                arrival.mobs.insert(std::move(arrival_item));
                 world_.mark_dirty();
                 exit->world->mark_dirty();
                 continue;
@@ -57,23 +61,41 @@ void Simulation::tick_items() {
                             static_cast<int>(std::floor(item.z))};
         const int state=world_.block(cell);
         const bool wet=simdata::water(state)||simdata::property_value(state,"waterlogged")=="true";
-        item.vy=wet?std::min(.06,item.vy+.0005):item.vy-.04;
+        if(wet) {
+            item.vx*=.99f;item.vz*=.99f;
+            if(item.vy<.06f)item.vy+=.0005f;
+        } else item.vy-=.04;
         auto move=[&](int axis,double& position,double speed) {
             const auto actual=world_.clip_motion({item.x-radius,item.y,item.z-radius},
                                                 {item.x+radius,item.y+height,item.z+radius},axis,speed);
             position+=actual;
             return actual!=speed;
         };
-        const bool grounded=move(1,item.y,item.vy)&&item.vy<0;
-        if(std::abs(item.vx)<std::abs(item.vz)) {
-            if(move(2,item.z,item.vz))item.vz=0;
-            if(move(0,item.x,item.vx))item.vx=0;
-        } else {
-            if(move(0,item.x,item.vx))item.vx=0;
-            if(move(2,item.z,item.vz))item.vz=0;
+        // Vanilla staggers nearly stationary ground items across four server ticks.
+        // This also determines how quickly one starts falling when its support opens.
+        if(!item.item_on_ground||item.vx*item.vx+item.vz*item.vz>1.e-5f||(item.item_ticks+id)%4==0) {
+            item.item_on_ground=move(1,item.y,item.vy)&&item.vy<0;
+            if(std::abs(item.vx)<std::abs(item.vz)) {
+                if(move(2,item.z,item.vz))item.vz=0;
+                if(move(0,item.x,item.vx))item.vx=0;
+            } else {
+                if(move(0,item.x,item.vx))item.vx=0;
+                if(move(2,item.z,item.vz))item.vz=0;
+            }
+            float slipperiness=1.f;
+            if(item.item_on_ground) {
+                const BlockPos support{static_cast<int>(std::floor(item.x)),static_cast<int>(std::floor(item.y-1.e-7)),
+                                       static_cast<int>(std::floor(item.z))};
+                const std::string_view material=simdata::block(world_.block(support)).name;
+                slipperiness=.6f;
+                if(material=="slime_block")slipperiness=.8f;
+                else if(material=="blue_ice")slipperiness=.989f;
+                else if(material=="ice"||material=="packed_ice"||material=="frosted_ice")slipperiness=.98f;
+                item.vy=material=="slime_block"?-.8*item.vy:0;
+            }
+            const double drag=slipperiness*.98f;
+            item.vx*=drag;item.vy*=.98;item.vz*=drag;
         }
-        const double drag=wet?.99:grounded?.588:.98;
-        item.vx*=drag;item.vy*=grounded?-.49:.98;item.vz*=drag;
         for(auto p:world_.occupied_cells({item.x-radius,item.y,item.z-radius},
                                         {item.x+radius,item.y+height,item.z+radius})) {
             if(std::string_view(simdata::block(world_.block(p)).name)!="nether_portal")continue;

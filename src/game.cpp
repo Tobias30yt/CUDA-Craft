@@ -257,6 +257,13 @@ void GameSession::handle(std::span<const std::uint8_t> payload) {
         if(face<0 || face>5 || hand<0 || hand>1 || sequence<0) throw protocol::Error("Invalid placement");
         const int held_slot=hand?45:36+selected_;
         if(!awaiting_teleport_&&alive()&&reachable(clicked)) {
+            const int clicked_state=world_->block(clicked);
+            if(std::string_view(simdata::block(clicked_state).name)=="jukebox"&&
+               world_->simulation().use_jukebox(clicked,inventory_[held_slot])) {
+                if(survival()&&simdata::property_value(clicked_state,"has_record")=="false")
+                    set_slot(held_slot,inventory_[held_slot].item,inventory_[held_slot].count-1);
+                send(Packet(0x04).var(sequence));return;
+            }
             if(open_container(clicked)){send(Packet(0x04).var(sequence));return;}
             if(world_->simulation().interact(clicked)) {send(Packet(0x04).var(sequence));return;}
             if(world_->block(clicked)==simdata::crafting_table_state) {

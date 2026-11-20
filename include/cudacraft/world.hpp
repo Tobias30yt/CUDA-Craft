@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 
 namespace cudacraft {
 class World;
@@ -57,6 +58,11 @@ public:
                        int axis,double distance,bool ignore_moving_pistons=false) const;
     void mark_dirty() { dirty_=true; }
     void activate_chunk(int x,int z);
+    void enable_chunk_tickets() { root().chunk_tickets_enabled_=true; }
+    void add_portal_ticket(BlockPos arrival);
+    void force_tick_chunk(int cx,int cz) { forced_chunks_.emplace(cx,cz); }
+    bool ticks_blocks(BlockPos position) const;
+    bool ticks_entities(double x,double z) const;
     std::vector<GameSession*> players;
     int next_entity = 1;
     static bool valid(BlockPos p);
@@ -67,6 +73,10 @@ public:
     int biome(int x, int y, int z) const;
     std::uint64_t seed_hash() const;
 private:
+    bool ticks_chunk(int cx,int cz,int extra_radius) const;
+    bool chunk_tickets_enabled_=false;
+    std::map<std::pair<int,int>,std::uint64_t> portal_tickets_;
+    std::set<std::pair<int,int>> forced_chunks_;
     void queue_bulb_light(BlockPos p,int before,int after);
     void append_chunk_light(Packet& packet,const std::vector<std::uint32_t>& blocks) const;
     // Destroy last, after dimension saves and all other world-owned state.

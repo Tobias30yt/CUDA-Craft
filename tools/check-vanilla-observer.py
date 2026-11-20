@@ -125,6 +125,34 @@ def main():
                         command(f'kill @e[tag={action["remove_vehicle"]},limit=1]',"Killed")
                         continue
                     position = " ".join(map(str, action["pos"]))
+                    if "item_probe" in action:
+                        key = action["item_probe"]
+                        if "check" not in action:
+                            motion = ",".join(f"{value}d" for value in action["velocity"])
+                            command(f'summon item {position} {{Tags:["{key}"],Motion:[{motion}],'
+                                    'Item:{id:"minecraft:stone",count:1}}',"Summoned new")
+                        else:
+                            label = action["check"]
+                            for field,expected in (("Pos",action["pos"]),("Motion",action["velocity"])):
+                                response = command(f"data get entity @e[tag={key},limit=1] {field}","has the following entity data:")
+                                raw = response.rsplit("[",1)[1].split("]",1)[0]
+                                actual = [float(value.strip().rstrip("dDfF")) for value in raw.split(",")]
+                                if len(actual)!=3 or any(abs(a-b)>1e-8 for a,b in zip(actual,expected)):
+                                    raise AssertionError(f"{label} {field}: expected {expected}, got {actual}")
+                            print(label,flush=True)
+                        continue
+                    if "spawn_resting_item" in action:
+                        command(f'summon item {position} {{Tags:["fixture_resting_item"],OnGround:1b,'
+                                'Motion:[0d,0d,0d],Item:{id:"minecraft:stone",count:1}}',"Summoned new")
+                        continue
+                    if "falling_item_count" in action:
+                        result = command("execute if entity @e[type=item,tag=fixture_resting_item,nbt={OnGround:0b}]",
+                                         "Test passed. Count:")
+                        observed = int(result.rsplit(":",1)[1])
+                        if observed!=action["falling_item_count"]:
+                            raise AssertionError(f"{action['check']}: found {observed} falling items")
+                        print(action["check"],flush=True)
+                        continue
                     if "tnt" in action:
                         key = action["tnt"]
                         selector=f"@e[type=minecraft:tnt,tag={key},limit=1]"
@@ -162,7 +190,13 @@ def main():
                         continue
                     if "vehicle" in action:
                         key = action["vehicle"]
-                        if "check" in action:
+                        if "vehicle_item" in action:
+                            item=action["vehicle_item"]
+                            label=action["check"]
+                            command(f'execute if data entity @e[tag={key},limit=1] '
+                                    f'Items[{{Slot:0b,id:"minecraft:{item}",count:1}}] run say {label}',f"[Server] {label}")
+                            print(label,flush=True)
+                        elif "check" in action:
                             for field, expected in (("Pos",action["pos"]),("Motion",action["velocity"])):
                                 response = command(f"data get entity @e[tag={key},limit=1] {field}",
                                                    "has the following entity data:")

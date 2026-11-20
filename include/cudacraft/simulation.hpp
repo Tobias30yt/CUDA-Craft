@@ -34,6 +34,8 @@ struct Mob {
     float health=10,yaw=0;
     std::uint64_t born=0,next_attack=0,knockback_until=0,angry_until=0;
     ItemStack drop{};
+    int item_ticks=0,item_age=0;
+    bool item_on_ground=false;
     int portal_cooldown=0;
     std::optional<BlockPos> portal_entry;
     std::uint64_t last_world_tick=0;
@@ -80,6 +82,8 @@ public:
     std::size_t container_drops(BlockPos position,int replacement) const;
     void container_changed(BlockPos position,int before,int after);
     void inventory_signal_changed(BlockPos position);
+    bool set_jukebox_record(BlockPos position,ItemStack record);
+    bool use_jukebox(BlockPos position,ItemStack held);
     int spawn(int type,double x,double y,double z,ItemStack drop={});
     static int vehicle_slots(int type);
     int spawn_vehicle(Vehicle vehicle);
@@ -109,6 +113,7 @@ private:
     std::set<BlockPos> daylight_detectors_;
     std::set<BlockPos> tnt_blocks_;
     std::map<BlockPos,int> comparator_outputs_;
+    std::map<BlockPos,std::uint64_t> playing_records_;
     std::set<BlockPos> shape_updates_;
     std::set<BlockPos> portal_checks_;
     std::set<BlockPos> ticking_blocks_;
@@ -136,6 +141,9 @@ private:
     void update_powered_rails(const std::set<BlockPos>& affected);
     void update_shapes();
     void tick_furnaces();
+    void tick_jukeboxes();
+    void jukebox_signal_changed(BlockPos position);
+    static int record_signal(int item);
     void tick_hoppers();
     void tick_vehicles();
     bool transfer_vehicle(int id,Vehicle& vehicle,BlockPos entrance);

@@ -27,7 +27,8 @@ DIMENSIONS = ("overworld","the_nether")
 LOADER_RETURN_OFFSETS = {(15,12,-17):(15,0,-14),(-17,12,15):(-14,0,15)}
 
 
-def native_frames(probe, directory, snapshot, positions, hoppers, event_ticks, presses, nether_snapshot, grid, remote):
+def native_frames(probe, directory, snapshot, positions, hoppers, event_ticks, presses, nether_snapshot, grid,
+                  remote, portal_only, target_positions):
     directory.mkdir()
     (directory/"blocks.json").write_text(json.dumps(snapshot, separators=(",",":")), encoding="utf-8")
     if nether_snapshot is not None:
@@ -44,6 +45,8 @@ def native_frames(probe, directory, snapshot, positions, hoppers, event_ticks, p
         if grid and tick==grid[0]:
             actions.extend(dict(pos=button,indicator=lamp,lit=bit,interact=True)
                            for button,lamp,bit in grid[1])
+        if tick==portal_only:
+            actions.append(dict(enable_chunk_tickets=sorted({(x//16,z//16) for x,_,z in target_positions})))
         if remote and tick==remote:
             actions.append(dict(remote_weight="drop",pos=REMOTE_PLATE))
         if remote and tick==remote+REMOTE_HOLD:
@@ -109,10 +112,10 @@ def read_nbt(path):
 
 
 def vanilla_frames(java, jar, directory, merged, version, positions, hoppers, registry, item_ids,
-                   event_ticks, presses, origin, nether, panel, target_positions, grid, remote):
+                   event_ticks, presses, origin, nether, panel, target_positions, grid, remote, portal_only, extra_watch):
     directory.mkdir()
     vanilla.stage_fixture(java,jar,directory,merged,version,origin,nether,panel,
-                          exact_clock=True,observe=target_positions)
+                          exact_clock=True,observe=(*target_positions,*extra_watch))
     world = directory/"world"
     chunks = sorted({(x//16,z//16) for x,_,z in positions})
     frames = {0:vanilla_frame(world,positions,hoppers,chunks,registry,item_ids)}
@@ -172,6 +175,12 @@ def vanilla_frames(java, jar, directory, merged, version, positions, hoppers, re
                 actions.extend(grid_presses(sample(command)))
             if actions:
                 press(actions)
+            if tick==portal_only:
+                for dimension in DIMENSIONS:
+                    command(f"execute in minecraft:{dimension} run forceload remove all", "force loaded chunks")
+                active_chunks = {(p[0]//16,p[2]//16) for p in target_positions}
+                for cx,cz in sorted(active_chunks):
+                    command(f"forceload add {cx*16} {cz*16}","to be force loaded")
             if remote and tick==remote:
                 coords = " ".join(map(str,REMOTE_PLATE))
                 command(f'summon minecraft:item {coords} '
@@ -224,7 +233,7 @@ def matching_loader_drop(trace, displacement, boat_item):
             _,_,_,point,motion = following[0]
             delta = (speed[0],speed[1]-.04,speed[2])
             if (following[0][:3]!=spawn[:3] or not close(point,add(position,delta))
-                    or not close(motion,tuple(value*.98 for value in delta))):
+                    or not close(motion,(delta[0]*0.9800000190734863,delta[1]*.98,delta[2]*0.9800000190734863))):
                 return False
             if len(following)==2:
                 arrival = following[1]
@@ -266,8 +275,16 @@ def main():
     parser.add_argument("--probe",type=Path,required=True)
     parser.add_argument("--ticks",type=int,default=4,metavar="1..4096")
     parser.add_argument("--sample-every",type=int,default=1,help="Game ticks between samples")
+    parser.add_argument("--sample-window",type=int,nargs=2,metavar=("START","END"),
+                        help="Capture every tick inside an inclusive interval in addition to regular samples")
     parser.add_argument("--button",type=int,nargs=3,action="append",default=[],metavar=("X","Y","Z"),
                         help="Press an original button at this schematic-relative position before tick one")
+    parser.add_argument("--control-at",type=int,nargs=4,action="append",default=[],metavar=("TICK","X","Y","Z"),
+                        help="Use an original lever or button at this absolute position and tick")
+    parser.add_argument("--portal-only-at",type=int,metavar="TICK",
+                        help="Switch both engines from always-ticking setup to portal tickets, with the target forced")
+    parser.add_argument("--watch",type=int,nargs=3,action="append",default=[],metavar=("X","Y","Z"),
+                        help="Include the Vanilla and CUDA Craft states of an absolute block position in each trace frame")
     parser.add_argument("--nether",type=Path,help="Install the original OSC 6 Nether counterpart")
     parser.add_argument("--panel",type=Path,help="Install the original OSC 6 control panel")
     parser.add_argument("--grid",type=Path,help="Replay a 5x13 JSON grid from Cubicmetre's Mk.6 fire control")
@@ -276,10 +293,16 @@ def main():
     parser.add_argument("--remote-at",type=int,metavar="TICK",help="Weight the original fishing-rod pressure plate after submitting")
     parser.add_argument("--target",type=int,nargs=3,metavar=("X","Y","Z"),
                         help="Require TNT arrival and matching block damage around this Overworld target")
+    parser.add_argument("--reference-cache",type=Path,
+                        help="Record official frames on the first run and reuse them for matching test inputs")
     parser.add_argument("--output",type=Path,required=True)
     args = parser.parse_args()
     if not 1<=args.ticks<=4096 or args.sample_every<=0 or args.ticks//args.sample_every>120:
         parser.error("Choose 1 through 4096 ticks, with a positive sampling interval and at most 120 regular samples")
+    if args.sample_window:
+        first,last = args.sample_window
+        if not 0<=first<=last<=args.ticks or last-first>=80:
+            parser.error("--sample-window must cover at most 80 ticks inside the measured range")
     if not 0<=args.grid_at<=args.ticks or (args.grid_at and not args.grid):
         parser.error("--grid-at requires --grid and must be inside the measured tick range")
     if args.submit_at is not None and (not args.grid or not args.grid_at<args.submit_at<=args.ticks):
@@ -287,6 +310,8 @@ def main():
     if args.remote_at is not None and (not args.submit_at or
                                        not args.submit_at<args.remote_at<=args.ticks-REMOTE_HOLD):
         parser.error("--remote-at must follow --submit-at and allow the pressure plate to release before --ticks")
+    if args.portal_only_at is not None and (not args.nether or not 0<args.portal_only_at<=args.ticks):
+        parser.error("--portal-only-at requires --nether and a tick after fixture loading")
     target_positions = []
     if args.target:
         x,y,z = args.target
@@ -327,8 +352,21 @@ def main():
             grid = json.loads(args.grid.read_text(encoding="utf-8"))
             grid_plan = args.grid_at,list(panel_buttons(grid,panel[0][0]))
     if args.submit_at is not None:
-        presses[args.submit_at] = [add((9,7,5),PANEL_ORIGIN)]
+        presses.setdefault(args.submit_at,[]).append(add((9,7,5),PANEL_ORIGIN))
+    for tick,x,y,z in args.control_at:
+        pos = (x,y,z)
+        state = blocks.get(tuple(value-base for value,base in zip(pos,origin)),{})
+        if not state and panel:
+            state = panel[0][0].get(tuple(value-base for value,base in zip(pos,PANEL_ORIGIN)),{})
+        name = state.get("Name","")
+        if not 0<=tick<=args.ticks or (name!="minecraft:lever" and not name.endswith("_button")):
+            parser.error("--control-at requires a fixture tick and an original lever or button")
+        presses.setdefault(tick,[]).append(pos)
     event_ticks = {args.ticks,*range(0,args.ticks+1,args.sample_every),*presses}
+    if args.sample_window:
+        event_ticks.update(range(first,last+1))
+    if args.portal_only_at is not None:
+        event_ticks.add(args.portal_only_at)
     if grid_plan:
         event_ticks.add(args.grid_at)
     if args.remote_at:
@@ -344,10 +382,12 @@ def main():
     items = json.loads((native.ROOT/".tools/reference/items.json").read_text(encoding="utf-8"))
     item_ids = {"minecraft:"+item["name"]:item["id"] for item in items}
     registry, names = {}, {}
+    properties = {}
     for name, definition in reports.items():
         for state in definition["states"]:
             registry[vanilla.terrain.state_key({"Name":name,"Properties":state.get("properties",{})})] = state["id"]
             names[state["id"]] = name
+            properties[state["id"]] = state.get("properties",{})
     snapshot,_ = native.build_snapshot(blocks,records,entities,block_ticks,reports,item_ids,origin,fluid_ticks)
     nether_snapshot = None
     if nether:
@@ -366,15 +406,48 @@ def main():
         positions.extend(entry[:3] for entry in panel_snapshot["edits"])
         hoppers.extend(sorted(add(position,panel_origin) for position,record in panel_records.values()
                               if record["id"]=="minecraft:hopper"))
+    observed_positions = set(map(tuple,positions))
+    extra_watch = set(map(tuple,args.watch))-observed_positions-set(target_positions)
+    if any(not (-1024<=x<1024 and -64<=y<320 and -1024<=z<1024) for x,y,z in extra_watch):
+        parser.error("--watch must be inside the native world")
+    positions.extend(sorted(extra_watch))
     target_begin = len(positions)
     positions.extend(target_positions)
+    indices = {tuple(position):index for index,position in enumerate(positions)}
+    cache_key = None
+    if args.reference_cache:
+        cache_inputs = dict(reference=vanilla.capture.SHA1,main=SHA256,nether=NETHER_SHA256 if nether else None,
+                            panel=PANEL_SHA256 if panel else None,presses=presses,grid=grid_plan,
+                            points=positions,targets=target_positions,portal_only=args.portal_only_at,
+                            remote=args.remote_at,ticks=event_ticks)
+        fingerprint = hashlib.sha256(json.dumps(cache_inputs,sort_keys=True).encode())
+        for name in (Path(__file__).name,"check-vanilla-litematic.py","litematic_fixture.py",
+                     "litematic_anvil_ticks.py","FreezeVanilla.java"):
+            fingerprint.update(Path(__file__).with_name(name).read_bytes())
+        cache_key = fingerprint.hexdigest()
+        if args.reference_cache.exists():
+            with gzip.open(args.reference_cache,"rt",encoding="utf-8") as source:
+                cached = json.load(source)
+            if cached["key"]!=cache_key:
+                parser.error("--reference-cache was made for different inputs or reference tools")
+        else:
+            cached = None
+    else:
+        cached = None
     with tempfile.TemporaryDirectory(prefix="mk61-startup-",dir=jar.parent) as folder:
         directory = Path(folder)
         actual = native_frames(args.probe,directory/"native",snapshot,positions,hoppers,event_ticks,
-                               presses,nether_snapshot,grid_plan,args.remote_at)
-        reference = vanilla_frames(args.java,jar,directory/"reference",merged,version,positions,
-                                   hoppers,registry,item_ids,event_ticks,presses,origin,nether,panel,
-                                   target_positions,grid_plan,args.remote_at)
+                               presses,nether_snapshot,grid_plan,args.remote_at,args.portal_only_at,target_positions)
+        if cached:
+            reference = dict(zip(event_ticks,cached["frames"],strict=True))
+            print(f"Using official 1.21.11 frames from {args.reference_cache}",flush=True)
+        else:
+            reference = vanilla_frames(args.java,jar,directory/"reference",merged,version,positions,
+                                       hoppers,registry,item_ids,event_ticks,presses,origin,nether,panel,
+                                       target_positions,grid_plan,args.remote_at,args.portal_only_at,extra_watch)
+            if args.reference_cache:
+                with gzip.open(args.reference_cache,"xt",encoding="utf-8") as output:
+                    json.dump(dict(key=cache_key,frames=[reference[tick] for tick in event_ticks]),output)
     trace = []
     for tick,expected in sorted(reference.items()):
         observed = actual[tick]
@@ -387,16 +460,26 @@ def main():
         actual_vehicles = normalize_vehicles(observed["vehicles"])
         wanted_items,actual_items = normalize_items(expected["items"]),normalize_items(observed["items"])
         counts = Counter(names[want] for _,want,_ in changes)
+        def describe(state):
+            return [names[state],properties[state]]
+        watch = [[pos,describe(expected["states"][indices[tuple(pos)]]),
+                  describe(observed["states"][indices[tuple(pos)]])] for pos in args.watch]
         trace.append(dict(tick=tick,differing_blocks=changes,differing_hoppers=inventories,
                           vanilla_tnt=wanted_tnt,native_tnt=actual_tnt,
                           vanilla_vehicles=wanted_vehicles,native_vehicles=actual_vehicles,
-                          vanilla_items=wanted_items,native_items=actual_items))
+                          vanilla_items=wanted_items,native_items=actual_items,watch=watch))
         print(f"Tick {tick}: {len(changes)} differing block states, {len(inventories)} differing hoppers, "
               f"TNT {len(wanted_tnt)}/{len(actual_tnt)}, vehicles {len(wanted_vehicles)}/{len(actual_vehicles)} "
               f"(Vanilla/native). Most common Vanilla states: {counts.most_common(4)}", flush=True)
     shot_failed = False
     if args.target:
         x,_,z = args.target
+        matrix_errors = []
+        for frames in (reference,actual):
+            states = frames[args.submit_at]["states"]
+            matrix_errors.append(sum((properties[states[indices[lamp]]].get("lit")=="true")!=bit
+                                     for _,lamp,bit in grid_plan[1]))
+        print(f"Settings mismatches before submission Vanilla/native: {matrix_errors}.")
         def reached(frames):
             return any(charge["dimension"]=="minecraft:overworld" and
                        math.hypot(charge["position"][0]-x,charge["position"][2]-z)<=3
@@ -408,7 +491,7 @@ def main():
                          actual[0]["states"][target_begin:],actual[args.ticks]["states"][target_begin:])
                          if before!=after]
         arrivals = reached(reference),reached(actual)
-        shot_failed = not (all(arrivals) and expected_damage and expected_damage==actual_damage)
+        shot_failed = not (not any(matrix_errors) and all(arrivals) and expected_damage and expected_damage==actual_damage)
         print(f"Target arrival Vanilla/native: {arrivals}. Changed target blocks Vanilla/native: "
               f"{len(expected_damage)}/{len(actual_damage)}.")
     args.output.write_text(json.dumps(trace,indent=2)+"\n",encoding="utf-8")
