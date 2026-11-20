@@ -1,7 +1,7 @@
 # Orbital Strike Cannon: Vanilla-Abnahmetest für 1.21.11
 
-Stand: 19.11.2026. **Vollständige Schussfolge weiterhin offen.** Das ist ein
-Integrationsziel, kein bestandener Test und kein Ersatz für die übrigen Vanilla-Tests.
+Stand 20.11.2026. **Vollständige Schussfolge weiterhin offen.** Der
+Originalimport, die beiden Portal-Loader und separate Verhaltenstests bestehen.
 Der Nutzer hat nach der Versionsprüfung ausdrücklich Minecraft **1.21.11** und
 eine passende **Mk.6/MS** als Ziel gewählt.
 
@@ -63,18 +63,18 @@ Auf Vanilla werden Block-Entitäten anhand von Typ, gespeicherten Gegenständen,
 Komparatorwert und Hopper-Cooldown geprüft. Beim Fahrzeugvergleich zählen Typ
 und Position. Die Ticklisten im Anvil-Save enthalten Position, Typ, Verzögerung
 und Priorität. Die Reihenfolge gleicher Ticks wird innerhalb eines Chunks
-erhalten. Die Tests prüfen separate Platzierungen und Save-Rundläufe.
-Der zusammengeschaltete Originalaufbau und die Ausführung dieser Ticks wurden
-bisher nicht geprüft.
+erhalten. Die Importtests prüfen separate Platzierungen und Save-Rundläufe.
+Der spätere Tickvergleich führt die Ticks im verbundenen Aufbau aus.
 
 Auf CUDA Craft bestätigt ein temporärer Save denselben Blockzustand an
 jeder belegten Position sowie im Hauptaufbau 316 unterstützte Inventare,
 70 aktive Komparatorwerte und vier geplante Komparator-Tick-Verzögerungen.
-Im Bedienpanel werden 65 Inventare, fünf Komparatorwerte und zwei Verzögerungen
-übernommen. Beim erneuten Öffnen stimmen außerdem die gespeicherten Fahrzeugdaten
-für vier Fahrzeuge im Hauptaufbau und eines im Bedienpanel. Native Tickprioritäten
-und weitere Block-Entitäten fehlen noch im Fixture-Import. Der Nether-Loader wurde separat
-auf einer flachen Referenzfläche platziert. Der Dimensionsübergang steht aus.
+Im Bedienpanel werden 65 Inventare, fünf Komparatorwerte, 53 geplante Blockticks
+und ein Wassertick übernommen. Die Blockticks behalten ihre relative
+Einfügereihenfolge und Priorität. Beim erneuten Öffnen stimmen außerdem die
+gespeicherten Fahrzeugdaten für vier Fahrzeuge im Hauptaufbau und eines im
+Bedienpanel. Weitere Block-Entity-Felder, insbesondere Texte und Komponenten,
+bleiben im nativen Import offen.
 
 ```powershell
 python tools/check-vanilla-litematic.py ".tools/osc-research/The Orbital Strike Cannon Mk.6.1.litematic" --java "C:/Program Files/Java/jdk-23/bin/java.exe"
@@ -83,6 +83,45 @@ python tools/check-native-litematic.py ".tools/osc-research/The Orbital Strike C
 
 Für einen Lauf mit fest vorgegebenen Eingaben kann man beiden Prüfern mit
 `--sha256` den Hash aus [osc-fixture-audit.json](osc-fixture-audit.json) übergeben.
+
+## Tickvergleich des Original-Hauptaufbaus
+
+Der Starttest lädt die fest per SHA-256 gebundene Mk.6.1-Datei auf beiden Servern
+in einer lokalen flachen Testwelt mit Seed 0 und Ursprung `0 96 0`. Ein
+JDK-Helfer setzt den eingebauten Freeze-Schalter des offiziellen Servers vor
+dessen erstem Tick. Die Spielzeitprüfung deckt einen vorzeitig gelaufenen Tick
+auf. Hopper-Inventare und Cooldowns werden jeweils direkt aus den laufenden
+Block-Entitäten gelesen, da ein Anvil-Save reine Cooldown-Änderungen auslassen
+kann.
+
+Ohne Eingabe stimmen an allen 20 Spielticks die Zustände der 12.694 belegten
+Originalpositionen und die Hopper-Daten überein. Der optionale
+`--button X Y Z`-Lauf verwendet die echte Button-Interaktion beider Engines
+an einer Position relativ zur Schematic. Bei Abweichung liefert der Test
+einen Fehlercode und schreibt Position, erwartete und beobachtete Daten in
+einen lokalen JSON-Trace.
+
+```powershell
+python tools/check-mk61-startup.py ".tools/osc-research/The Orbital Strike Cannon Mk.6.1.litematic" --java "C:/Program Files/Java/jdk-23/bin/java.exe" --probe build/cuda/redstone-probe.exe --ticks 20 --output .tools/osc-research/mk61-startup.json
+```
+
+Mit `--nether` wird der Hauptaufbau bei `0 128 0` mit den Originalportalen
+bei `0 142 0` im Nether verbunden. Die Tests für Nordost
+(`--button 15 12 -17`) und Südwest (`--button -17 12 15`) prüfen jeweils
+den Start bis zum fertigen Rückweg. Das Boot erscheint in
+Tick 4, erreicht den Nether in Tick 5, brennt in Tick 6, kehrt in Tick 8 als
+Item zurück und erreicht den Overworld-Hopper in Tick 9. Der Test prüft beide
+zufällig gewählten seitlichen Startgeschwindigkeiten innerhalb der Vanilla-Grenzen
+und verfolgt die daraus resultierende Bewegung sowie den Portalversatz je Lauf.
+
+Der verknüpfte Aufbau kann mit `--panel` auch das Original-Bedienpanel laden.
+Das Panel steht für den Test bei `192 128 0` und erhält einen eigenen
+Gegenrahmen über dem Netherdach nach dem Originalmodul. `--grid` liest
+Cubicmetres 5×13-Bitmatrix aus einer lokalen JSON-Datei und betätigt die
+zugehörigen Originaltasten. `--submit-at` drückt „Input Settings“.
+`--remote-at` stellt einen Gegenstand auf die Gewichtsplatte des
+Angel-Fernauslösers. Bei `--target` bleiben TNT-Ankunft und Blockänderungen
+in der Zielregion verpflichtende Prüfungen.
 
 ## Was implementiert werden muss
 
@@ -164,8 +203,9 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 5/5 |
 | Fassinventar durch Vollblock, Hopper- und Dropper-Transfer | 3/3 | 3/3 |
 | Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
-| TNT-Zündzeit, freie Bewegung und Explosion neben Stein und Obsidian | 1/1 | 1/1 |
-| Kolben, klebriger Kolben, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 8/8 | 8/8 |
+| TNT-Zündzeit, freie Bewegung, Explosion, auf einer Stufe und am bewegten Schleimblock | 3/3 | 3/3 |
+| Tageslichtsensor, Notenblock und Eisenfalltür | 2/2 | 2/2 |
+| Kolben, klebriger Kolben, Zwischenzustände, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 9/9 | 9/9 |
 | Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 
 Beim Grenzfall mit 13 Blöcken muss derselbe Kolben anschließend die verkürzte
@@ -178,7 +218,7 @@ Live-Lauf prüft Ein- und Ausschalten im bereits geladenen Chunk unabhängig
 voneinander. Der Client erhält jeweils den neuen Blockzustand und ein Lichtpaket,
 das den Wert über der Lampe von 0 auf 14 oder von 14 auf 0 ändert.
 
-Nach dem nativen Build führt CTest alle 33 Schaltungen und alle drei Lichtprüfungen
+Nach dem nativen Build führt CTest alle 38 Schaltungen und alle drei Lichtprüfungen
 regulär aus. Der folgende Befehl wiederholt auch den Vanilla-Vergleich:
 
 ```powershell
@@ -188,8 +228,10 @@ python tests/bulb_light_network_test.py build/cuda/cuda-craft.exe build/cuda/log
 
 Schienenkurven, TNT-Duplizierung, die Explosionsexposition, der Chunk-Lebenszyklus
 und die komplette originale Mk.6.1/MS-Schussfolge stehen noch aus.
-Kolben verschieben Blöcke in einer Transaktion. Animation, bewegte
-Kollision und die genaue Reihenfolge komplexer Kolbenkreise stehen noch aus.
+Kolben setzen bewegte Zwischenblöcke und prüfen das Ende der Bewegung nach
+zwei weiteren Ticks. Die Tests erfassen einen TNT-Schub durch bewegten Schleim.
+Die genaue Reihenfolge komplexer Kolbenkreise und der Original-Duper stehen
+noch aus.
 Komparatoren lesen in der Teilabnahme Kupferlampen, Komposter und Inventare.
 Weitere analoge Quellen und der Zufallszustand der Dropper sind offen. Licht wird innerhalb
 eines Chunks berechnet. Die Ausbreitung über Chunkgrenzen bleibt offen.

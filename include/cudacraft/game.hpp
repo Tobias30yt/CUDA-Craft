@@ -31,6 +31,7 @@ public:
     int add_item(ItemStack stack,bool synchronize=true);
     float attack_damage();
     void mob_hurt(int id);
+    void explosion(double x,double y,double z,float radius,int destroyed);
     void collect(int mob,int player,int count);
     World& world(){return *world_;}
     void change_dimension(int dimension,bool through_portal=false);

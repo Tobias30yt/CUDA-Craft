@@ -1,4 +1,5 @@
 #include "cudacraft/world.hpp"
+#include "cudacraft/block_collision_data.hpp"
 #include "cudacraft/world_lock.hpp"
 #include "cudacraft/game.hpp"
 #include "cudacraft/gpu.hpp"
@@ -16,6 +17,7 @@
 #include <fstream>
 #include <iostream>
 #include <charconv>
+#include <cmath>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -149,8 +151,9 @@ bool World::set(BlockPos p,int state) {
     simulation_->changed(p,previous,state);
     for(auto* player:players) player->block_changed(p,state);
     queue_bulb_light(p,previous,state);
-    simulation_->update_copper_bulbs(p,previous,state);
+    simulation_->update_power_receivers(p,previous,state);
     simulation_->update_ejectors(p,previous,state);
+    simulation_->update_rail_power(p,previous,state);
     simulation_->update_tnt(p);
     return true;
 }
@@ -169,8 +172,9 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
     for(const auto& c:changes)if(c.before!=c.after){dirty_=true;simulation_->changed(c.p,c.before,c.after);for(auto* player:players)player->block_changed(c.p,c.after);}
     for(const auto& c:changes)if(c.before!=c.after) {
         queue_bulb_light(c.p,c.before,c.after);
-        simulation_->update_copper_bulbs(c.p,c.before,c.after);
+        simulation_->update_power_receivers(c.p,c.before,c.after);
         simulation_->update_ejectors(c.p,c.before,c.after);
+        simulation_->update_rail_power(c.p,c.before,c.after);
         simulation_->update_tnt(c.p);
     }
     return true;
@@ -226,8 +230,9 @@ std::string World::place_template(std::string name,BlockPos origin,int variant) 
     std::set<std::pair<int,int>> refresh;
     for(const auto& [p,values]:changed)if(values.first!=values.second) {simulation_->changed(p,values.first,values.second);refresh.insert({terrain_math::floor_div(p.x,16),terrain_math::floor_div(p.z,16)});}
     for(const auto& [p,values]:changed)if(values.first!=values.second) {
-        simulation_->update_copper_bulbs(p,values.first,values.second);
+        simulation_->update_power_receivers(p,values.first,values.second);
         simulation_->update_ejectors(p,values.first,values.second);
+        simulation_->update_rail_power(p,values.first,values.second);
         simulation_->update_tnt(p);
     }
     for(const auto& [cx,cz]:refresh)for(auto* player:players)player->refresh_chunk(cx,cz);
@@ -244,6 +249,60 @@ void World::tick() {
 void World::advance_ticks(int count) {for(int i=0;i<count;++i){auto start=Performance::Clock::now();simulation_->step();for(auto& [id,world]:dimensions_)world->advance_ticks(1);performance.tick(Performance::elapsed(start));}}
 long World::tick_wait_microseconds() const {return static_cast<long>(std::clamp<std::int64_t>(std::chrono::duration_cast<std::chrono::microseconds>(last_tick_+std::chrono::milliseconds(50)-std::chrono::steady_clock::now()).count(),0,50000));}
 bool World::solid(BlockPos p) const {int s=block(p);return simdata::block(s).solid&&!simdata::repeater(s);}
+std::vector<BlockPos> World::occupied_cells(const std::array<double,3>& minimum,
+                                            const std::array<double,3>& maximum) const {
+    constexpr double epsilon=1e-7;
+    std::array<int,3> first,last;
+    for(int axis=0;axis<3;++axis) {
+        first[axis]=static_cast<int>(std::floor(minimum[axis]+epsilon));
+        last[axis]=static_cast<int>(std::floor(maximum[axis]-epsilon));
+    }
+    std::vector<BlockPos> cells;
+    for(int x=first[0];x<=last[0];++x)for(int y=first[1];y<=last[1];++y)for(int z=first[2];z<=last[2];++z)
+        cells.push_back({x,y,z});
+    return cells;
+}
+double World::clip_motion(const std::array<double,3>& minimum,const std::array<double,3>& maximum,
+                          int axis,double distance,bool ignore_moving_pistons) const {
+    if(distance==0)return 0;
+    constexpr double epsilon=1e-8;
+    auto start=minimum,end=maximum;
+    start[axis]+=std::min(0.0,distance);
+    end[axis]+=std::max(0.0,distance);
+    std::array<int,3> first,last;
+    const int moving_margin=simulation_->pistons_moving()&&!ignore_moving_pistons?1:0;
+    for(int i=0;i<3;++i) {
+        first[i]=static_cast<int>(std::floor(start[i]+epsilon))-simdata::collision_before[i]-moving_margin;
+        last[i]=static_cast<int>(std::floor(end[i]-epsilon))+simdata::collision_after[i]+moving_margin;
+    }
+    for(int y=first[1];y<=last[1];++y)for(int z=first[2];z<=last[2];++z)for(int x=first[0];x<=last[0];++x) {
+        const BlockPos p{x,y,z};
+        std::array origin{static_cast<double>(x),static_cast<double>(y),static_cast<double>(z)};
+        int state=block(p);
+        if(moving_margin&&std::string_view(simdata::block(state).name)=="moving_piston") {
+            if(const auto moved=simulation_->piston_collision(p)) {
+                state=moved->first;
+                for(int i=0;i<3;++i)origin[i]+=moved->second[i];
+            }
+        }
+        for(const auto& box:simdata::static_collision_boxes(state)) {
+            bool overlaps=true;
+            for(int other=0;other<3;++other)if(other!=axis)
+                overlaps&=box.min[other]+origin[other]<maximum[other]-epsilon&&
+                          box.max[other]+origin[other]>minimum[other]+epsilon;
+            if(!overlaps)continue;
+            if(distance>0) {
+                const double gap=box.min[axis]+origin[axis]-maximum[axis];
+                if(gap>=-epsilon)distance=std::max(0.0,std::min(distance,gap));
+            } else {
+                const double gap=box.max[axis]+origin[axis]-minimum[axis];
+                if(gap<=epsilon)distance=std::min(0.0,std::max(distance,gap));
+            }
+            if(distance==0)return 0;
+        }
+    }
+    return distance;
+}
 void World::activate_chunk(int cx,int cz) {
     auto blocks=options_.generator=="flat"?base_:terrain(cx,cz).blocks;
     for(const auto& [p,state]:edits_)if(terrain_math::floor_div(p.x,16)==cx&&terrain_math::floor_div(p.z,16)==cz)blocks[(p.y+64)*256+(p.z&15)*16+(p.x&15)]=static_cast<unsigned>(state);

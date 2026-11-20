@@ -2,6 +2,7 @@
 #include "cudacraft/packet.hpp"
 #include "cudacraft/terrain.hpp"
 #include "cudacraft/performance.hpp"
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <map>
@@ -9,12 +10,14 @@
 #include <optional>
 
 namespace cudacraft {
+class World;
 class GameSession;
 class NoiseTerrain;
 class Simulation;
 class Administration;
 class WorldLock;
 struct PortalFrame { BlockPos origin; int width,height; bool along_x; };
+struct PortalExit { World* world; std::array<double,3> position; bool rotated; };
 class World {
 public:
     explicit World(std::filesystem::path directory = {}, TerrainOptions options = {}, World* parent=nullptr, int dimension=0);
@@ -33,6 +36,10 @@ public:
     World& dimension(int id);
     std::optional<PortalFrame> portal_frame(BlockPos point) const;
     std::optional<PortalFrame> find_or_create_portal(BlockPos target,bool along_x);
+    std::optional<PortalExit> entity_portal_exit(BlockPos entrance,const std::array<double,3>& position,
+                                                double width,double height);
+    std::vector<BlockPos> occupied_cells(const std::array<double,3>& minimum,
+                                         const std::array<double,3>& maximum) const;
     int dimension_id() const{return dimension_;}
     int dimension_type() const{return dimension_==1?3:dimension_==2?2:0;}
     const char* dimension_name() const{return dimension_==1?"minecraft:the_nether":dimension_==2?"minecraft:the_end":"minecraft:overworld";}
@@ -46,6 +53,8 @@ public:
     Simulation& simulation() { return *simulation_; }
     const Simulation& simulation() const { return *simulation_; }
     bool solid(BlockPos p) const;
+    double clip_motion(const std::array<double,3>& minimum,const std::array<double,3>& maximum,
+                       int axis,double distance,bool ignore_moving_pistons=false) const;
     void mark_dirty() { dirty_=true; }
     void activate_chunk(int x,int z);
     std::vector<GameSession*> players;

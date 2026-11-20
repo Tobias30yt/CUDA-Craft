@@ -31,7 +31,7 @@ def decode_items(entries,slots,item_ids,position):
     return stacks
 
 
-def build_snapshot(blocks, records, entities, block_ticks, reports, item_ids, offset):
+def build_snapshot(blocks, records, entities, block_ticks, reports, item_ids, offset, fluid_ticks=()):
     states, edits, assertions, outputs, inventories, pending = {}, [], [], [], [], []
     for position, state in sorted(blocks.items()):
         key = state["Name"], tuple(sorted(state.get("Properties", {}).items()))
@@ -54,12 +54,26 @@ def build_snapshot(blocks, records, entities, block_ticks, reports, item_ids, of
             if is_hopper:
                 inventory["transfer_cooldown"] = entry["TransferCooldown"]
             inventories.append(inventory)
+    ordered_ticks = sorted(block_ticks,key=lambda record:record[1].get("SubTick",0))
+    sequences = {position:index for index,(position,_) in enumerate(ordered_ticks)}
+    supported_ticks = {"minecraft:comparator","minecraft:dropper","minecraft:dispenser",
+                       "minecraft:repeater","minecraft:observer","minecraft:redstone_lamp"}
     for position, entry in sorted(block_ticks,key=lambda record:record[0]):
         state = blocks.get(position)
-        if entry["Block"] in ("minecraft:comparator","minecraft:dropper","minecraft:dispenser") and state and state["Name"] == entry["Block"]:
-            pending.append([*add(position,offset),entry["Time"],resolve_state(state,reports)])
-    simulation = dict(version=1,tick=0,time=6000,water=[],devices=pending,mobs=[],players={},
-                      comparators=outputs,containers=inventories)
+        if not state or state["Name"] != entry["Block"] or entry["Block"] not in supported_ticks:
+            continue
+        if state["Name"] in ("minecraft:observer","minecraft:repeater"):
+            properties = state["Properties"]
+            state = dict(state, Properties=properties | {"powered":"false" if properties["powered"]=="true" else "true"})
+        elif state["Name"] == "minecraft:redstone_lamp":
+            state = dict(state, Properties={"lit":"false"})
+        pending.append([*add(position,offset),entry["Time"],resolve_state(state,reports),
+                        entry["Priority"],sequences[position]])
+    water = [[*add(position,offset),entry["Time"]]
+             for position,entry in sorted(fluid_ticks,key=lambda record:record[0]) if entry["Fluid"] == "minecraft:water"]
+    simulation = dict(version=1,tick=0,time=6000,water=water,devices=pending,mobs=[],players={},
+                      comparators=outputs,containers=inventories,redstone_dirty=False,
+                      piston_checks=[],shape_updates=[])
     vehicles = []
     vehicle_types = {"minecraft:chest_minecart":(25,27),"minecraft:hopper_minecart":(65,5),"minecraft:oak_boat":(89,0)}
     for position, entity in entities:
@@ -73,7 +87,7 @@ def build_snapshot(blocks, records, entities, block_ticks, reports, item_ids, of
     if vehicles:
         simulation["vehicles"]=vehicles
     assertions.append(dict(check_saved={key:simulation[key] for key in
-                                        ("comparators","containers","devices","vehicles") if key in simulation}))
+                                        ("comparators","containers","devices","vehicles","water") if key in simulation}))
     return dict(format=2,protocol=774,generator="cuda-craft-flat-v1",seed=0,edits=edits,
                 simulation=simulation), assertions
 
@@ -89,7 +103,7 @@ def main():
     reports = json.loads((ROOT/".tools/vanilla-1.21.11/reports-1.21.11/reports/blocks.json").read_text(encoding="utf-8"))
     items = json.loads((ROOT/".tools/reference/items.json").read_text(encoding="utf-8"))
     item_ids = {"minecraft:"+item["name"]:item["id"] for item in items}
-    document, assertions = build_snapshot(blocks,records,entities,ticks,reports,item_ids,(0,96,0))
+    document, assertions = build_snapshot(blocks,records,entities,ticks,reports,item_ids,(0,96,0),fluid_ticks)
     with tempfile.TemporaryDirectory(prefix="cuda-fixture-") as folder:
         world = Path(folder)
         (world/"blocks.json").write_text(json.dumps(document,separators=(",",":")),encoding="utf-8")
@@ -103,8 +117,8 @@ def main():
     vehicles = len(simulation.get("vehicles",[]))
     print(f"Verified position, motion, rotation, inventory and portal cooldown of {vehicles} saved vehicles.")
     print(f"Structural check only. Unapplied: {len(entities)-vehicles} entity records, "
-          f"{len(ticks)-len(simulation['devices'])} other block ticks, {len(fluid_ticks)} fluid ticks "
-          "and remaining block-entity data. Native tick priorities are not represented.")
+          f"{len(ticks)-len(simulation['devices'])} other block ticks, "
+          f"{len(fluid_ticks)-len(simulation['water'])} unsupported fluid ticks and remaining block-entity data.")
 
 
 if __name__ == "__main__":

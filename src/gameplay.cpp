@@ -259,6 +259,11 @@ void GameSession::sync_mobs() {
     }
 }
 void GameSession::mob_hurt(int id){if(seen_mobs_.contains(id))send(Packet(0x29).var(id).f32(0));}
+void GameSession::explosion(double center_x,double center_y,double center_z,float radius,int destroyed) {
+    // Protocol 774: explosion emitter particle and the registered generic explosion sound.
+    send(Packet(0x24).f64(center_x).f64(center_y).f64(center_z).f32(radius).u32(static_cast<std::uint32_t>(destroyed))
+        .u8(0).var(22).var(669).var(0));
+}
 void GameSession::collect(int mob,int player,int count){if(seen_mobs_.contains(mob))send(Packet(0x7a).var(mob).var(player).var(count));}
 
 void GameSession::close_crafting() {

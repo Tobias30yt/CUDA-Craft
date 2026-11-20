@@ -7,6 +7,12 @@
 namespace cudacraft {
 namespace {
 BlockPos offset(BlockPos a,BlockPos b){return {a.x+b.x,a.y+b.y,a.z+b.z};}
+BlockPos facing_offset(int state) {
+    const auto direction=simdata::property_value(state,"facing");
+    return direction=="up"?BlockPos{0,1,0}:direction=="down"?BlockPos{0,-1,0}:
+        direction=="north"?BlockPos{0,0,-1}:direction=="south"?BlockPos{0,0,1}:
+        direction=="west"?BlockPos{-1,0,0}:BlockPos{1,0,0};
+}
 BlockPos clockwise(int state){auto f=simdata::property_value(state,"facing");return f=="north"?BlockPos{1,0,0}:f=="east"?BlockPos{0,0,1}:f=="south"?BlockPos{-1,0,0}:BlockPos{0,0,-1};}
 BlockPos other_chest(BlockPos p,int state){auto d=clockwise(state);if(simdata::property_value(state,"type")=="right"){d.x=-d.x;d.z=-d.z;}return offset(p,d);}
 bool same(ItemStack a,ItemStack b){return a.item==b.item&&a.damage==b.damage;}
@@ -154,9 +160,19 @@ void Simulation::update_ejectors(BlockPos changed,int before,int after) {
         if(powered==(property_value(state,"triggered")=="true"))return;
         const int next=with_property(state,"triggered",powered?"true":"false");
         if(world_.set(position,next)&&powered&&devices_.size()<65536)
-            devices_.try_emplace(position,Event{tick+4,next});
+            devices_.try_emplace(position,device_event(4,next));
     };
     constexpr BlockPos adjacent[]={{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
+    const std::string_view source_type=block(after).name;
+    if(block(before).first==block(after).first&&property_value(before,"facing")==property_value(after,"facing")&&
+       (source_type=="observer"||source_type=="repeater"||source_type=="comparator")) {
+        if(property_value(before,"powered")==property_value(after,"powered"))return;
+        const auto f=facing_offset(after);
+        const auto output=offset(changed,{-f.x,-f.y,-f.z});
+        update(output);
+        for(auto direction:adjacent)if(direction!=f)update(offset(output,direction));
+        return;
+    }
     for(const auto source:{changed,offset(changed,{0,-1,0})}) {
         update(source);
         for(auto direction:adjacent) {
@@ -178,10 +194,7 @@ void Simulation::dispense_container(BlockPos position,int state) {
     auto random=static_cast<std::uint64_t>(world_.options().seed)^packed_position(position)^(tick*0x9e3779b97f4a7c15ULL);
     random^=random>>30; random*=0xbf58476d1ce4e5b9ULL; random^=random>>27;
     auto& item_stack=source->items[occupied[random%count]];
-    const auto direction=property_value(state,"facing");
-    const BlockPos facing=direction=="up"?BlockPos{0,1,0}:direction=="down"?BlockPos{0,-1,0}:
-        direction=="north"?BlockPos{0,0,-1}:direction=="south"?BlockPos{0,0,1}:
-        direction=="west"?BlockPos{-1,0,0}:BlockPos{1,0,0};
+    const auto facing=facing_offset(state);
     const auto target=offset(position,facing);
     auto notify=[&](BlockPos p) {
         inventory_signal_changed(p);
@@ -289,8 +302,8 @@ void Simulation::tick_hoppers() {
         auto* hopper=container(p);
         if(hopper) {
             hopper->last_transfer_tick=tick;
-            if(hopper->transfer_cooldown>0) {
-                --hopper->transfer_cooldown;
+            if(hopper->transfer_cooldown!=0) {
+                hopper->transfer_cooldown=std::max(0,hopper->transfer_cooldown-1);
                 world_.mark_dirty();
             }
             if(hopper->transfer_cooldown>0)continue;
@@ -301,8 +314,46 @@ void Simulation::tick_hoppers() {
             facing=="west"?BlockPos{-1,0,0}:facing=="east"?BlockPos{1,0,0}:BlockPos{0,-1,0};
         bool moved=transfer(p,offset(p,direction));
         const auto source=offset(p,{0,1,0});
-        for(const auto bank:container_positions(source)) {
+        const auto banks=container_positions(source);
+        for(const auto bank:banks) {
             if(transfer(bank,p)) { moved=true; break; }
+        }
+        if(banks.empty()) {
+            Vehicle* source_cart=nullptr;
+            for(auto& [id,cart]:vehicles) {
+                (void)id;
+                if(vehicle_slots(cart.type)<=0||std::abs(cart.x-source.x-.5)>=.99||
+                   std::abs(cart.z-source.z-.5)>=.99||cart.y>=source.y+1||cart.y+.7<=source.y)continue;
+                source_cart=&cart;
+                break;
+            }
+            if(source_cart) {
+                for(int slot=0;slot<vehicle_slots(source_cart->type);++slot) {
+                    auto& stack=source_cart->items[slot];
+                    if(!stack.item)continue;
+                    auto* receiver=container(p,true);
+                    if(!receiver||store_item(std::span(receiver->items).first(5),{stack.item,1,stack.damage}))continue;
+                    if(!--stack.count)stack={};
+                    changed(p);
+                    moved=true;
+                    break;
+                }
+            } else if(!world_.solid(source)) {
+                for(auto it=mobs.begin();it!=mobs.end();++it) {
+                    auto& item=it->second;
+                    if(item.type!=71||std::abs(item.x-p.x-.5)>=.625||std::abs(item.z-p.z-.5)>=.625||
+                       item.y+.25<=p.y+.625||item.y>=p.y+2)continue;
+                    auto* receiver=container(p,true);
+                    if(!receiver)break;
+                    const int left=store_item(std::span(receiver->items).first(5),item.drop);
+                    if(left==item.drop.count)continue;
+                    item.drop.count=left;
+                    if(!left)mobs.erase(it);
+                    changed(p);
+                    moved=true;
+                    break;
+                }
+            }
         }
         if(moved) {
             auto* current=container(p);

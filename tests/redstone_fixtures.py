@@ -249,6 +249,66 @@ def tnt_fuse_actions():
     return actions
 
 
+def tnt_slab_actions():
+    position=(16.5,80.6,.5)
+    return [
+        place((16,80,0),"stone_slab",type="bottom"),step(3),
+        dict(tnt="charge",pos=position,velocity=(0,0,0),fuse=80),
+        step(),dict(tnt="charge",check="TNT can enter the upper half of a slab cell",pos=(16.5,80.56,.5),
+                    velocity=(0,-.0392,0),fuse=79),
+        step(),dict(tnt="charge",check="TNT lands at the slab surface and clears vertical motion",pos=(16.5,80.5,.5),
+                    velocity=(0,0,0),fuse=78),
+        dict(tnt="charge",remove=True,pos=position),
+    ]
+
+
+def moving_slime_actions():
+    signal,piston,slime=(14,80,0),(15,80,0),(16,80,0)
+    position=(17.5,80,.5)
+    pushed_x=18.000000009536743
+    return [
+        *floor((17,80,0),(18,80,0),(19,80,0)),
+        place(piston,"piston",facing="east"),place(slime,"slime_block"),step(3),
+        dict(tnt="charge",pos=position,velocity=(0,0,0),fuse=80),
+        place(signal,"redstone_block"),step(),
+        dict(tnt="charge",check="moving slime pushes TNT and gives it velocity",pos=(pushed_x,80,.5),
+             velocity=(1,0,0),fuse=79),
+        step(),dict(tnt="charge",check="TNT carries the slime impulse into the next tick",
+                    pos=(pushed_x+1,80,.5),velocity=(.686,0,0),fuse=78),
+        dict(tnt="charge",remove=True,pos=position),
+    ]
+
+
+def daylight_actions():
+    normal,inverted=(16,80,0),(18,80,0)
+    kind="daylight_detector"
+    return [
+        dict(time=6000),place(normal,kind),place(inverted,kind,inverted="true"),step(20),
+        check("open daylight reaches full power",normal,kind,power="15"),
+        check("open inverted detector is off at noon",inverted,kind,power="0"),
+        dict(time=18000),step(20),
+        check("normal detector is off at midnight",normal,kind,power="0"),
+        check("inverted detector reads sky darkening",inverted,kind,power="11"),
+        dict(time=6000),place((18,81,0),"stone"),step(20),
+        check("inverted detector reads light entering from the side",inverted,kind,power="1"),
+    ]
+
+
+def powered_receiver_actions():
+    note,door=(16,80,0),(16,80,4)
+    note_signal,door_signal=(15,80,0),(15,80,4)
+    return [
+        *floor(note),place(note,"note_block",instrument="basedrum"),
+        place(door,"iron_trapdoor",half="top"),place(note_signal,"redstone_block"),
+        place(door_signal,"redstone_block"),step(),
+        check("note block records a rising input",note,"note_block",powered="true"),
+        check("powered iron trapdoor opens",door,"iron_trapdoor",powered="true",open="true"),
+        place(note_signal,"air"),place(door_signal,"air"),step(),
+        check("note block clears on falling input",note,"note_block",powered="false"),
+        check("iron trapdoor closes",door,"iron_trapdoor",powered="false",open="false"),
+    ]
+
+
 def piston_actions(sticky):
     signal, piston, front, moved = [(x, 80, 0) for x in range(14, 18)]
     kind = "sticky_piston" if sticky else "piston"
@@ -262,6 +322,24 @@ def piston_actions(sticky):
         check("retracts", piston, kind, extended="false"),
         check("front after retraction", front, "stone" if sticky else "air"),
         check("moved cell after retraction", moved, "air" if sticky else "stone"),
+    ]
+
+
+def piston_animation_actions():
+    signal,piston,head,moved = [(x,80,0) for x in range(14,18)]
+    return [
+        place(piston,"sticky_piston",facing="east"),place(head,"stone"),
+        place(signal,"redstone_block"),step(),
+        check("piston extends the base",piston,"sticky_piston",extended="true"),
+        check("sticky head is in motion",head,"moving_piston",facing="east",type="sticky"),
+        check("pushed block is in motion",moved,"moving_piston",facing="east",type="normal"),
+        step(),check("motion lasts through a second tick",head,"moving_piston"),
+        step(),check("head finishes extension",head,"piston_head",facing="east",type="sticky"),
+        check("stone settles at destination",moved,"stone"),place(signal,"air"),step(),
+        check("sticky base is retracting",piston,"moving_piston",facing="east",type="sticky"),
+        check("pulled block is in motion",head,"moving_piston",facing="east",type="normal"),
+        step(2),check("base settles retracted",piston,"sticky_piston",extended="false"),
+        check("stone settles back at head",head,"stone"),
     ]
 
 
@@ -344,7 +422,12 @@ CASES.update({
     "dispenser_oak_boat": dispenser_vehicle_actions("oak_boat"),
     "detector_rail": detector_rail_actions(),
     "tnt_fuse": tnt_fuse_actions(),
+    "tnt_slab": tnt_slab_actions(),
+    "moving_slime": moving_slime_actions(),
+    "daylight_detector": daylight_actions(),
+    "powered_receivers": powered_receiver_actions(),
     "piston_push": piston_actions(False),
+    "piston_animation": piston_animation_actions(),
     "sticky_piston_pull": piston_actions(True),
     "piston_limit_12": piston_limit_actions(12),
     "piston_limit_13": piston_limit_actions(13),

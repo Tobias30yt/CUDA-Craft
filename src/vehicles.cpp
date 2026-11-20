@@ -3,6 +3,8 @@
 #include "cudacraft/world.hpp"
 #include <algorithm>
 #include <cmath>
+#include <tuple>
+#include <utility>
 
 namespace cudacraft {
 namespace {
@@ -19,6 +21,42 @@ int inventory_strength(const Vehicle& vehicle) {
         if(const auto* item=simdata::item(stack.item))fullness+=static_cast<float>(stack.count)/item->stack;
     }
     return fullness>0?1+static_cast<int>(std::floor(fullness/slots*14)):0;
+}
+
+double width(const Vehicle& vehicle) { return vehicle.type==89?1.375:static_cast<double>(.98f); }
+double height(const Vehicle& vehicle) { return vehicle.type==89?.5625:static_cast<double>(.7f); }
+
+BlockPos cell(double x,double y,double z) {
+    return {static_cast<int>(std::floor(x)),static_cast<int>(std::floor(y)),static_cast<int>(std::floor(z))};
+}
+
+std::vector<BlockPos> touched_cells(const World& world,const Vehicle& vehicle) {
+    const double radius=width(vehicle)/2;
+    return world.occupied_cells({vehicle.x-radius,vehicle.y,vehicle.z-radius},
+                                {vehicle.x+radius,vehicle.y+height(vehicle),vehicle.z+radius});
+}
+
+void tick_boat(const World& world,Vehicle& vehicle) {
+    constexpr double radius=1.375/2;
+    const auto block=world.block(cell(vehicle.x,vehicle.y+.001,vehicle.z));
+    const bool submerged=simdata::water(block)||simdata::property_value(block,"waterlogged")=="true";
+    vehicle.vx*=.9;
+    vehicle.vz*=.9;
+    vehicle.vy=submerged?std::max(0.0,vehicle.vy)*.75:vehicle.vy-.04;
+    auto move=[&](int axis,double& position,double& speed) {
+        const double actual=world.clip_motion({vehicle.x-radius,vehicle.y,vehicle.z-radius},
+                                              {vehicle.x+radius,vehicle.y+.5625,vehicle.z+radius},axis,speed);
+        position+=actual;
+        if(actual!=speed)speed=0;
+    };
+    move(1,vehicle.y,vehicle.vy);
+    if(std::abs(vehicle.vx)<std::abs(vehicle.vz)) {
+        move(2,vehicle.z,vehicle.vz);
+        move(0,vehicle.x,vehicle.vx);
+    } else {
+        move(0,vehicle.x,vehicle.vx);
+        move(2,vehicle.z,vehicle.vz);
+    }
 }
 }
 
@@ -48,27 +86,98 @@ void Simulation::update_detector_rail(BlockPos position,bool scheduled) {
     const bool occupied=detector_vehicle(position)!=nullptr;
     if(powered!=occupied)world_.set(position,with_property(state,"powered",occupied?"true":"false"));
     if(occupied&&devices_.size()<65536) {
-        devices_[position]={tick+20,world_.block(position)};
+        devices_[position]=device_event(20,world_.block(position));
         world_.mark_dirty();
+    }
+}
+
+bool Simulation::transfer_vehicle(int id,Vehicle& vehicle,BlockPos entrance) {
+    const auto exit=world_.entity_portal_exit(entrance,{vehicle.x,vehicle.y,vehicle.z},width(vehicle),height(vehicle));
+    if(!exit)return false;
+    auto& destination=*exit->world;
+    const auto [x,y,z]=exit->position;
+    vehicle.x=x;vehicle.y=y;vehicle.z=z;
+    if(exit->rotated) {
+        std::tie(vehicle.vx,vehicle.vz)=std::pair{vehicle.vz,-vehicle.vx};
+        vehicle.yaw+=90;
+    }
+    vehicle.portal_cooldown=vehicle.type==89?10:300;
+    const double radius=width(vehicle)/2;
+    if(vehicle.vy<0&&destination.clip_motion({x-radius,y,z-radius},
+                                              {x+radius,y+height(vehicle),z+radius},1,vehicle.vy)==0)vehicle.vy=0;
+    destination.simulation().vehicles.insert(vehicles.extract(id));
+    world_.mark_dirty();
+    destination.mark_dirty();
+    return true;
+}
+
+void Simulation::collect_vehicle_items(Vehicle& vehicle) {
+    if(vehicle.type!=65||!vehicle.enabled)return;
+    for(auto it=mobs.begin();it!=mobs.end();++it) {
+        auto& item=it->second;
+        if(item.type!=71||std::abs(vehicle.x-item.x)>=.625||std::abs(vehicle.z-item.z)>=.625||
+           item.y+.25<=vehicle.y+.5||item.y>=vehicle.y+2)continue;
+        const int leftover=store_item(std::span(vehicle.items).first(5),item.drop);
+        if(leftover==item.drop.count)continue;
+        item.drop.count=leftover;
+        if(!leftover)mobs.erase(it);
+        world_.mark_dirty();
+        return;
     }
 }
 
 void Simulation::tick_vehicles() {
     using namespace simdata;
-    for(auto& [id,vehicle]:vehicles) {
-        (void)id;
+    for(auto current=vehicles.begin();current!=vehicles.end();) {
+        auto& [id,vehicle]=*current++;
+        const auto world_tick=world_.root().simulation().tick;
+        if(vehicle.last_world_tick==world_tick)continue;
+        vehicle.last_world_tick=world_tick;
+        const auto contact=std::exchange(vehicle.portal_entry,std::nullopt);
+        if(contact&&vehicle.portal_cooldown==0&&transfer_vehicle(id,vehicle,*contact))continue;
         if(vehicle.portal_cooldown>0) {
             --vehicle.portal_cooldown;
             world_.mark_dirty();
         }
-        if(vehicle.type!=25&&vehicle.type!=65)continue;
+        auto update_portal=[&](const std::vector<BlockPos>& occupied) {
+            for(auto p:occupied)if(std::string_view(block(world_.block(p)).name)=="nether_portal") {
+                if(vehicle.portal_cooldown>0)vehicle.portal_cooldown=vehicle.type==89?10:300;
+                else vehicle.portal_entry=p;
+                world_.mark_dirty();
+                break;
+            }
+        };
+        if(vehicle.type==89) {
+            tick_boat(world_,vehicle);
+            const auto block=cell(vehicle.x,vehicle.y,vehicle.z);
+            const auto occupied=touched_cells(world_,vehicle);
+            const bool burning=std::ranges::any_of(occupied,[&](BlockPos p) {
+                const std::string_view name=simdata::block(world_.block(p)).name;
+                return name=="fire"||name=="soul_fire";
+            });
+            if(!World::valid(block)||vehicle.y<world_.min_y()-1)vehicles.erase(id);
+            else if(burning) {
+                const int item=spawn(71,vehicle.x,vehicle.y,vehicle.z,{item_id("oak_boat"),1,0});
+                if(item) {
+                    auto& drop=mobs.at(item);
+                    drop.last_world_tick=world_tick;
+                    const auto random=static_cast<std::uint64_t>(item)*0x9e3779b97f4a7c15ULL;
+                    drop.vx=(static_cast<double>(random>>48)/65536-.5)*.2;
+                    drop.vy=.2;
+                    drop.vz=(static_cast<double>((random>>16)&65535)/65536-.5)*.2;
+                    vehicles.erase(id);
+                }
+            } else update_portal(occupied);
+            world_.mark_dirty();
+            continue;
+        }
         BlockPos track{static_cast<int>(std::floor(vehicle.x)),static_cast<int>(std::floor(vehicle.y)),
                        static_cast<int>(std::floor(vehicle.z))};
         if(rail(world_.block({track.x,track.y-1,track.z})))--track.y;
         const int state=world_.block(track);
-        if(!rail(state))continue;
+        if(!rail(state)){update_portal(touched_cells(world_,vehicle));collect_vehicle_items(vehicle);continue;}
         const auto shape=property_value(state,"shape");
-        if(shape!="east_west"&&shape!="north_south")continue;
+        if(shape!="east_west"&&shape!="north_south"){update_portal(touched_cells(world_,vehicle));collect_vehicle_items(vehicle);continue;}
         const bool east_west=shape=="east_west";
         const bool powered=property_value(state,"powered")=="true";
         const std::string_view name=block(state).name;
@@ -110,6 +219,8 @@ void Simulation::tick_vehicles() {
                 else if(world_.solid(after)&&!rail(world_.block(after)))velocity=-.02;
             }
         }
+        update_portal(touched_cells(world_,vehicle));
+        collect_vehicle_items(vehicle);
         world_.mark_dirty();
     }
     if(!detector_rails_.empty())

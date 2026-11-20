@@ -109,7 +109,8 @@ class SimulationNetworkTests(unittest.TestCase):
             p.until(lambda:any(kind==100 for kind,_ in p.mob_types.values()))
             pig=next(e for e,(kind,_) in p.mob_types.items() if kind==100)
             p.send(b'\x19'+vi(pig)+vi(1)+b'\0')
-            p.until(lambda:pig in p.motion and p.motion[pig][1][0]>.2 and p.motion[pig][1][1]>0)
+            p.until(lambda:pig in p.motion and p.motion[pig][0][1]>64 and
+                    p.motion[pig][1][0]>.2 and p.motion[pig][1][1]>0)
             position,velocity=p.motion[pig]
             self.assertGreater(position[1],64)
             self.assertGreater(velocity[0],0)

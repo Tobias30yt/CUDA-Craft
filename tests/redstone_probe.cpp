@@ -19,23 +19,74 @@ int main(int argc,char** argv) {
         int failures=0;
         std::map<std::string,int> vehicles;
         std::map<std::string,int> explosives;
+        int remote_weight=0;
         for(const auto& action:actions) {
+            if(action.contains("remote_weight")) {
+                if(action.at("remote_weight")=="remove") {
+                    if(!world.simulation().mobs.erase(remote_weight))throw std::runtime_error("Remote weight is absent");
+                } else {
+                    const auto [x,y,z]=action.at("pos").get<std::array<double,3>>();
+                    remote_weight=world.simulation().spawn(71,x,y,z,{sd::item_id("stone"),1,0});
+                    if(!remote_weight)throw std::runtime_error("Could not drop weight on the original remote input");
+                }
+                continue;
+            }
             if(action.contains("capture")) {
-                json states=json::array(),tnt=json::array();
+                json states=json::array(),tnt=json::array(),hoppers=json::array(),carts=json::array(),items=json::array();
                 for(const auto& entry:action.at("capture")) {
                     const auto [x,y,z]=entry.get<std::array<int,3>>();
                     states.push_back(world.block({x,y,z}));
                 }
-                for(const auto& [id,charge]:world.simulation().primed_tnt) {
-                    (void)id;
-                    tnt.push_back({{"position",{charge.x,charge.y,charge.z}},
-                                   {"velocity",{charge.vx,charge.vy,charge.vz}},{"fuse",charge.fuse}});
+                auto capture_entities=[&](const World& dimension) {
+                    for(const auto& [id,charge]:dimension.simulation().primed_tnt) {
+                        (void)id;
+                        tnt.push_back({{"position",{charge.x,charge.y,charge.z}},
+                                       {"velocity",{charge.vx,charge.vy,charge.vz}},{"fuse",charge.fuse},
+                                       {"dimension",dimension.dimension_name()}});
+                    }
+                    for(const auto& [id,vehicle]:dimension.simulation().vehicles) {
+                        (void)id;
+                        const auto* type=vehicle.type==25?"chest_minecart":vehicle.type==65?"hopper_minecart":"oak_boat";
+                        carts.push_back({{"kind",type},{"position",{vehicle.x,vehicle.y,vehicle.z}},
+                                         {"velocity",{vehicle.vx,vehicle.vy,vehicle.vz}},
+                                         {"portal_cooldown",vehicle.portal_cooldown},
+                                         {"dimension",dimension.dimension_name()}});
+                    }
+                    for(const auto& [id,mob]:dimension.simulation().mobs) {
+                        (void)id;
+                        if(mob.type==71)items.push_back({{"dimension",dimension.dimension_name()},
+                            {"item",mob.drop.item},{"count",mob.drop.count},{"position",{mob.x,mob.y,mob.z}},
+                            {"velocity",{mob.vx,mob.vy,mob.vz}}});
+                    }
+                };
+                capture_entities(world);
+                if(action.value("capture_nether",false))capture_entities(world.dimension(1));
+                if(action.contains("capture_hoppers"))for(const auto& entry:action.at("capture_hoppers")) {
+                    const auto [x,y,z]=entry.get<std::array<int,3>>();
+                    const auto* hopper=world.simulation().container({x,y,z});
+                    if(!hopper||std::string_view(sd::block(hopper->type).name)!="hopper") {
+                        hoppers.push_back(nullptr);
+                        continue;
+                    }
+                    json stacks=json::array();
+                    for(int slot=0;slot<5;++slot) {
+                        const auto& stack=hopper->items[slot];
+                        if(stack.item)stacks.push_back({slot,stack.item,stack.count});
+                    }
+                    hoppers.push_back({{"cooldown",hopper->transfer_cooldown},{"items",std::move(stacks)}});
                 }
-                std::cout<<json{{"states",std::move(states)},{"tnt",std::move(tnt)}}.dump()<<'\n';
+                std::cout<<json{{"states",std::move(states)},{"tnt",std::move(tnt)},
+                                {"hoppers",std::move(hoppers)},{"vehicles",std::move(carts)},
+                                {"items",std::move(items)}}.dump()<<'\n';
                 continue;
             }
             if(action.contains("tnt")) {
                 const auto label=action.at("tnt").get<std::string>();
+                if(action.value("remove",false)) {
+                    if(!world.simulation().primed_tnt.erase(explosives.at(label)))
+                        throw std::runtime_error("Fixture TNT removal did not find the entity");
+                    continue;
+                }
                 const auto point=action.at("pos").get<std::array<double,3>>();
                 if(action.contains("check")&&!action.contains("fuse")) {
                     if(world.simulation().primed_tnt.contains(explosives.at(label))) {
@@ -95,6 +146,10 @@ int main(int argc,char** argv) {
                 world.advance_ticks(action.at("ticks").get<int>());
                 continue;
             }
+            if(action.contains("time")) {
+                world.simulation().day_time=action.at("time").get<unsigned>();
+                continue;
+            }
             if(action.contains("vehicle")) {
                 const auto label=action.at("vehicle").get<std::string>();
                 const auto point=action.at("pos").get<std::array<double,3>>();
@@ -120,6 +175,17 @@ int main(int argc,char** argv) {
             }
             const auto xyz=action.at("pos").get<std::array<int,3>>();
             const BlockPos pos{xyz[0],xyz[1],xyz[2]};
+            if(action.value("interact",false)) {
+                if(action.contains("indicator")) {
+                    const auto [x,y,z]=action.at("indicator").get<std::array<int,3>>();
+                    const int state=world.block({x,y,z});
+                    if(!sd::copper_bulb(state))throw std::runtime_error("Fixture lamp is absent");
+                    const bool lit=sd::property_value(state,"lit")=="true";
+                    if(lit==action.at("lit").get<bool>())continue;
+                }
+                if(!world.simulation().interact(pos))throw std::runtime_error("Fixture interaction rejected");
+                continue;
+            }
             if(action.contains("inventory")) {
                 const auto& edit=action.at("inventory");
                 auto* box=world.simulation().container(pos,true);

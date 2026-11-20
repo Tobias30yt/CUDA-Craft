@@ -2,7 +2,9 @@
 #include "cudacraft/packet.hpp"
 #include <array>
 #include <map>
+#include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -32,6 +34,9 @@ struct Mob {
     float health=10,yaw=0;
     std::uint64_t born=0,next_attack=0,knockback_until=0,angry_until=0;
     ItemStack drop{};
+    int portal_cooldown=0;
+    std::optional<BlockPos> portal_entry;
+    std::uint64_t last_world_tick=0;
 };
 struct Vehicle {
     int type=0;
@@ -40,6 +45,8 @@ struct Vehicle {
     int portal_cooldown=0;
     bool enabled=true;
     std::array<ItemStack,27> items{};
+    std::optional<BlockPos> portal_entry;
+    std::uint64_t last_world_tick=0;
 };
 struct PrimedTnt {
     double x=0,y=0,z=0,vx=0,vy=0,vz=0;
@@ -49,15 +56,18 @@ class Simulation {
 public:
     explicit Simulation(World& world):world_(world){}
     void changed(BlockPos p,int before,int after,bool notify_observers=true);
-    void update_copper_bulbs(BlockPos changed,int before,int after);
+    void update_power_receivers(BlockPos changed,int before,int after);
     void update_ejectors(BlockPos changed,int before,int after);
     void update_tnt(BlockPos changed);
+    void update_rail_power(BlockPos changed,int before,int after);
     bool ignite_tnt(BlockPos position,int fuse=80);
     int spawn_tnt(PrimedTnt entity);
     void step();
     void activate(int cx,int cz,const std::vector<std::uint32_t>& blocks);
     bool interact(BlockPos p);
     bool fertilize(BlockPos p);
+    bool pistons_moving() const { return !moving_pistons_.empty(); }
+    std::optional<std::pair<int,std::array<double,3>>> piston_collision(BlockPos position) const;
     static bool ticking_block(int state);
     int placement(int item,int face,float yaw,float pitch=0) const;
     bool place_block(BlockPos position,int state);
@@ -88,12 +98,15 @@ private:
     World& world_;
     std::map<BlockPos,std::uint64_t> water_;
     std::set<BlockPos> circuits_;
-    std::set<BlockPos> copper_bulbs_;
+    std::set<BlockPos> power_receivers_;
     std::set<BlockPos> piston_checks_;
+    struct PistonMotion { int state; std::uint64_t completes; BlockPos direction; };
+    std::map<BlockPos,PistonMotion> moving_pistons_;
     std::set<BlockPos> hoppers_;
     std::set<BlockPos> ejectors_;
     std::set<BlockPos> powered_rails_;
     std::set<BlockPos> detector_rails_;
+    std::set<BlockPos> daylight_detectors_;
     std::set<BlockPos> tnt_blocks_;
     std::map<BlockPos,int> comparator_outputs_;
     std::set<BlockPos> shape_updates_;
@@ -101,24 +114,34 @@ private:
     std::set<BlockPos> ticking_blocks_;
     BlockPos block_cursor_{};
     std::map<BlockPos,std::uint64_t> button_releases_;
-    struct Event { std::uint64_t due; int state; };
+    struct Event { std::uint64_t due; int state,priority; std::uint64_t sequence; };
     std::map<BlockPos,Event> devices_;
+    std::uint64_t next_device_sequence_=0;
     bool redstone_dirty_=false;
+    std::set<BlockPos> redstone_updates_;
     void schedule_water(BlockPos p,std::uint64_t delay=5);
     void flow(BlockPos p);
     void redstone();
     int emitted_power(BlockPos from,BlockPos to,bool wires) const;
     int neighbor_power(BlockPos position,bool wires) const;
-    int directional_input(BlockPos position,BlockPos direction) const;
+    int directional_input(BlockPos position,BlockPos direction,bool wires=true) const;
+    bool repeater_locked(BlockPos position,BlockPos direction) const;
     int comparator_output(BlockPos position,int state) const;
     std::optional<int> container_signal(BlockPos position) const;
     void schedule_directional(BlockPos position);
+    void notify_analog_change(BlockPos position);
+    Event device_event(unsigned delay,int state,int priority=0);
     void tick_pistons();
-    void update_powered_rails();
+    void finish_piston_motion();
+    void update_powered_rails(const std::set<BlockPos>& affected);
     void update_shapes();
     void tick_furnaces();
     void tick_hoppers();
     void tick_vehicles();
+    bool transfer_vehicle(int id,Vehicle& vehicle,BlockPos entrance);
+    void collect_vehicle_items(Vehicle& vehicle);
+    void tick_items();
+    static int store_item(std::span<ItemStack> slots,ItemStack stack);
     void tick_tnt();
     void explode_tnt(int id,const PrimedTnt& source);
     const Vehicle* detector_vehicle(BlockPos position) const;
@@ -126,6 +149,7 @@ private:
     void update_detector_rail(BlockPos position,bool scheduled);
     void dispense_container(BlockPos position,int state);
     void tick_blocks();
+    void update_daylight(BlockPos position);
     void validate_portals();
     void entities();
 };

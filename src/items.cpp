@@ -1,0 +1,99 @@
+#include "cudacraft/simulation.hpp"
+#include "cudacraft/game.hpp"
+#include "cudacraft/simulation_data.hpp"
+#include "cudacraft/world.hpp"
+#include <algorithm>
+#include <cmath>
+#include <tuple>
+#include <utility>
+
+namespace cudacraft {
+
+int Simulation::store_item(std::span<ItemStack> slots,ItemStack stack) {
+    const auto* item=simdata::item(stack.item);
+    if(!item||stack.count<=0)return stack.count;
+    for(auto& destination:slots) {
+        if(destination.item&&(destination.item!=stack.item||destination.damage!=stack.damage))continue;
+        const int added=std::min(stack.count,item->stack-destination.count);
+        if(added<=0)continue;
+        destination={stack.item,destination.count+added,stack.damage};
+        stack.count-=added;
+        if(!stack.count)break;
+    }
+    return stack.count;
+}
+
+void Simulation::tick_items() {
+    constexpr double radius=.125,height=.25;
+    const auto world_tick=world_.root().simulation().tick;
+    for(auto it=mobs.begin();it!=mobs.end();) {
+        auto& [id,item]=*it++;
+        if(item.type!=71||item.last_world_tick==world_tick)continue;
+        item.last_world_tick=world_tick;
+        const auto age=tick-item.born;
+        if(age>=6000) {
+            mobs.erase(id);
+            world_.mark_dirty();
+            continue;
+        }
+        const auto entrance=std::exchange(item.portal_entry,std::nullopt);
+        if(entrance&&item.portal_cooldown==0) {
+            const auto exit=world_.entity_portal_exit(*entrance,{item.x,item.y,item.z},radius*2,height);
+            if(exit) {
+                const auto [x,y,z]=exit->position;
+                item.x=x;item.y=y;item.z=z;
+                if(exit->rotated)std::tie(item.vx,item.vz)=std::pair{item.vz,-item.vx};
+                item.portal_cooldown=300;
+                auto& arrival=exit->world->simulation();
+                item.born=arrival.tick-std::min(arrival.tick,age);
+                arrival.mobs.insert(mobs.extract(id));
+                world_.mark_dirty();
+                exit->world->mark_dirty();
+                continue;
+            }
+        }
+        if(item.portal_cooldown>0)--item.portal_cooldown;
+        const BlockPos cell{static_cast<int>(std::floor(item.x)),static_cast<int>(std::floor(item.y+.1)),
+                            static_cast<int>(std::floor(item.z))};
+        const int state=world_.block(cell);
+        const bool wet=simdata::water(state)||simdata::property_value(state,"waterlogged")=="true";
+        item.vy=wet?std::min(.06,item.vy+.0005):item.vy-.04;
+        auto move=[&](int axis,double& position,double speed) {
+            const auto actual=world_.clip_motion({item.x-radius,item.y,item.z-radius},
+                                                {item.x+radius,item.y+height,item.z+radius},axis,speed);
+            position+=actual;
+            return actual!=speed;
+        };
+        const bool grounded=move(1,item.y,item.vy)&&item.vy<0;
+        if(std::abs(item.vx)<std::abs(item.vz)) {
+            if(move(2,item.z,item.vz))item.vz=0;
+            if(move(0,item.x,item.vx))item.vx=0;
+        } else {
+            if(move(0,item.x,item.vx))item.vx=0;
+            if(move(2,item.z,item.vz))item.vz=0;
+        }
+        const double drag=wet?.99:grounded?.588:.98;
+        item.vx*=drag;item.vy*=grounded?-.49:.98;item.vz*=drag;
+        for(auto p:world_.occupied_cells({item.x-radius,item.y,item.z-radius},
+                                        {item.x+radius,item.y+height,item.z+radius})) {
+            if(std::string_view(simdata::block(world_.block(p)).name)!="nether_portal")continue;
+            if(item.portal_cooldown>0)item.portal_cooldown=300;
+            else item.portal_entry=p;
+            break;
+        }
+        if(age>=10)for(auto* player:world_.players) {
+            const auto dx=player->x-item.x,dy=player->y-item.y,dz=player->z-item.z;
+            if(dx*dx+dy*dy+dz*dz>3||!player->alive())continue;
+            const int left=player->add_item(item.drop);
+            if(left!=item.drop.count)for(auto* observer:world_.players)
+                observer->collect(id,player->entity_id,item.drop.count-left);
+            item.drop.count=left;
+            if(!left)break;
+        }
+        if(!item.drop.count||item.y<world_.min_y()-1||std::abs(item.x)>=1024||std::abs(item.z)>=1024)
+            mobs.erase(id);
+        world_.mark_dirty();
+    }
+}
+
+}

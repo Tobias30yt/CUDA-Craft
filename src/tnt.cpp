@@ -27,27 +27,9 @@ bool valid_tnt(const PrimedTnt& tnt) {
 }
 
 double clip(const World& world,const PrimedTnt& tnt,int axis,double distance) {
-    if(distance==0)return 0;
-    constexpr double epsilon=1e-8;
-    const std::array min{tnt.x-.49,tnt.y,tnt.z-.49};
-    const std::array max{tnt.x+.49,tnt.y+.98,tnt.z+.49};
-    auto start=min,end=max;
-    start[axis]+=std::min(0.0,distance);
-    end[axis]+=std::max(0.0,distance);
-    const auto first=position(start[0]+epsilon,start[1]+epsilon,start[2]+epsilon);
-    const auto last=position(end[0]-epsilon,end[1]-epsilon,end[2]-epsilon);
-    for(int y=first.y;y<=last.y;++y)for(int z=first.z;z<=last.z;++z)for(int x=first.x;x<=last.x;++x) {
-        if(!world.solid({x,y,z}))continue;
-        const int limit=std::array{x,y,z}[axis];
-        if(distance>0) {
-            const double gap=limit-max[axis];
-            if(gap>=-epsilon)distance=std::max(0.0,std::min(distance,gap));
-        } else {
-            const double gap=limit+1-min[axis];
-            if(gap<=epsilon)distance=std::min(0.0,std::max(distance,gap));
-        }
-    }
-    return distance;
+    constexpr double height=.98f,radius=height/2;
+    return world.clip_motion({tnt.x-radius,tnt.y,tnt.z-radius},
+                             {tnt.x+radius,tnt.y+height,tnt.z+radius},axis,distance);
 }
 }
 
@@ -104,7 +86,7 @@ void Simulation::tick_tnt() {
             horizontal(2,tnt.z,tnt.vz);
         }
         tnt.vx*=.98; tnt.vy*=.98; tnt.vz*=.98;
-        if(grounded){tnt.vx*=.7;tnt.vy*=-.5;tnt.vz*=.7;}
+        if(grounded){tnt.vx*=.7;tnt.vy=0;tnt.vz*=.7;}
         if(--tnt.fuse==0) {
             const auto source=tnt;
             primed_tnt.erase(found);
@@ -156,5 +138,7 @@ void Simulation::explode_tnt(int id,const PrimedTnt& source) {
     }
     if(!changes.empty())world_.set_blocks(changes);
     for(auto p:chain)ignite_tnt(p,10+static_cast<int>(unit(++random)*20));
+    for(auto* player:world_.players)if(std::hypot(player->x-x,player->y-y,player->z-z)<64)
+        player->explosion(x,y,z,4,static_cast<int>(destroyed.size()));
 }
 }

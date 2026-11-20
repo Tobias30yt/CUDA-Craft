@@ -117,6 +117,10 @@ def main():
                     if "ticks" in action:
                         step(action["ticks"])
                         continue
+                    if "time" in action:
+                        value=action["time"]
+                        command(f"time set {value}",f"Set the time to {value}")
+                        continue
                     if "remove_vehicle" in action:
                         command(f'kill @e[tag={action["remove_vehicle"]},limit=1]',"Killed")
                         continue
@@ -124,6 +128,9 @@ def main():
                     if "tnt" in action:
                         key = action["tnt"]
                         selector=f"@e[type=minecraft:tnt,tag={key},limit=1]"
+                        if action.get("remove"):
+                            command(f"kill {selector}","Killed")
+                            continue
                         if "check" not in action:
                             motion=",".join(f"{value}d" for value in action["velocity"])
                             command(f'summon tnt {position} {{Tags:["{key}"],Motion:[{motion}],fuse:{action["fuse"]}s}}',
@@ -204,8 +211,18 @@ def main():
                     positions = [action["pos"] for action in actions if "pos" in action]
                     xs, _, zs = zip(*positions)
                     bounds=tuple(map(math.floor,(min(xs),min(zs),max(xs),max(zs))))
-                    command("forceload add " + " ".join(map(str,bounds)), "to be force loaded")
                     command("tick freeze", "frozen")
+                    command("forceload add " + " ".join(map(str,bounds)), "to be force loaded")
+                    chunks = [(x,z) for x in range(bounds[0]//16,bounds[2]//16+1)
+                              for z in range(bounds[1]//16,bounds[3]//16+1)]
+                    deadline = time.monotonic()+60
+                    while True:
+                        command("save-all flush","Saved the game")
+                        if all((reference.chunk_from_region(folder/"world",x,z) or {}).get("Status")=="minecraft:full"
+                               for x,z in chunks):
+                            break
+                        if time.monotonic()>deadline:
+                            raise TimeoutError("Reference fixture chunks did not finish loading")
                     shared_fixture(actions)
                     return
                 command("forceload add 0 0 31 15", "to be force loaded")

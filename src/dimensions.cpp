@@ -184,6 +184,28 @@ std::optional<PortalFrame> World::find_or_create_portal(BlockPos target,bool alo
     if(!set_blocks(batch))return {};
     return PortalFrame{*origin,2,3,along_x};
 }
+std::optional<PortalExit> World::entity_portal_exit(BlockPos entrance,const std::array<double,3>& position,
+                                                   double width,double height) {
+    if(dimension_id()==2)return {};
+    const auto source=portal_frame(entrance);
+    if(!source)return {};
+    const auto [x,y,z]=position;
+    const int target_dimension=dimension_id()==0?1:0;
+    auto& destination=root().dimension(target_dimension);
+    const double scale=target_dimension==1?.125:8.;
+    const BlockPos target{static_cast<int>(std::floor(x*scale)),static_cast<int>(std::floor(y)),
+                          static_cast<int>(std::floor(z*scale))};
+    const auto arrival=destination.find_or_create_portal(target,source->along_x);
+    if(!arrival)return {};
+    const double along=source->along_x?x-source->origin.x:z-source->origin.z;
+    const double normal=source->along_x?z-source->origin.z-.5:x-source->origin.x-.5;
+    const double horizontal=std::clamp((along-width/2)/(source->width-width),0.0,1.0);
+    const double vertical=std::clamp((y-source->origin.y)/(source->height-height),0.0,1.0);
+    const double u=width/2+horizontal*(arrival->width-width);
+    return PortalExit{&destination,
+        {arrival->origin.x+(arrival->along_x?u:.5+normal),arrival->origin.y+vertical*(arrival->height-height),
+         arrival->origin.z+(arrival->along_x?.5+normal:u)},source->along_x!=arrival->along_x};
+}
 void GameSession::change_dimension(int id,bool through_portal) {
     if(id==world_->dimension_id())return;
     // Construct/load the destination before changing the connected session.

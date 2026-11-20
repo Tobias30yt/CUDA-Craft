@@ -1,6 +1,7 @@
 """Verify structural ingestion of a local Litematica fixture on Vanilla 1.21.11."""
 import argparse
 from collections import Counter
+from contextlib import contextmanager
 import gzip
 import hashlib
 from importlib import import_module
@@ -8,6 +9,7 @@ import json
 import math
 from pathlib import Path
 import queue
+import re
 import subprocess
 import tempfile
 import threading
@@ -21,18 +23,32 @@ terrain = import_module("capture-vanilla-terrain")
 ROOT = capture.ROOT
 
 
-def place_in_vanilla(java, jar, directory, templates, bounds):
+@contextmanager
+def vanilla_console(java, jar, directory, *, freeze_at_boot=False, buttons=()):
     (directory / "eula.txt").write_text("eula=true\n")
+    settings = {
+        "biome":"minecraft:plains","structure_overrides":[],
+        "layers":[{"block":f"minecraft:{name}","height":height} for name,height in
+                  (("bedrock",1),("stone",124),("dirt",2),("grass_block",1))],
+    }
     (directory / "server.properties").write_text(
         "server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nlevel-type=minecraft:flat\n"
         "view-distance=2\nsimulation-distance=2\npause-when-empty-seconds=0\nspawn-monsters=false\n"
+        "level-seed=0\nfunction-permission-level=4\ngenerate-structures=false\n"
+        f"generator-settings={json.dumps(settings,separators=(',',':'))}\n"
     )
     output = queue.Queue()
-    with subprocess.Popen([str(java), "-Xmx1G", "-jar", str(jar), "nogui"], cwd=directory,
+    debugger_ports = queue.Queue()
+    launch = [str(java), "-Xmx1G"]
+    if freeze_at_boot:
+        launch.append("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=127.0.0.1:0")
+    with subprocess.Popen(launch+["-jar", str(jar), "nogui"], cwd=directory,
                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                           text=True, encoding="utf-8", errors="replace") as child:
         def reader():
             for line in child.stdout:
+                if line.startswith("Listening for transport dt_socket at address:"):
+                    debugger_ports.put(int(line.rsplit(":",1)[1].strip()))
                 output.put(line)
             output.put(None)
 
@@ -51,35 +67,34 @@ def place_in_vanilla(java, jar, directory, templates, bounds):
                 if line is None:
                     break
                 if marker.lower() in line.lower():
-                    return
+                    return line
                 recent.append(line)
             raise RuntimeError(f"Missing {marker!r}:\n" + "".join(recent[-12:]))
 
         worker = threading.Thread(target=reader, daemon=True)
         worker.start()
+
+        def press_now(positions):
+            try:
+                port = debugger_ports.get(timeout=15)
+            except queue.Empty as error:
+                raise RuntimeError("The local reference debugger did not start listening") from error
+            helper = Path(__file__).with_name("FreezeVanilla.java").resolve()
+            arguments = [str(java),"-Xmx128M",str(helper),str(port)]
+            for position in positions:
+                arguments.extend(map(str,position))
+            subprocess.run(arguments,cwd=directory,check=True,timeout=100)
+
         try:
+            if freeze_at_boot:
+                press_now(buttons)
             wait_for("Done (", 120)
-            send("tick freeze")
-            wait_for("frozen")
-            send(f"forceload add {bounds[0]} {bounds[1]} {bounds[2]} {bounds[3]}")
-            wait_for("to be force loaded")
-            # Forceload returns before chunk loading finishes. Save until every
-            # template's bounding area is available to the place command.
-            deadline = time.monotonic()+60
-            corners = [(x, z) for x in range(bounds[0]//16,bounds[2]//16+1)
-                       for z in range(bounds[1]//16,bounds[3]//16+1)]
-            while True:
-                send("save-all flush")
-                wait_for("Saved the game")
-                if all(capture.chunk_from_region(directory/"world",x,z) is not None for x,z in corners):
-                    break
-                if time.monotonic() > deadline:
-                    raise TimeoutError("Template chunks did not load")
-            for name, (x,y,z) in templates:
-                send(f"place template fixture:{name} {x} {y} {z} none none 1 0 strict")
-                wait_for(f'Loaded template "fixture:{name}"')
-            send("save-all flush")
-            wait_for("Saved the game")
+
+            def command(instruction, marker):
+                send(instruction)
+                return wait_for(marker)
+
+            yield command,press_now
         finally:
             if child.poll() is None:
                 send("stop")
@@ -89,6 +104,95 @@ def place_in_vanilla(java, jar, directory, templates, bounds):
                     child.kill()
                     child.wait(timeout=5)
             worker.join(timeout=5)
+
+
+def step_to(command, target):
+    def clock():
+        response = command("time query gametime", "The time is ")
+        return int(re.search(r"The time is (\d+)", response).group(1))
+
+    remaining = target - clock()
+    if remaining <= 0:
+        raise ValueError(f"Step target {target} must be after the current tick")
+    command(f"tick step {remaining}", "Stepping")
+    deadline = time.monotonic() + max(15,remaining/20+5)
+    while time.monotonic() < deadline:
+        observed = clock()
+        if observed == target:
+            return
+        if observed > target:
+            raise RuntimeError(f"Tick step overshot {target}, got {observed}")
+        time.sleep(.05)
+    raise TimeoutError(f"Tick step did not reach {target}")
+
+
+def place_in_vanilla(java, jar, directory, placements, exact_clock, observe):
+    with vanilla_console(java,jar,directory,freeze_at_boot=exact_clock) as (command,_):
+        command("tick freeze", "frozen")
+        command("time set 6000", "Set the time to 6000")
+        for dimension,templates in placements.items():
+            prefix=f"execute in minecraft:{dimension} run "
+            xs, _, zs = zip(*(p for _,p in templates))
+            bounds = (min(xs),min(zs),max(xs)+16,max(zs)+16)
+            command(prefix+"forceload add " + " ".join(map(str,bounds)), "to be force loaded")
+            # Forceload returns before chunk loading finishes.
+            deadline = time.monotonic()+60
+            corners = [(x,z) for x in range(bounds[0]//16,bounds[2]//16+1)
+                       for z in range(bounds[1]//16,bounds[3]//16+1)]
+            if dimension == "overworld":
+                observed_chunks = {(x//16,z//16) for x,_,z in observe}
+                for cx,cz in sorted(observed_chunks-set(corners)):
+                    command(prefix+f"forceload add {cx*16} {cz*16}","to be force loaded")
+                    corners.append((cx,cz))
+            dimension_save = directory/"world"
+            if dimension == "the_nether":
+                dimension_save /= "DIM-1"
+            while True:
+                command("save-all flush", "Saved the game")
+                if all(capture.chunk_from_region(dimension_save,x,z) is not None for x,z in corners):
+                    break
+                if time.monotonic() > deadline:
+                    raise TimeoutError(f"Template chunks did not load in {dimension}")
+            for name,(x,y,z) in templates:
+                command(prefix+f"place template fixture:{name} {x} {y} {z} none none 1 0 strict",
+                        f'Loaded template "fixture:{name}"')
+        command("save-all flush", "Saved the game")
+
+
+def stage_fixture(java, jar, directory, merged, version, offset, nether=None, panel=None, *,
+                  exact_clock=False, observe=()):
+    pack = directory/"world/datapacks/fixture"
+    structures = pack/"data/fixture/structure"
+    structures.mkdir(parents=True)
+    (pack/"pack.mcmeta").write_text(json.dumps({"pack": {
+        "description":"Local fixture verification","min_format":[94,1],"max_format":[94,1],
+    }}))
+    def stage_tiles(prefix, records, data_version, origin):
+        blocks,block_entities,entities,_,_ = records
+        tiles = []
+        for i,(position,nbt) in enumerate(template_tiles(blocks,block_entities,entities,data_version)):
+            name = f"{prefix}_{i:03d}"
+            (structures/(name+".nbt")).write_bytes(gzip.compress(nbt,mtime=0))
+            tiles.append((name,add(position,origin)))
+        return tiles
+
+    placements = {"overworld":stage_tiles("tile",merged,version,offset)}
+    if panel:
+        panel_records, panel_version, panel_origin = panel
+        placements["overworld"].extend(stage_tiles("panel",panel_records,panel_version,panel_origin))
+    if nether:
+        nether_records, nether_version, nether_origin = nether
+        placements["the_nether"] = stage_tiles("nether",nether_records,nether_version,nether_origin)
+    place_in_vanilla(java,jar,directory,placements,exact_clock,observe)
+    _,_,_,block_ticks,fluid_ticks = merged
+    restore_ticks(directory/"world",block_ticks,fluid_ticks,offset)
+    if nether:
+        _,_,_,block_ticks,fluid_ticks = nether_records
+        restore_ticks(directory/"world/DIM-1",block_ticks,fluid_ticks,nether_origin)
+    if panel:
+        _,_,_,block_ticks,fluid_ticks = panel_records
+        restore_ticks(directory/"world",block_ticks,fluid_ticks,panel_origin)
+    return sum(map(len,placements.values()))
 
 
 def main():
@@ -101,7 +205,8 @@ def main():
     if hashlib.sha1(jar.read_bytes()).hexdigest() != capture.SHA1:
         raise ValueError("Wrong reference server JAR")
     version, regions = read_fixture(args.fixture, args.sha256)
-    blocks, block_entities, entities, block_ticks, fluid_ticks = merge_regions(regions)
+    merged = merge_regions(regions)
+    blocks, block_entities, entities, block_ticks, fluid_ticks = merged
     offset = (0,96,0)
     expected = {add(pos,offset): terrain.state_key(state) for pos,state in blocks.items()}
     registry = {}
@@ -113,21 +218,7 @@ def main():
     registry[0] = "minecraft:air"
     with tempfile.TemporaryDirectory(prefix="vanilla-litematic-",dir=jar.parent) as temporary:
         directory = Path(temporary)
-        pack = directory/"world/datapacks/fixture"
-        structures = pack/"data/fixture/structure"
-        structures.mkdir(parents=True)
-        (pack/"pack.mcmeta").write_text(json.dumps({"pack": {
-            "description":"Local fixture verification","min_format":[94,1],"max_format":[94,1],
-        }}))
-        placements = []
-        for i, (position, nbt) in enumerate(template_tiles(blocks,block_entities,entities,version)):
-            name = f"tile_{i:03d}"
-            (structures/(name+".nbt")).write_bytes(gzip.compress(nbt,mtime=0))
-            placements.append((name,add(position,offset)))
-        xs, _, zs = zip(*(p for _,p in placements))
-        bounds = (min(xs), min(zs), max(xs)+16, max(zs)+16)
-        place_in_vanilla(args.java,jar,directory,placements,bounds)
-        restore_ticks(directory/"world",block_ticks,fluid_ticks,offset)
+        tile_count = stage_fixture(args.java,jar,directory,merged,version,offset)
         chunks = {}
         loaded_block_entities = {}
         mismatches = []
@@ -155,7 +246,7 @@ def main():
             data = capture.chunk_from_region(directory/"world",cx,cz,"entities")
             loaded_entities.update((entity["id"],tuple(entity["Pos"])) for entity in (data or {}).get("Entities",[]))
         missing_entities = Counter((entity["id"],add(p,offset)) for p,entity in entities)-loaded_entities
-        print(f"{len(placements)} Vanilla tiles placed. {len(expected)-len(mismatches)}/{len(expected)} block states matched.")
+        print(f"{tile_count} Vanilla tiles placed. {len(expected)-len(mismatches)}/{len(expected)} block states matched.")
         print(f"{len(block_entities)-len({position for position,_ in failed_records})}/{len(block_entities)} block-entity records matched.")
         print(f"{len(entities)-sum(missing_entities.values())}/{len(entities)} entity types and positions matched.")
         unmatched_ticks = []
