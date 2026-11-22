@@ -139,6 +139,15 @@ def hopper_transfer_actions():
     ]
 
 
+def hopper_lock_actions():
+    hopper, signal = (16,80,0), (15,80,0)
+    return [
+        place(hopper,"hopper"),place(signal,"redstone_block"),
+        check("neighbor locks hopper immediately",hopper,"hopper",enabled="false"),
+        place(signal,"air"),check("removing neighbor unlocks hopper immediately",hopper,"hopper",enabled="true"),
+    ]
+
+
 def dropper_transfer_actions():
     power, dropper, target = (15,80,0),(16,80,0),(17,80,0)
 
@@ -243,6 +252,21 @@ def piston_wire_wakeup_actions():
         check("dust notifies the piston two blocks below",piston,"sticky_piston",extended="true"),
         place(power,"air"),step(4),
         check("dust removal of power wakes the piston again",piston,"sticky_piston",extended="false"),
+    ]
+
+
+def piston_wire_timing_actions():
+    piston, moved, source = (16,80,0), (17,80,0), (15,80,0)
+    near_dust, far_dust = (17,80,1), (18,80,1)
+    return [
+        *floor(near_dust,far_dust),place(piston,"piston",facing="east"),
+        place(near_dust,"redstone_wire"),place(far_dust,"redstone_wire"),
+        place(moved,"redstone_block"),step(4),
+        check("dust reads the resting redstone block",near_dust,"redstone_wire",power="15"),
+        place(source,"redstone_block"),step(),
+        check("dust turns off in the tick the block starts moving",near_dust,"redstone_wire",power="0"),
+        check("the moving redstone block emits no signal",far_dust,"redstone_wire",power="0"),
+        step(2),check("dust turns on when the moved block settles",far_dust,"redstone_wire",power="15"),
     ]
 
 
@@ -407,6 +431,17 @@ def detector_rail_actions():
     ]
 
 
+def tnt_diode_power_actions():
+    source, repeater, conductor, charge = [(x,80,0) for x in range(14,18)]
+    return [
+        *floor(repeater),place(conductor,"stone"),place(charge,"tnt"),
+        place(repeater,"repeater",facing="west"),step(2),
+        place(source,"redstone_block"),step(),
+        check("TNT stays intact while the diode is waiting",charge,"tnt"),
+        step(),check("diode ignites TNT through its output block",charge,"air"),
+    ]
+
+
 def tnt_fuse_actions():
     position=(16.5,85,.5)
     stone, obsidian=(17,84,0),(15,84,0)
@@ -495,6 +530,7 @@ def daylight_actions():
 def powered_receiver_actions():
     note,door=(16,80,0),(16,80,4)
     note_signal,door_signal=(15,80,0),(15,80,4)
+    gate,gate_signal=(16,80,8),(15,80,8)
     return [
         *floor(note),place(note,"note_block",instrument="basedrum"),
         place(door,"iron_trapdoor",half="top"),place(note_signal,"redstone_block"),
@@ -504,6 +540,12 @@ def powered_receiver_actions():
         place(note_signal,"air"),place(door_signal,"air"),step(),
         check("note block clears on falling input",note,"note_block",powered="false"),
         check("iron trapdoor closes",door,"iron_trapdoor",powered="false",open="false"),
+        place(gate,"oak_fence_gate",open="true"),place(gate_signal,"stone"),
+        check("an open unpowered gate stays open on a neighbor update",gate,"oak_fence_gate",powered="false",open="true"),
+        place(gate_signal,"redstone_block"),
+        check("fence gate recognizes power immediately",gate,"oak_fence_gate",powered="true",open="true"),
+        place(gate_signal,"air"),
+        check("gate closes immediately on falling input",gate,"oak_fence_gate",powered="false",open="false"),
     ]
 
 
@@ -612,6 +654,7 @@ CASES.update({
     "comparator_weaker_side_subtract": comparator_unequal_actions("subtract"),
     "comparator_inventory": comparator_inventory_actions(),
     "hopper_transfer": hopper_transfer_actions(),
+    "hopper_lock": hopper_lock_actions(),
     "dropper_transfer": dropper_transfer_actions(),
     "item_stagger": item_stagger_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
@@ -619,6 +662,7 @@ CASES.update({
     "item_landing": item_landing_actions(),
     "powder_snow_fall": powder_snow_fall_actions(),
     "piston_wire_wakeup": piston_wire_wakeup_actions(),
+    "piston_wire_timing": piston_wire_timing_actions(),
     "piston_moving_base": piston_moving_base_actions(),
     "piston_drop_pulse": piston_drop_pulse_actions(),
     "repeater_lock_priority": repeater_lock_priority_actions(),
@@ -633,6 +677,7 @@ CASES.update({
     "dispenser_oak_boat": dispenser_vehicle_actions("oak_boat"),
     "detector_rail": detector_rail_actions(),
     "tnt_fuse": tnt_fuse_actions(),
+    "tnt_diode_power": tnt_diode_power_actions(),
     "tnt_impulse": tnt_impulse_actions(),
     "tnt_slab": tnt_slab_actions(),
     "moving_slime": moving_slime_actions(),

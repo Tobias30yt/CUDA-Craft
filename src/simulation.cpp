@@ -65,7 +65,8 @@ bool wire_connects(int state,BlockPos side) {
 }
 bool power_receiver(int state) {
     const std::string_view name=simdata::block(state).name;
-    return simdata::copper_bulb(state)||name=="note_block"||name.ends_with("_trapdoor");
+    return simdata::copper_bulb(state)||name=="hopper"||name=="note_block"||
+           name.ends_with("_trapdoor")||name.ends_with("_fence_gate");
 }
 bool inside(double x,double y,double z){return std::isfinite(x)&&std::isfinite(y)&&std::isfinite(z)&&std::abs(x)<1024&&std::abs(z)<1024&&y>=-64&&y<400;}
 ItemStack read_stack(const nlohmann::json& v) {
@@ -758,6 +759,22 @@ void Simulation::finish_piston_motion() {
     if(!complete.empty())world_.set_blocks(complete);
 }
 
+void Simulation::update_tnt(BlockPos changed) {
+    using namespace simdata;
+    if(tnt_blocks_.empty())return;
+    auto update=[&](BlockPos position) {
+        if(tnt_blocks_.contains(position)&&neighbor_power(position,true)>0)ignite_tnt(position);
+    };
+    update(changed);
+    for(auto direction:dirs)update(add(changed,direction));
+    const int state=world_.block(changed);
+    if((!observer(state)&&!repeater(state)&&!comparator(state))||property_value(state,"powered")!="true")return;
+    const auto rear=observer_face(state);
+    const auto output=add(changed,opposite(rear));
+    if(!redstone_conductor(world_.block(output)))return;
+    for(auto direction:dirs)if(direction!=rear)update(add(output,direction));
+}
+
 void Simulation::update_power_receivers(BlockPos changed,int before,int after) {
     using namespace simdata;
     if(power_receivers_.empty())return;
@@ -766,10 +783,17 @@ void Simulation::update_power_receivers(BlockPos changed,int before,int after) {
         if(!power_receivers_.contains(position))return;
         const int state=world_.block(position);
         const bool powered=neighbor_power(position,true)>0;
+        const std::string_view name=block(state).name;
+        if(name=="hopper") {
+            const int next=with_property(state,"enabled",powered?"false":"true");
+            if(next!=state)world_.set(position,next);
+            return;
+        }
         if(powered==(property_value(state,"powered")=="true"))return;
         int next=with_property(state,"powered",powered?"true":"false");
         if(copper_bulb(state)&&powered)next=with_property(next,"lit",property_value(state,"lit")=="true"?"false":"true");
-        if(std::string_view(block(state).name).ends_with("_trapdoor"))next=with_property(next,"open",powered?"true":"false");
+        if(name.ends_with("_trapdoor")||name.ends_with("_fence_gate"))
+            next=with_property(next,"open",powered?"true":"false");
         world_.set(position,next);
     };
     update(changed);
@@ -1132,7 +1156,12 @@ void Simulation::step() {
         } else if(simdata::circuit(current))world_.set(p,s);
         redstone();
     }
-    redstone();tick_pistons();tick_vehicles();tick_tnt();tick_items();entities();tick_hoppers();tick_jukeboxes();finish_piston_motion();
+    redstone();
+    tick_pistons();
+    redstone();
+    tick_vehicles();tick_tnt();tick_items();entities();tick_hoppers();tick_jukeboxes();
+    finish_piston_motion();
+    redstone();
     if(tick%20==0)for(auto detector:daylight_detectors_)if(world_.ticks_blocks(detector))update_daylight(detector);
     const auto players=world_.players;for(auto* player:players)if(&player->world()==&world_)player->simulation_tick();
 }

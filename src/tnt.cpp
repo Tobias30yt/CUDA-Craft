@@ -112,15 +112,6 @@ bool Simulation::ignite_tnt(BlockPos p,int fuse) {
     return false;
 }
 
-void Simulation::update_tnt(BlockPos changed) {
-    if(tnt_blocks_.empty())return;
-    constexpr BlockPos offsets[]={{0,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
-    for(auto offset:offsets) {
-        const BlockPos p{changed.x+offset.x,changed.y+offset.y,changed.z+offset.z};
-        if(tnt_blocks_.contains(p)&&neighbor_power(p,true)>0)ignite_tnt(p);
-    }
-}
-
 void Simulation::tick_tnt() {
     if(primed_tnt.empty())return;
     std::vector<int> ids;

@@ -236,11 +236,11 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 |---|---:|---:|
 | Observer und acht Kupferlampenvarianten | 9/9 | 9/9 |
 | Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 5/5 |
-| Fassinventar durch Vollblock, Hopper- und Dropper-Transfer | 3/3 | 3/3 |
+| Fassinventar durch Vollblock, Hopper- und Dropper-Transfer sowie sofortige Trichtersperre | 4/4 | 4/4 |
 | Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
-| TNT-Zündzeit, freie Bewegung, Explosion, auf einer Stufe und am bewegten Schleimblock | 3/3 | 3/3 |
-| Tageslichtsensor, Notenblock und Eisenfalltür | 2/2 | 2/2 |
-| Kolben, klebriger Kolben, Zwischenzustände, 12/13 Blöcke, Schleim/Honig und Quasi-Connectivity | 9/9 | 9/9 |
+| TNT-Zündzeit, freie Bewegung, Explosion, Stufe, bewegter Schleimblock und Zündung durch einen Repeater-Ausgang | 5/5 | 5/5 |
+| Tageslichtsensor, Notenblock, Eisenfalltür und Zauntor | 2/2 | 2/2 |
+| Kolben, klebriger Kolben, Zwischenzustände, 12/13 Blöcke, Schleim/Honig, Quasi-Connectivity und Staub während der Bewegung | 10/10 | 10/10 |
 | Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 
 Beim Grenzfall mit 13 Blöcken muss derselbe Kolben anschließend die verkürzte
@@ -253,7 +253,7 @@ Live-Lauf prüft Ein- und Ausschalten im bereits geladenen Chunk unabhängig
 voneinander. Der Client erhält jeweils den neuen Blockzustand und ein Lichtpaket,
 das den Wert über der Lampe von 0 auf 14 oder von 14 auf 0 ändert.
 
-Nach dem nativen Build führt CTest alle 38 Schaltungen und alle drei Lichtprüfungen
+Nach dem nativen Build führt CTest die gemeinsamen Schaltungen und alle drei Lichtprüfungen
 regulär aus. Der folgende Befehl wiederholt auch den Vanilla-Vergleich:
 
 ```powershell
@@ -271,9 +271,9 @@ Komparatoren lesen in der Teilabnahme Kupferlampen, Komposter und Inventare.
 Weitere analoge Quellen und der Zufallszustand der Dropper sind offen. Licht wird innerhalb
 eines Chunks berechnet. Die Ausbreitung über Chunkgrenzen bleibt offen.
 
-Noch wurde weder eine vollständige Vanilla-Referenzschussfolge aufgezeichnet noch
-die Kanone im nativen Backend ausgeführt. Sie darf daher nicht als Beleg für
-Release-Reife oder allgemeine Vanilla-Parität genannt werden.
+Die Vanilla-Referenz erreicht das Ziel mit dem verbundenen Originalaufbau.
+CUDA Craft übernimmt alle 65 Eingabebits, erzeugt im vollständigen Lauf aber
+noch kein TNT. Der native Treffer und die Client-Demonstration bleiben offen.
 
 ## Reproduzieren
 
