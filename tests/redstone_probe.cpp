@@ -87,7 +87,7 @@ int main(int argc,char** argv) {
                 continue;
             }
             if(action.contains("capture")) {
-                json states=json::array(),tnt=json::array(),hoppers=json::array(),carts=json::array(),items=json::array();
+                json states=json::array(),tnt=json::array(),inventories=json::array(),carts=json::array(),items=json::array();
                 for(const auto& entry:action.at("capture")) {
                     const auto [x,y,z]=entry.get<std::array<int,3>>();
                     states.push_back(world.block({x,y,z}));
@@ -116,22 +116,24 @@ int main(int argc,char** argv) {
                 };
                 capture_entities(world);
                 if(action.value("capture_nether",false))capture_entities(world.dimension(1));
-                if(action.contains("capture_hoppers"))for(const auto& entry:action.at("capture_hoppers")) {
+                if(action.contains("capture_inventories"))for(const auto& entry:action.at("capture_inventories")) {
                     const auto [x,y,z]=entry.get<std::array<int,3>>();
-                    const auto* hopper=world.simulation().container({x,y,z});
-                    if(!hopper||std::string_view(sd::block(hopper->type).name)!="hopper") {
-                        hoppers.push_back(nullptr);
+                    const auto* container=world.simulation().container({x,y,z});
+                    if(!container) {
+                        inventories.push_back(nullptr);
                         continue;
                     }
                     json stacks=json::array();
-                    for(int slot=0;slot<5;++slot) {
-                        const auto& stack=hopper->items[slot];
+                    for(int slot=0;slot<Simulation::container_slots(container->type);++slot) {
+                        const auto& stack=container->items[slot];
                         if(stack.item)stacks.push_back({slot,stack.item,stack.count});
                     }
-                    hoppers.push_back({{"cooldown",hopper->transfer_cooldown},{"items",std::move(stacks)}});
+                    const bool hopper=std::string_view(sd::block(container->type).name)=="hopper";
+                    inventories.push_back({{"cooldown",hopper?json(container->transfer_cooldown):json(nullptr)},
+                                           {"items",std::move(stacks)}});
                 }
                 std::cout<<json{{"states",std::move(states)},{"tnt",std::move(tnt)},
-                                {"hoppers",std::move(hoppers)},{"vehicles",std::move(carts)},
+                                {"inventories",std::move(inventories)},{"vehicles",std::move(carts)},
                                 {"items",std::move(items)}}.dump()<<'\n';
                 continue;
             }

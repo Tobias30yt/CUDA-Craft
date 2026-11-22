@@ -101,6 +101,7 @@ public:
     std::map<BlockPos,Container> containers;
     std::size_t pending_water() const { return water_.size(); }
 private:
+    int note_block_state(BlockPos position,int state) const;
     World& world_;
     std::map<BlockPos,std::uint64_t> water_;
     std::set<BlockPos> circuits_;

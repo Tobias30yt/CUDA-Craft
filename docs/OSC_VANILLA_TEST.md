@@ -158,6 +158,11 @@ Der Test bindet den Cache an die Originaldateien, Eingaben, Beobachtungsposition
 und lokalen Referenzwerkzeuge. Ein Lauf ohne Cache zeichnet eine neue Referenz
 auf. Wiederholte Vanilla-Läufe trafen das Ziel mit unterschiedlicher Kraterform.
 
+`--watch-inventory X Y Z` zeichnet alle belegten Slots eines originalen
+Trichters, Werfers, Spenders, Fasses oder einer Truhe pro Messpunkt auf.
+Zusammen mit `--sample-window START END` lässt sich ein Transfer im Taktgeber
+auf beiden Servern auf den Spieltick genau prüfen.
+
 ## Was implementiert werden muss
 
 Diese Liste kombiniert gemessene Schematic-Inhalte mit einer Prüfung des aktuellen
@@ -240,6 +245,7 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
 | TNT-Zündzeit, freie Bewegung, Explosion, Stufe, bewegter Schleimblock und Zündung durch einen Repeater-Ausgang | 5/5 | 5/5 |
 | Tageslichtsensor, Notenblock, Eisenfalltür und Zauntor | 2/2 | 2/2 |
+| Instrumentwechsel durch Blöcke direkt darüber oder darunter, Kolbenbewegung und verzögerter Observer-Impuls | 2/2 | 2/2 |
 | Kolben, klebriger Kolben, Zwischenzustände, 12/13 Blöcke, Schleim/Honig, Quasi-Connectivity und Staub während der Bewegung | 10/10 | 10/10 |
 | Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 

@@ -22,6 +22,9 @@ class CaptureVanillaBlockPhysics {
         var pushReaction = state.getMethod("r");
         var hasBlockEntity = state.getMethod("x");
         var isSignalSource = state.getMethod("p");
+        var instrument = state.getMethod("E");
+        var instrumentName = instrument.getReturnType().getMethod("c");
+        var instrumentAbove = instrument.getReturnType().getMethod("e");
         var directionClass = Class.forName("iz");
         var directions = directionClass.getEnumConstants();
         var sturdyFace = state.getMethod("c",Class.forName("dvt"),positionClass,directionClass);
@@ -41,8 +44,9 @@ class CaptureVanillaBlockPhysics {
             for (int i=0; i<directions.length; ++i) {
                 if ((boolean) sturdyFace.invoke(blockState,emptyWorld,position,directions[i])) faces |= 1<<i;
             }
+            var tone = instrument.invoke(blockState);
             var row = new StringBuilder(id+" "+conductor+" "+opacity+" "+reaction+" "+blockEntity+" "+solid
-                +" "+signalSource+" "+faces);
+                +" "+signalSource+" "+faces+" "+instrumentName.invoke(tone)+" "+instrumentAbove.invoke(tone));
             var shape = collisionShape.invoke(blockState,emptyWorld,position);
             for (var box : (java.util.List<?>) toBoxes.invoke(shape)) {
                 for (var coordinate : bounds) row.append(' ').append(coordinate.getDouble(box));

@@ -549,6 +549,35 @@ def powered_receiver_actions():
     ]
 
 
+def note_instrument_actions():
+    note, below, above, watcher = (16,81,0), (16,80,0), (16,82,0), (17,81,0)
+    return [
+        place(below,"tnt"),place(note,"note_block"),place(watcher,"observer",facing="west"),step(4),
+        check("TNT selects harp",note,"note_block",instrument="harp",powered="false"),
+        place(below,"observer",facing="north"),
+        check("an observer below immediately selects basedrum",note,"note_block",instrument="basedrum",powered="false"),
+        step(2),check("the instrument change triggers the watcher",watcher,"observer",powered="true"),
+        step(2),place(above,"skeleton_skull"),
+        check("a skull above overrides the block below",note,"note_block",instrument="skeleton",powered="false"),
+        place(above,"air"),
+        check("removing the head restores basedrum",note,"note_block",instrument="basedrum",powered="false"),
+    ]
+
+
+def piston_note_instrument_actions():
+    piston, moving, source = (16,80,0), (17,80,0), (15,80,0)
+    note, watcher = (18,81,0), (18,81,1)
+    return [
+        place(piston,"piston",facing="east"),place(moving,"observer",facing="south"),
+        place(note,"note_block"),place(watcher,"observer",facing="north"),step(4),
+        place(source,"redstone_block"),step(),
+        check("moving observer has not selected basedrum yet",note,"note_block",instrument="harp"),
+        step(2),check("piston completes the instrument change",note,"note_block",instrument="basedrum"),
+        step(),check("observer waits another tick",watcher,"observer",powered="false"),
+        step(),check("instrument change sends a two-tick delayed pulse",watcher,"observer",powered="true"),
+    ]
+
+
 def piston_actions(sticky):
     signal, piston, front, moved = [(x, 80, 0) for x in range(14, 18)]
     kind = "sticky_piston" if sticky else "piston"
@@ -683,6 +712,8 @@ CASES.update({
     "moving_slime": moving_slime_actions(),
     "daylight_detector": daylight_actions(),
     "powered_receivers": powered_receiver_actions(),
+    "note_instrument": note_instrument_actions(),
+    "piston_note_instrument": piston_note_instrument_actions(),
     "piston_push": piston_actions(False),
     "piston_animation": piston_animation_actions(),
     "sticky_piston_pull": piston_actions(True),

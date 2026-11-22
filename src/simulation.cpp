@@ -1,4 +1,5 @@
 #include "cudacraft/simulation.hpp"
+#include "cudacraft/note_instrument_data.hpp"
 #include "cudacraft/simulation_data.hpp"
 #include "cudacraft/block_physics.hpp"
 #include "cudacraft/block_collision_data.hpp"
@@ -329,6 +330,7 @@ bool Simulation::interact(BlockPos p) {
 bool Simulation::place_block(BlockPos p,int state) {
     using namespace simdata;
     if(!World::valid(p)||p.y==-64||!valid_state(state)||!state)return false;
+    if(std::string_view(block(state).name)=="note_block")state=note_block_state(p,state);
     std::vector<std::pair<BlockPos,int>> changes;
     if(container_type(state)&&property_value(state,"type")=="single") {
         const auto f=state_direction(state);const BlockPos right{-f.z,0,f.x};
@@ -775,10 +777,26 @@ void Simulation::update_tnt(BlockPos changed) {
     for(auto direction:dirs)if(direction!=rear)update(add(output,direction));
 }
 
+int Simulation::note_block_state(BlockPos position,int state) const {
+    using namespace simdata;
+    const auto above=note_instrument(world_.block(add(position,dirs[1])));
+    if(above.above)return with_property(state,"instrument",above.name);
+    const auto below=note_instrument(world_.block(add(position,dirs[0])));
+    return with_property(state,"instrument",below.above?"harp":below.name);
+}
+
 void Simulation::update_power_receivers(BlockPos changed,int before,int after) {
     using namespace simdata;
     if(power_receivers_.empty())return;
     if(power_receiver(before)&&block(before).first==block(after).first)return;
+    for(int vertical=0;vertical<2;++vertical) {
+        const auto position=add(changed,dirs[vertical]);
+        if(!power_receivers_.contains(position))continue;
+        const int state=world_.block(position);
+        if(std::string_view(block(state).name)!="note_block")continue;
+        const int next=note_block_state(position,state);
+        if(next!=state)world_.set(position,next);
+    }
     auto update=[&](BlockPos position) {
         if(!power_receivers_.contains(position))return;
         const int state=world_.block(position);

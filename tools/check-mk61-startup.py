@@ -25,9 +25,10 @@ VEHICLES = {"minecraft:chest_minecart","minecraft:hopper_minecart","minecraft:oa
 TRACKED_ENTITIES = sorted(VEHICLES | {"minecraft:tnt","minecraft:item"})
 DIMENSIONS = ("overworld","the_nether")
 LOADER_RETURN_OFFSETS = {(15,12,-17):(15,0,-14),(-17,12,15):(-14,0,15)}
+INVENTORY_BLOCKS = {"minecraft:hopper","minecraft:chest","minecraft:barrel","minecraft:dropper","minecraft:dispenser"}
 
 
-def native_frames(probe, directory, snapshot, positions, hoppers, event_ticks, presses, nether_snapshot, grid,
+def native_frames(probe, directory, snapshot, positions, containers, event_ticks, presses, nether_snapshot, grid,
                   remote, portal_only, target_positions):
     directory.mkdir()
     (directory/"blocks.json").write_text(json.dumps(snapshot, separators=(",",":")), encoding="utf-8")
@@ -35,7 +36,7 @@ def native_frames(probe, directory, snapshot, positions, hoppers, event_ticks, p
         nether = directory/"DIM-1"
         nether.mkdir()
         (nether/"blocks.json").write_text(json.dumps(nether_snapshot,separators=(",",":")),encoding="utf-8")
-    sample = dict(capture=positions,capture_hoppers=hoppers,capture_nether=bool(presses or nether_snapshot or grid))
+    sample = dict(capture=positions,capture_inventories=containers,capture_nether=bool(presses or nether_snapshot or grid))
     actions = []
     previous = 0
     for tick in event_ticks:
@@ -61,7 +62,7 @@ def native_frames(probe, directory, snapshot, positions, hoppers, event_ticks, p
     return dict(zip(event_ticks,frames))
 
 
-def vanilla_frame(world, positions, hoppers, chunks, registry, item_ids, live=None):
+def vanilla_frame(world, positions, containers, chunks, registry, item_ids, live=None):
     loaded, inventories = {}, {}
     loaded_entities = []
     for cx,cz in chunks:
@@ -70,16 +71,16 @@ def vanilla_frame(world, positions, hoppers, chunks, registry, item_ids, live=No
             raise ValueError(f"Missing Vanilla chunk {(cx,cz)}")
         loaded[cx,cz] = vanilla.terrain.states_from_chunk(chunk,registry)
         if live is None:
-            for hopper in chunk.get("block_entities",[]):
-                if hopper["id"] == "minecraft:hopper":
-                    inventories[hopper["x"],hopper["y"],hopper["z"]] = hopper
+            for entry in chunk.get("block_entities",[]):
+                if entry["id"] in INVENTORY_BLOCKS:
+                    inventories[entry["x"],entry["y"],entry["z"]] = entry
             entities = vanilla.capture.chunk_from_region(world,cx,cz,"entities")
             loaded_entities.extend(dict(entity,dimension="minecraft:overworld")
                                    for entity in (entities or {}).get("Entities",[]))
     states = [loaded[x//16,z//16][(y+64)*256+(z&15)*16+(x&15)] for x,y,z in positions]
     if live is not None:
-        inventories = {(hopper["x"],hopper["y"],hopper["z"]):hopper for hopper in live["hoppers"]
-                       if "TransferCooldown" in hopper}
+        inventories = {(entry["x"],entry["y"],entry["z"]):entry for entry in live["inventories"]
+                       if entry["id"] in INVENTORY_BLOCKS}
         loaded_entities = [dict(entity,id=kind,dimension=f"minecraft:{dimension}")
                            for dimension in DIMENSIONS for kind in TRACKED_ENTITIES
                            for entity in live[f"{dimension}_{kind.removeprefix('minecraft:')}"]]
@@ -98,27 +99,27 @@ def vanilla_frame(world, positions, hoppers, chunks, registry, item_ids, live=No
             items.append(dict(dimension=entity["dimension"],item=item_ids[entity["Item"]["id"]],
                               count=entity["Item"]["count"],position=entity["Pos"],velocity=entity["Motion"]))
     snapshots = []
-    for pos in hoppers:
-        hopper = inventories.get(pos)
-        snapshots.append(None if hopper is None else dict(
-            cooldown=hopper["TransferCooldown"],
+    for pos in containers:
+        entry = inventories.get(pos)
+        snapshots.append(None if entry is None else dict(
+            cooldown=entry.get("TransferCooldown"),
             items=sorted([stack["Slot"],item_ids[stack["id"]],stack["count"]]
-                         for stack in hopper.get("Items",[]))))
-    return dict(states=states,tnt=tnt,hoppers=snapshots,vehicles=vehicles,items=items)
+                         for stack in entry.get("Items",[]))))
+    return dict(states=states,tnt=tnt,inventories=snapshots,vehicles=vehicles,items=items)
 
 
 def read_nbt(path):
     return vanilla.capture.NBT(gzip.decompress(path.read_bytes())).root()
 
 
-def vanilla_frames(java, jar, directory, merged, version, positions, hoppers, registry, item_ids,
+def vanilla_frames(java, jar, directory, merged, version, positions, containers, registry, item_ids,
                    event_ticks, presses, origin, nether, panel, target_positions, grid, remote, portal_only, extra_watch):
     directory.mkdir()
     vanilla.stage_fixture(java,jar,directory,merged,version,origin,nether,panel,
                           exact_clock=True,observe=(*target_positions,*extra_watch))
     world = directory/"world"
     chunks = sorted({(x//16,z//16) for x,_,z in positions})
-    frames = {0:vanilla_frame(world,positions,hoppers,chunks,registry,item_ids)}
+    frames = {0:vanilla_frame(world,positions,containers,chunks,registry,item_ids)}
     indices = {tuple(position):index for index,position in enumerate(positions)}
     lit_states = {state for name,state in registry.items()
                   if isinstance(name,str) and name.startswith("minecraft:waxed_copper_bulb[") and "lit=true" in name}
@@ -138,8 +139,9 @@ def vanilla_frames(java, jar, directory, merged, version, positions, hoppers, re
     pack = world/"datapacks/fixture/data"
     functions = pack/"fixture/function"
     functions.mkdir()
-    capture = ["data modify storage fixture:sample hoppers set value []"]
-    capture.extend(f"data modify storage fixture:sample hoppers append from block {x} {y} {z}" for x,y,z in hoppers)
+    capture = ["data modify storage fixture:sample inventories set value []"]
+    capture.extend(f"data modify storage fixture:sample inventories append from block {x} {y} {z}"
+                   for x,y,z in containers)
     for dimension in DIMENSIONS:
         for kind in TRACKED_ENTITIES:
             field = f"{dimension}_{kind.removeprefix('minecraft:')}"
@@ -155,7 +157,7 @@ def vanilla_frames(java, jar, directory, merged, version, positions, hoppers, re
         command("function fixture:capture", "Running function")
         command("save-all flush","Saved the game")
         storage = read_nbt(world/"data/command_storage_fixture.dat")["data"]["contents"]
-        return vanilla_frame(world,positions,hoppers,chunks,registry,item_ids,storage["sample"])
+        return vanilla_frame(world,positions,containers,chunks,registry,item_ids,storage["sample"])
 
     initial_presses = list(presses.get(0,()))
     if grid and grid[0]==0:
@@ -285,6 +287,8 @@ def main():
                         help="Switch both engines from always-ticking setup to portal tickets, with the target forced")
     parser.add_argument("--watch",type=int,nargs=3,action="append",default=[],metavar=("X","Y","Z"),
                         help="Include the Vanilla and CUDA Craft states of an absolute block position in each trace frame")
+    parser.add_argument("--watch-inventory",type=int,nargs=3,action="append",default=[],metavar=("X","Y","Z"),
+                        help="Include the inventories of an original container in each trace frame")
     parser.add_argument("--nether",type=Path,help="Install the original OSC 6 Nether counterpart")
     parser.add_argument("--panel",type=Path,help="Install the original OSC 6 control panel")
     parser.add_argument("--grid",type=Path,help="Replay a 5x13 JSON grid from Cubicmetre's Mk.6 fire control")
@@ -398,6 +402,7 @@ def main():
     positions = [entry[:3] for entry in snapshot["edits"]]
     hoppers = sorted(add(position,origin) for position,record in records.values()
                      if record["id"] == "minecraft:hopper")
+    available_inventories = {add(p,origin) for p,record in records.values() if record["id"] in INVENTORY_BLOCKS}
     if panel:
         (panel_blocks,panel_records,panel_entities,panel_ticks,panel_fluids),_,panel_origin = panel
         panel_snapshot,_ = native.build_snapshot(panel_blocks,panel_records,panel_entities,panel_ticks,reports,
@@ -406,6 +411,13 @@ def main():
         positions.extend(entry[:3] for entry in panel_snapshot["edits"])
         hoppers.extend(sorted(add(position,panel_origin) for position,record in panel_records.values()
                               if record["id"]=="minecraft:hopper"))
+        available_inventories.update(add(p,panel_origin) for p,record in panel_records.values()
+                                     if record["id"] in INVENTORY_BLOCKS)
+    watched_inventories = list(dict.fromkeys(map(tuple,args.watch_inventory)))
+    if any(position not in available_inventories for position in watched_inventories):
+        parser.error("--watch-inventory requires an original Overworld or panel container")
+    containers = list(dict.fromkeys(hoppers+watched_inventories))
+    container_indices = {position:index for index,position in enumerate(containers)}
     observed_positions = set(map(tuple,positions))
     extra_watch = set(map(tuple,args.watch))-observed_positions-set(target_positions)
     if any(not (-1024<=x<1024 and -64<=y<320 and -1024<=z<1024) for x,y,z in extra_watch):
@@ -419,7 +431,7 @@ def main():
         cache_inputs = dict(reference=vanilla.capture.SHA1,main=SHA256,nether=NETHER_SHA256 if nether else None,
                             panel=PANEL_SHA256 if panel else None,presses=presses,grid=grid_plan,
                             points=positions,targets=target_positions,portal_only=args.portal_only_at,
-                            remote=args.remote_at,ticks=event_ticks)
+                            remote=args.remote_at,ticks=event_ticks,containers=containers)
         fingerprint = hashlib.sha256(json.dumps(cache_inputs,sort_keys=True).encode())
         for name in (Path(__file__).name,"check-vanilla-litematic.py","litematic_fixture.py",
                      "litematic_anvil_ticks.py","FreezeVanilla.java"):
@@ -436,14 +448,14 @@ def main():
         cached = None
     with tempfile.TemporaryDirectory(prefix="mk61-startup-",dir=jar.parent) as folder:
         directory = Path(folder)
-        actual = native_frames(args.probe,directory/"native",snapshot,positions,hoppers,event_ticks,
+        actual = native_frames(args.probe,directory/"native",snapshot,positions,containers,event_ticks,
                                presses,nether_snapshot,grid_plan,args.remote_at,args.portal_only_at,target_positions)
         if cached:
             reference = dict(zip(event_ticks,cached["frames"],strict=True))
             print(f"Using official 1.21.11 frames from {args.reference_cache}",flush=True)
         else:
             reference = vanilla_frames(args.java,jar,directory/"reference",merged,version,positions,
-                                       hoppers,registry,item_ids,event_ticks,presses,origin,nether,panel,
+                                       containers,registry,item_ids,event_ticks,presses,origin,nether,panel,
                                        target_positions,grid_plan,args.remote_at,args.portal_only_at,extra_watch)
             if args.reference_cache:
                 with gzip.open(args.reference_cache,"xt",encoding="utf-8") as output:
@@ -453,8 +465,10 @@ def main():
         observed = actual[tick]
         changes = [[pos,want,have] for pos,want,have in zip(positions,expected["states"],observed["states"])
                    if want != have]
-        inventories = [[pos,want,have] for pos,want,have in zip(hoppers,expected["hoppers"],observed["hoppers"])
+        inventories = [[pos,want,have] for pos,want,have in zip(hoppers,expected["inventories"],observed["inventories"])
                        if want != have]
+        inventory_watch = [[pos,expected["inventories"][container_indices[pos]],
+                            observed["inventories"][container_indices[pos]]] for pos in watched_inventories]
         wanted_tnt,actual_tnt = normalize_charges(expected["tnt"]), normalize_charges(observed["tnt"])
         wanted_vehicles = normalize_vehicles(expected["vehicles"])
         actual_vehicles = normalize_vehicles(observed["vehicles"])
@@ -467,7 +481,8 @@ def main():
         trace.append(dict(tick=tick,differing_blocks=changes,differing_hoppers=inventories,
                           vanilla_tnt=wanted_tnt,native_tnt=actual_tnt,
                           vanilla_vehicles=wanted_vehicles,native_vehicles=actual_vehicles,
-                          vanilla_items=wanted_items,native_items=actual_items,watch=watch))
+                          vanilla_items=wanted_items,native_items=actual_items,watch=watch,
+                          watch_inventory=inventory_watch))
         print(f"Tick {tick}: {len(changes)} differing block states, {len(inventories)} differing hoppers, "
               f"TNT {len(wanted_tnt)}/{len(actual_tnt)}, vehicles {len(wanted_vehicles)}/{len(actual_vehicles)} "
               f"(Vanilla/native). Most common Vanilla states: {counts.most_common(4)}", flush=True)
@@ -499,6 +514,7 @@ def main():
     if matched_random_drop is not None:
         print("Loader item flight through portal:", "matched" if matched_random_drop else "differs")
     return int(shot_failed or any(frame["differing_blocks"] or frame["differing_hoppers"] or
+                                 any(expected!=actual for _,expected,actual in frame["watch_inventory"]) or
                    frame["vanilla_tnt"]!=frame["native_tnt"] or frame["vanilla_vehicles"]!=frame["native_vehicles"] or
                    (frame["vanilla_items"]!=frame["native_items"] and
                     not (matched_random_drop and 6<=frame["tick"]<=8)) for frame in trace) or matched_random_drop is False)
