@@ -244,6 +244,7 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Fassinventar durch Vollblock, Hopper- und Dropper-Transfer sowie sofortige Trichtersperre | 4/4 | 4/4 |
 | Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
 | TNT-Zündzeit, freie Bewegung, Explosion, Stufe, bewegter Schleimblock und Zündung durch einen Repeater-Ausgang | 5/5 | 5/5 |
+| Isolierter Mk.6.1-Rückhub mit gezündeter TNT-Entität und erhaltenem TNT-Block | 1/1 | 1/1 |
 | Tageslichtsensor, Notenblock, Eisenfalltür und Zauntor | 2/2 | 2/2 |
 | Instrumentwechsel durch Blöcke direkt darüber oder darunter, Kolbenbewegung und verzögerter Observer-Impuls | 2/2 | 2/2 |
 | Kolben, klebriger Kolben, Zwischenzustände, 12/13 Blöcke, Schleim/Honig, Quasi-Connectivity und Staub während der Bewegung | 10/10 | 10/10 |
@@ -267,12 +268,14 @@ python tests/redstone_fixtures.py build/cuda/redstone-probe.exe --all --java "C:
 python tests/bulb_light_network_test.py build/cuda/cuda-craft.exe build/cuda/login-test-server.exe --live
 ```
 
-Schienenkurven, TNT-Duplizierung, die Explosionsexposition, der Chunk-Lebenszyklus
-und die komplette originale Mk.6.1/MS-Schussfolge stehen noch aus.
+Schienenkurven, die weiteren TNT-Module, der Chunk-Lebenszyklus und die
+komplette originale Mk.6.1/MS-Schussfolge stehen noch aus.
 Kolben setzen bewegte Zwischenblöcke und prüfen das Ende der Bewegung nach
 zwei weiteren Ticks. Die Tests erfassen einen TNT-Schub durch bewegten Schleim.
-Die genaue Reihenfolge komplexer Kolbenkreise und der Original-Duper stehen
-noch aus.
+Im isolierten Rückhub überschreibt der Kolben zuerst den verschobenen
+Beobachter. Während der TNT-Block am alten Ort liegt, leitet der Staub
+das Signal zum benachbarten Notenblock und zündet eine TNT-Entität. Der
+Kolben behält den vor Beginn der Bewegung erfassten TNT-Block am Ziel.
 Komparatoren lesen in der Teilabnahme Kupferlampen, Komposter und Inventare.
 Weitere analoge Quellen und der Zufallszustand der Dropper sind offen. Licht wird innerhalb
 eines Chunks berechnet. Die Ausbreitung über Chunkgrenzen bleibt offen.

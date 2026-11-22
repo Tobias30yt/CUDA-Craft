@@ -442,6 +442,32 @@ def tnt_diode_power_actions():
     ]
 
 
+def piston_tnt_duplication_actions():
+    sticky, source = (16,80,-3), (16,80,-4)
+    buffer, initial, shifted = (16,80,-2), (16,80,-1), (16,80,0)
+    note, watcher, piston = (16,81,-1), (16,81,0), (16,80,1)
+    relay, booster, relay_source = (17,80,-2), (17,80,-3), (17,80,-4)
+    dust, side_note = (17,80,-1), (17,80,0)
+    charge = (16.5,80,.5)
+    return [
+        *floor(relay,dust,booster),
+        place(sticky,"sticky_piston",facing="south"),place(buffer,"observer",facing="west"),
+        place(initial,"tnt"),place(note,"note_block"),place(watcher,"observer",facing="north"),
+        place(piston,"piston",facing="north"),place(relay,"repeater",facing="north"),
+        place(booster,"repeater",facing="north"),place(dust,"redstone_wire"),
+        place(side_note,"note_block"),step(6),
+        place(source,"redstone_block"),step(),place(relay_source,"redstone_block"),step(),
+        place(source,"air"),step(),
+        check("the first piston displaces the TNT block",shifted,"tnt"),
+        check("the moved observer changes the instrument",note,"note_block",instrument="basedrum"),
+        dict(pos=charge,tnt_present=False,check="the first stroke does not prime TNT"),
+        step(2),check("the return stroke coincides with the dust pulse",piston,"piston",extended="true"),
+        check("the dust routes fifteen power during the return stroke",dust,"redstone_wire",power="15"),
+        dict(pos=charge,tnt_present=True,check="the return stroke primes an entity"),
+        step(2),check("the TNT block returns to its original position",initial,"tnt"),
+    ]
+
+
 def tnt_fuse_actions():
     position=(16.5,85,.5)
     stone, obsidian=(17,84,0),(15,84,0)
@@ -707,6 +733,7 @@ CASES.update({
     "detector_rail": detector_rail_actions(),
     "tnt_fuse": tnt_fuse_actions(),
     "tnt_diode_power": tnt_diode_power_actions(),
+    "piston_tnt_duplication": piston_tnt_duplication_actions(),
     "tnt_impulse": tnt_impulse_actions(),
     "tnt_slab": tnt_slab_actions(),
     "moving_slime": moving_slime_actions(),

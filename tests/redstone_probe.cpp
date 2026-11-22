@@ -169,6 +169,18 @@ int main(int argc,char** argv) {
                 }
                 continue;
             }
+            if(action.contains("tnt_present")) {
+                const auto point=action.at("pos").get<std::array<double,3>>();
+                const bool found=std::ranges::any_of(world.simulation().primed_tnt,[&](const auto& entry) {
+                    const auto& charge=entry.second;
+                    return std::hypot(charge.x-point[0],charge.y-point[1],charge.z-point[2])<=1.5;
+                });
+                if(found!=action.at("tnt_present").get<bool>()) {
+                    ++failures;
+                    std::cerr<<action.at("check").get<std::string>()<<": unexpected primed TNT presence\n";
+                }
+                continue;
+            }
             if(action.contains("vehicle_present")) {
                 const auto point=action.at("pos").get<std::array<double,3>>();
                 const auto kind=action.at("vehicle_present").get<std::string>();

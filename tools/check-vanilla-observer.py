@@ -186,9 +186,9 @@ def main():
                                 raise AssertionError(f"{label}: expected fuse {action['fuse']}, got {fuse}")
                         print(label,flush=True)
                         continue
-                    if "vehicle_present" in action:
-                        mode = "if" if action["expected"] else "unless"
-                        kind = action["vehicle_present"]
+                    if "vehicle_present" in action or "tnt_present" in action:
+                        kind = action.get("vehicle_present","tnt")
+                        mode = "if" if action.get("tnt_present",action.get("expected")) else "unless"
                         label = action["check"]
                         command(f"execute positioned {position} {mode} entity @e[type=minecraft:{kind},distance=..1.5] run say {label}",
                                 f"[Server] {label}")

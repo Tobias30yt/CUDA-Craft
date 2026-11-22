@@ -144,7 +144,7 @@ bool World::set(BlockPos p,int state) {
     if(previous==state) return true;
     const auto drops=simulation_->container_drops(p,state);
     if(drops&&simulation_->mobs.size()+drops+1>4096)return false;
-    if(edits_.size()>=100000 && !edits_.contains(p)) return false;
+    if(edits_.size()+pending_piston_edits_>=100000 && !edits_.contains(p)) return false;
     const int base=base_block(p);
     if (state==base) edits_.erase(p); else edits_[p]=state;
     dirty_=true;
@@ -158,24 +158,56 @@ bool World::set(BlockPos p,int state) {
     return true;
 }
 bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {
+    return set_blocks(blocks,false);
+}
+bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks,bool in_order) {
     struct Change {BlockPos p;int before,after,base;};
-    std::vector<Change> changes;std::set<BlockPos> unique;auto count=edits_.size();std::size_t drops=0;
+    std::vector<Change> changes;std::set<BlockPos> unique;auto count=edits_.size();
+    std::size_t reservations=0,drops=0;
     for(const auto& [p,state]:blocks) {
         if(!valid(p)||p.y<=min_y()||p.y>=min_y()+height()||!simdata::valid_state(state)||!unique.insert(p).second)return false;
         const int base=base_block(p);const bool exists=edits_.contains(p);
-        if(exists&&state==base)--count;else if(!exists&&state!=base)++count;
+        if(state!=base) {
+            ++reservations;
+            if(!exists)++count;
+        } else if(exists)--count;
         changes.push_back({p,block(p),state,base});
         drops+=simulation_->container_drops(p,state);
     }
-    if(count>100000||(drops&&simulation_->mobs.size()+drops+1>4096))return false;
-    for(const auto& c:changes)if(c.after==c.base)edits_.erase(c.p);else edits_[c.p]=c.after;
-    for(const auto& c:changes)if(c.before!=c.after){dirty_=true;simulation_->changed(c.p,c.before,c.after);for(auto* player:players)player->block_changed(c.p,c.after);}
-    for(const auto& c:changes)if(c.before!=c.after) {
+    if(count+pending_piston_edits_>100000||(drops&&simulation_->mobs.size()+drops+1>4096))return false;
+    auto store=[&](const Change& c) {
+        if(c.after==c.base)edits_.erase(c.p);else edits_[c.p]=c.after;
+    };
+    auto publish=[&](const Change& c) {
+        if(c.before==c.after)return;
+        dirty_=true;
+        simulation_->changed(c.p,c.before,c.after);
+        for(auto* player:players)player->block_changed(c.p,c.after);
+    };
+    auto notify=[&](const Change& c) {
+        if(c.before==c.after)return;
         queue_bulb_light(c.p,c.before,c.after);
         simulation_->update_power_receivers(c.p,c.before,c.after);
         simulation_->update_ejectors(c.p,c.before,c.after);
         simulation_->update_rail_power(c.p,c.before,c.after);
         simulation_->update_tnt(c.p);
+    };
+    if(in_order) {
+        // Neighbor callbacks can edit other blocks before all destinations are installed.
+        pending_piston_edits_+=reservations;
+        for(auto& c:changes) {
+            if(c.after!=c.base)--pending_piston_edits_;
+            c.before=block(c.p);
+            if(c.before==c.after)continue;
+            store(c);
+            publish(c);
+            notify(c);
+            simulation_->redstone();
+        }
+    } else {
+        for(const auto& c:changes)store(c);
+        for(const auto& c:changes)publish(c);
+        for(const auto& c:changes)notify(c);
     }
     return true;
 }

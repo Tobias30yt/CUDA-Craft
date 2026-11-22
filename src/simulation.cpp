@@ -693,8 +693,28 @@ void Simulation::tick_pistons() {
             changes[head]=head_placeholder;
             pending[head]=with_property(piston_head,"type",sticky?"sticky":"normal");
         }
-        if(world_.set_blocks(std::vector<std::pair<BlockPos,int>>(changes.begin(),changes.end()))) {
-            for(const auto& [p,value]:changes){(void)value;moving_pistons_.erase(p);}
+        // Capture the moved states before updating the farthest destinations first.
+        // A neighbor can react to a destination change before the source is cleared.
+        std::vector<std::pair<BlockPos,int>> ordered;
+        auto append=[&](BlockPos p) {
+            auto entry=changes.extract(p);
+            if(entry)ordered.emplace_back(p,entry.mapped());
+        };
+        if(!power)append(position);
+        for(auto p:destroyed)append(p);
+        std::vector<BlockPos> destinations;
+        for(const auto& [p,value]:moving) {
+            (void)value;
+            destinations.push_back(add(p,motion));
+        }
+        auto progress=[&](BlockPos p){return p.x*motion.x+p.y*motion.y+p.z*motion.z;};
+        std::ranges::sort(destinations,[&](BlockPos left,BlockPos right){return progress(left)>progress(right);});
+        for(auto destination:destinations)append(destination);
+        append(head);
+        append(position);
+        ordered.insert(ordered.end(),changes.begin(),changes.end());
+        if(world_.set_blocks(ordered,true)) {
+            for(const auto& [p,value]:ordered){(void)value;moving_pistons_.erase(p);}
             for(const auto& [p,value]:pending)
                 moving_pistons_[p]={value,tick+2,!power&&p==position?BlockPos{}:motion};
         }

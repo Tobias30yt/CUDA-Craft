@@ -74,6 +74,8 @@ public:
     int biome(int x, int y, int z) const;
     std::uint64_t seed_hash() const;
 private:
+    friend class Simulation;
+    bool set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks,bool in_order);
     bool ticks_chunk(int cx,int cz,int extra_radius) const;
     bool chunk_tickets_enabled_=false;
     std::map<std::pair<int,int>,std::uint64_t> portal_tickets_;
@@ -87,6 +89,7 @@ private:
     std::map<int,std::unique_ptr<World>> dimensions_;
     std::filesystem::path directory_;
     std::map<BlockPos,int> edits_;
+    std::size_t pending_piston_edits_=0;
     std::vector<std::uint32_t> base_;
     TerrainOptions options_;
     std::unique_ptr<BiomeSource> biome_source_;
