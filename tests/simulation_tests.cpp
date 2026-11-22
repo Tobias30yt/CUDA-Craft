@@ -36,10 +36,10 @@ void redstone_tests() {
     for(int x=1;x<=6;++x)w.set({x,64,0},sd::redstone_wire_state);
     w.set({7,64,0},sd::redstone_lamp_state);w.advance_ticks(1);
     check(sd::wire_power(w.block({1,64,0}))==0,"unpowered dust");
-    w.simulation().interact({0,64,0});w.advance_ticks(1);
+    w.simulation().interact({0,64,0});
     for(int x=1;x<=6;++x)check(sd::wire_power(w.block({x,64,0}))==16-x,"wire power attenuates");
     check(w.block({7,64,0})==sd::redstone_lamp_first,"lamp powers on");
-    w.simulation().interact({0,64,0});w.advance_ticks(1);
+    w.simulation().interact({0,64,0});
     check(sd::wire_power(w.block({6,64,0}))==0,"wire has no self-sustaining power loop");
     check(w.block({7,64,0})==sd::redstone_lamp_first,"lamp off delay");
     w.advance_ticks(4);check(w.block({7,64,0})==sd::redstone_lamp_last,"lamp turns off");

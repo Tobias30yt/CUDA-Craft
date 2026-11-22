@@ -114,6 +114,12 @@ def main():
 
             def shared_fixture(actions):
                 for action in actions:
+                    if "next_tick_multiple" in action:
+                        multiple=action["next_tick_multiple"]
+                        line=command("time query gametime","The time is ")
+                        current=int(re.search(r"The time is (\d+)",line).group(1))
+                        step(multiple-current%multiple)
+                        continue
                     if "ticks" in action:
                         step(action["ticks"])
                         continue

@@ -131,21 +131,29 @@ void Simulation::tick_tnt() {
         auto& tnt=found->second;
         if(!world_.ticks_entities(tnt.x,tnt.z))continue;
         tnt.vy-=.04;
-        const double dy=clip(world_,tnt,1,tnt.vy);
-        tnt.y+=dy;
-        const bool grounded=dy!=tnt.vy&&tnt.vy<0;
-        auto horizontal=[&](int axis,double& coordinate,double& velocity) {
-            const double moved=clip(world_,tnt,axis,velocity);
-            coordinate+=moved;
-            if(moved!=velocity)velocity=0;
-        };
-        if(std::abs(tnt.vx)<std::abs(tnt.vz)) {
-            horizontal(2,tnt.z,tnt.vz);
-            horizontal(0,tnt.x,tnt.vx);
-        } else {
-            horizontal(0,tnt.x,tnt.vx);
-            horizontal(2,tnt.z,tnt.vz);
+        double move_x=tnt.vx,move_y=tnt.vy,move_z=tnt.vz;
+        if(tnt.stuck_snow) {
+            move_x*=.9f;move_y*=1.5;move_z*=.9f;
+            tnt.vx=tnt.vy=tnt.vz=0;
         }
+        const double dy=clip(world_,tnt,1,move_y);
+        tnt.y+=dy;
+        const bool grounded=dy!=move_y&&move_y<0;
+        auto horizontal=[&](int axis,double& coordinate,double& velocity,double distance) {
+            const double moved=clip(world_,tnt,axis,distance);
+            coordinate+=moved;
+            if(moved!=distance)velocity=0;
+        };
+        if(std::abs(move_x)<std::abs(move_z)) {
+            horizontal(2,tnt.z,tnt.vz,move_z);
+            horizontal(0,tnt.x,tnt.vx,move_x);
+        } else {
+            horizontal(0,tnt.x,tnt.vx,move_x);
+            horizontal(2,tnt.z,tnt.vz,move_z);
+        }
+        constexpr double height=.98f,radius=height/2;
+        tnt.stuck_snow=world_.touches_powder_snow({tnt.x-radius,tnt.y,tnt.z-radius},
+                                                {tnt.x+radius,tnt.y+height,tnt.z+radius});
         tnt.vx*=.98; tnt.vy*=.98; tnt.vz*=.98;
         if(grounded){tnt.vx*=.7;tnt.vy=0;tnt.vz*=.7;}
         if(--tnt.fuse==0) {

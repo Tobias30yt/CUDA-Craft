@@ -152,6 +152,12 @@ Tick 1500. In der Zielregion waren am Ende 72 Blockzustände verändert. Die
 Referenzprüfung bleibt ein Fehler, bis CUDA Craft TNT am selben Ziel erzeugt
 und der Vergleich der Blockänderungen besteht.
 
+`--reference-cache <Datei.json.gz>` zeichnet die vollständigen Referenzdaten
+auf und kann dieselben Vanilla-Frames nach einem nativen Neubau wiederverwenden.
+Der Test bindet den Cache an die Originaldateien, Eingaben, Beobachtungspositionen
+und lokalen Referenzwerkzeuge. Ein Lauf ohne Cache zeichnet eine neue Referenz
+auf. Wiederholte Vanilla-Läufe trafen das Ziel mit unterschiedlicher Kraterform.
+
 ## Was implementiert werden muss
 
 Diese Liste kombiniert gemessene Schematic-Inhalte mit einer Prüfung des aktuellen

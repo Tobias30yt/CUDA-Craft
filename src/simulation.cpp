@@ -161,7 +161,7 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
         if((simdata::copper_bulb(before)||simdata::copper_bulb(after))&&
            simdata::property_value(before,"lit")!=simdata::property_value(after,"lit"))
             notify_analog_change(p);
-        if(comparator(after)||simdata::repeater(after))schedule_directional(p);
+        if(comparator(after)||repeater(after)||torch(after))schedule_directional(p);
         for(auto d:dirs) {
             const auto neighbor=add(p,d);
             wake_piston(neighbor);
@@ -293,8 +293,15 @@ int Simulation::placement(int item,int face,float yaw,float pitch) const {
 bool Simulation::interact(BlockPos p) {
     int state=world_.block(p);
     const std::string_view name=simdata::block(state).name;
-    if(name.ends_with("_button"))return world_.set(p,simdata::with_property(state,"powered","true"));
-    if(simdata::lever(state)) return world_.set(p,simdata::lever_first+((state-simdata::lever_first)^1));
+    if(name.ends_with("_button")||simdata::lever(state)) {
+        const int next=simdata::lever(state)?simdata::with_property(state,"powered",
+            simdata::property_value(state,"powered")=="true"?"false":"true"):
+            simdata::with_property(state,"powered","true");
+        if(next==state)return true;
+        if(!world_.set(p,next))return false;
+        redstone();
+        return true;
+    }
     if(simdata::repeater(state)) { int offset=state-simdata::repeater_first; return world_.set(p,simdata::repeater_first+((offset/16+1)%4)*16+offset%16); }
     if(name=="daylight_detector") {
         const bool inverted=simdata::property_value(state,"inverted")=="true";
@@ -451,6 +458,11 @@ int Simulation::directional_input(BlockPos position,BlockPos direction,bool wire
     return signal;
 }
 
+bool Simulation::torch_input(BlockPos position,int state) const {
+    const auto support=device_support(position,state);
+    return directional_input(position,{support.x-position.x,support.y-position.y,support.z-position.z})>0;
+}
+
 int Simulation::comparator_output(BlockPos position,int state) const {
     using namespace simdata;
     const auto direction=observer_face(state);
@@ -542,19 +554,31 @@ void Simulation::schedule_directional(BlockPos position) {
     if(devices_.size()>=65536)return;
     const int state=world_.block(position);
     if(devices_.contains(position))return;
+    if(torch(state)) {
+        if((property_value(state,"lit")=="true")!=torch_input(position,state))return;
+        devices_.emplace(position,device_event(2,state));
+        world_.mark_dirty();
+        return;
+    }
+    if(!comparator(state)&&!repeater(state))return;
+    const auto direction=observer_face(state);
+    const auto front=opposite(direction);
+    const int front_state=world_.block(add(position,front));
+    const bool prioritize=(repeater(front_state)||comparator(front_state))&&observer_face(front_state)!=front;
     if(comparator(state)) {
         const auto output=comparator_outputs_.find(position);
         const int previous=output==comparator_outputs_.end()?0:output->second;
-        if(comparator_output(position,state)==previous)return;
-        devices_.emplace(position,device_event(2,state));
-    } else if(repeater(state)) {
-        const auto direction=observer_face(state);
+        const int current=comparator_output(position,state);
+        if(current==previous&&(current>0)==(property_value(state,"powered")=="true"))return;
+        devices_.emplace(position,device_event(2,state,prioritize?-1:0));
+    } else {
         const bool powered=property_value(state,"powered")=="true";
         const bool desired=directional_input(position,direction)>0;
         if(desired==powered||repeater_locked(position,direction))return;
         const int delay=2*((state-repeater_first)/16+1);
-        devices_.emplace(position,device_event(delay,with_property(state,"powered",desired?"true":"false"),powered?-2:-1));
-    } else return;
+        const int priority=prioritize?-3:powered?-2:-1;
+        devices_.emplace(position,device_event(delay,with_property(state,"powered",desired?"true":"false"),priority));
+    }
     world_.mark_dirty();
 }
 
@@ -914,31 +938,22 @@ void Simulation::redstone() {
     for(auto p:nodes) {
         int state=world_.block(p),next=state,delay=0;
         if(observer(state))continue;
-        if(comparator(state)){schedule_directional(p);continue;}
-        if(torch(state)) {
-            bool lit=neighbor_power(device_support(p,state),true)==0;
-            next=state-((state-redstone_torch_first)%2)+(lit?0:1);delay=2;
-        } else if(repeater(state)) {
+        if(comparator(state)||torch(state)){schedule_directional(p);continue;}
+        if(repeater(state)) {
             const auto direction=observer_face(state);
             const bool locked=repeater_locked(p,direction);
             const int lock_state=with_property(state,"locked",locked?"true":"false");
             if(lock_state!=state&&world_.set(p,lock_state))state=lock_state;
-            if(locked)continue;
-            next=with_property(state,"powered",directional_input(p,direction)>0?"true":"false");
-            delay=((state-repeater_first)/16+1)*2;
+            if(!locked)schedule_directional(p);
+            continue;
         } else if(lamp(state)) {bool on=neighbor_power(p,true)>0;next=redstone_lamp_first+(on?0:1);delay=on?0:4;}
         if(next==state) {
-            const auto pending=devices_.find(p);
-            const bool pending_rise=repeater(state)&&property_value(state,"locked")=="false"
-                &&property_value(state,"powered")=="false"&&pending!=devices_.end()
-                &&property_value(pending->second.state,"powered")=="true";
-            if(!pending_rise)devices_.erase(p);
+            devices_.erase(p);
             continue;
         }
         if(delay==0)world_.set(p,next);
         else if(!devices_.contains(p)||devices_[p].state!=next) {
-            const int priority=repeater(state)?(property_value(state,"powered")=="true"?-2:-1):0;
-            devices_[p]=device_event(delay,next,priority);
+            devices_[p]=device_event(delay,next);
         }
     }
     update_powered_rails(rails);
@@ -1092,10 +1107,30 @@ void Simulation::step() {
             const bool input=directional_input(p,input_side)>0;
             const bool powered=simdata::property_value(current,"powered")=="true";
             if(powered&&!input)world_.set(p,simdata::with_property(current,"powered","false"));
-            else if(!powered)world_.set(p,simdata::with_property(current,"powered","true"));
+            else if(!powered&&world_.set(p,simdata::with_property(current,"powered","true"))&&!input) {
+                if(auto followup=devices_.find(p);followup!=devices_.end())followup->second.priority=-2;
+            }
         } else if(simdata::lamp(s)&&simdata::lamp(current)) {
             if(neighbor_power(p,true)==0)world_.set(p,simdata::with_property(current,"lit","false"));
+        } else if(simdata::torch(s)&&simdata::block(s).first==simdata::block(current).first) {
+            while(!torch_switch_offs_.empty()&&tick-torch_switch_offs_.front().second>60) {
+                const auto previous=torch_off_counts_.find(torch_switch_offs_.front().first);
+                if(--previous->second==0)torch_off_counts_.erase(previous);
+                torch_switch_offs_.pop_front();
+            }
+            const bool input=torch_input(p,current);
+            const bool lit=simdata::property_value(current,"lit")=="true";
+            if(lit&&input) {
+                world_.set(p,simdata::with_property(current,"lit","false"));
+                torch_switch_offs_.emplace_back(p,tick);
+                if(++torch_off_counts_[p]>=8)devices_.emplace(p,device_event(160,world_.block(p)));
+            } else if(!lit&&!input) {
+                const auto recent=torch_off_counts_.find(p);
+                if(recent==torch_off_counts_.end()||recent->second<8)
+                    world_.set(p,simdata::with_property(current,"lit","true"));
+            }
         } else if(simdata::circuit(current))world_.set(p,s);
+        redstone();
     }
     redstone();tick_pistons();tick_vehicles();tick_tnt();tick_items();entities();tick_hoppers();tick_jukeboxes();finish_piston_motion();
     if(tick%20==0)for(auto detector:daylight_detectors_)if(world_.ticks_blocks(detector))update_daylight(detector);
@@ -1174,7 +1209,7 @@ void Simulation::load(std::string_view text) {
     tick=j.at("tick").get<std::uint64_t>();day_time=j.at("time").get<std::uint64_t>();
     if(tick>1000000000000ULL||day_time>1000000000000ULL)throw std::runtime_error("Invalid simulation time");
     if(j.at("water").size()>65536||j.at("devices").size()>65536||j.at("mobs").size()>4096||j.at("players").size()>1024)throw std::runtime_error("Simulation save capacity exceeded");
-    water_.clear();devices_.clear();comparator_outputs_.clear();
+    water_.clear();devices_.clear();comparator_outputs_.clear();torch_switch_offs_.clear();torch_off_counts_.clear();
     if(j.contains("comparators")) {
         const auto& saved=j.at("comparators");
         if(!saved.is_array()||saved.size()>100000)throw std::runtime_error("Invalid comparator data");

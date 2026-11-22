@@ -41,6 +41,7 @@ public:
                                                 double width,double height);
     std::vector<BlockPos> occupied_cells(const std::array<double,3>& minimum,
                                          const std::array<double,3>& maximum) const;
+    bool touches_powder_snow(const std::array<double,3>& minimum,const std::array<double,3>& maximum) const;
     int dimension_id() const{return dimension_;}
     int dimension_type() const{return dimension_==1?3:dimension_==2?2:0;}
     const char* dimension_name() const{return dimension_==1?"minecraft:the_nether":dimension_==2?"minecraft:the_end":"minecraft:overworld";}

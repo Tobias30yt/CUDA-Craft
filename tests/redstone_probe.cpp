@@ -24,6 +24,12 @@ int main(int argc,char** argv) {
         std::vector<int> resting_items;
         int remote_weight=0;
         for(const auto& action:actions) {
+            if(action.contains("next_tick_multiple")) {
+                const int multiple=action.at("next_tick_multiple").get<int>();
+                if(multiple<=0)throw std::runtime_error("Invalid tick multiple");
+                world.advance_ticks(multiple-static_cast<int>(world.simulation().tick%multiple));
+                continue;
+            }
             if(action.contains("item_probe")) {
                 const auto label=action.at("item_probe").get<std::string>();
                 const auto point=action.at("pos").get<std::array<double,3>>();

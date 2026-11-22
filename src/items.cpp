@@ -50,6 +50,7 @@ void Simulation::tick_items() {
                 auto arrival_item=mobs.extract(id);
                 arrival_item.key()=arrival_item.mapped().id=world_.root().next_entity++;
                 arrival_item.mapped().item_ticks=0;
+                arrival_item.mapped().item_stuck_snow=false;
                 arrival.mobs.insert(std::move(arrival_item));
                 world_.mark_dirty();
                 exit->world->mark_dirty();
@@ -74,14 +75,21 @@ void Simulation::tick_items() {
         // Vanilla staggers nearly stationary ground items across four server ticks.
         // This also determines how quickly one starts falling when its support opens.
         if(!item.item_on_ground||item.vx*item.vx+item.vz*item.vz>1.e-5f||(item.item_ticks+id)%4==0) {
-            item.item_on_ground=move(1,item.y,item.vy)&&item.vy<0;
-            if(std::abs(item.vx)<std::abs(item.vz)) {
-                if(move(2,item.z,item.vz))item.vz=0;
-                if(move(0,item.x,item.vx))item.vx=0;
-            } else {
-                if(move(0,item.x,item.vx))item.vx=0;
-                if(move(2,item.z,item.vz))item.vz=0;
+            double move_x=item.vx,move_y=item.vy,move_z=item.vz;
+            if(item.item_stuck_snow) {
+                move_x*=.9f;move_y*=1.5;move_z*=.9f;
+                item.vx=item.vy=item.vz=0;
             }
+            item.item_on_ground=move(1,item.y,move_y)&&move_y<0;
+            if(std::abs(move_x)<std::abs(move_z)) {
+                if(move(2,item.z,move_z))item.vz=0;
+                if(move(0,item.x,move_x))item.vx=0;
+            } else {
+                if(move(0,item.x,move_x))item.vx=0;
+                if(move(2,item.z,move_z))item.vz=0;
+            }
+            item.item_stuck_snow=world_.touches_powder_snow({item.x-radius,item.y,item.z-radius},
+                                                           {item.x+radius,item.y+height,item.z+radius});
             float slipperiness=1.f;
             if(item.item_on_ground) {
                 const BlockPos support{static_cast<int>(std::floor(item.x)),static_cast<int>(std::floor(item.y-1.e-7)),

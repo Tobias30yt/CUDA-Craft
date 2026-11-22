@@ -79,7 +79,7 @@ void Simulation::update_daylight(BlockPos position) {
         signal=static_cast<int>(std::round(signal*std::cos(angle+(nearest_noon-angle)*.2)));
     }
     const int next=with_property(state,"power",std::to_string(std::clamp(signal,0,15)));
-    if(next!=state)world_.set(position,next);
+    if(next!=state&&world_.set(position,next))redstone();
 }
 
 }

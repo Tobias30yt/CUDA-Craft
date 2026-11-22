@@ -213,6 +213,27 @@ def item_landing_actions():
     ]
 
 
+def powder_snow_fall_actions():
+    item_x,tnt_x = 16.5,19.5
+    y = 81.9
+    actions = [
+        place((16,81,0),"powder_snow"),place((19,81,0),"powder_snow"),
+        dict(pos=(item_x,y,.5),item_probe="snow_item",velocity=(0,0,0)),
+        dict(pos=(tnt_x,y,.5),tnt="snow_tnt",velocity=(0,0,0),fuse=20),
+    ]
+    vy=0
+    for tick in range(1,4):
+        vy-=.04
+        y+=vy*(1 if tick==1 else 1.5)
+        vy=vy*.98 if tick==1 else 0
+        actions.extend([step(),
+                        dict(pos=(item_x,y,.5),item_probe="snow_item",velocity=(0,vy,0),
+                             check=f"item moves through powder snow on tick {tick}"),
+                        dict(pos=(tnt_x,y,.5),tnt="snow_tnt",velocity=(0,vy,0),fuse=20-tick,
+                             check=f"TNT moves through powder snow on tick {tick}")])
+    return actions
+
+
 def piston_wire_wakeup_actions():
     piston, support, dust, power = (16,80,0),(16,81,0),(16,82,0),(16,82,1)
     return [
@@ -250,6 +271,60 @@ def piston_drop_pulse_actions():
     ]
 
 
+def repeater_lock_priority_actions():
+    target, lock = (16,80,0),(16,80,1)
+    return [
+        *floor(target,lock),place(target,"repeater",facing="west"),place(lock,"repeater",facing="south"),step(4),
+        place((15,80,0),"redstone_block"),place((16,80,2),"redstone_block"),step(2),
+        check("side repeater wins the same-tick race",lock,"repeater",powered="true"),
+        check("lock prevents the pending rise",target,"repeater",locked="true",powered="false"),
+    ]
+
+
+def comparator_same_tick_dust_actions():
+    repeater,side,rear,comparator,out = (17,80,-1),(18,80,-1),(17,80,0),(18,80,0),(19,80,0)
+    return [
+        *floor(repeater,side,comparator,out),place(repeater,"repeater",facing="west"),
+        place(side,"redstone_wire"),place(rear,"composter",level="4"),
+        place(comparator,"comparator",facing="west",mode="subtract"),place(out,"redstone_wire"),step(6),
+        check("comparator begins with analog input four",out,"redstone_wire",power="4"),
+        place(rear,"composter",level="7"),place((16,80,-1),"redstone_block"),step(2),
+        check("earlier repeater tick settles the side dust",side,"redstone_wire",power="15"),
+        check("comparator reads the settled dust in the same tick",out,"redstone_wire",power="0"),
+    ]
+
+
+def daylight_same_tick_dust_actions():
+    sensor, wire = (16,80,0),(17,80,0)
+    return [
+        *floor(sensor,wire),dict(time=6000),place(sensor,"daylight_detector",inverted="true"),
+        place(wire,"redstone_wire"),dict(next_tick_multiple=20),
+        check("inverted detector is off in daylight",wire,"redstone_wire",power="0"),
+        dict(time=18000),dict(next_tick_multiple=20),
+        check("detector reads night at the scheduled tick",sensor,"daylight_detector",power="11"),
+        check("dust receives the night signal in the same tick",wire,"redstone_wire",power="11"),
+    ]
+
+
+def torch_burnout_actions():
+    torch,support,power = (16,80,0),(16,79,0),(15,79,0)
+    actions=[place(support,"stone"),place(torch,"redstone_torch"),step(2)]
+    actions.extend([place(power,"redstone_block"),step(3),
+                    check("weak power does not pass through the support",torch,"redstone_torch",lit="true"),
+                    place(power,"air")])
+    for _ in range(7):
+        actions.extend([place(support,"redstone_block"),step(2),place(support,"stone"),step(2)])
+    return [
+        *actions,check("seventh off transition can recover",torch,"redstone_torch",lit="true"),
+        place(support,"redstone_block"),step(2),
+        check("directly powered support turns the torch off",torch,"redstone_torch",lit="false"),
+        place(support,"stone"),step(4),
+        check("eighth off transition prevents immediate recovery",torch,"redstone_torch",lit="false"),
+        step(155),check("torch is still out at tick 159",torch,"redstone_torch",lit="false"),
+        step(),check("torch relights at tick 160",torch,"redstone_torch",lit="true"),
+    ]
+
+
 def powered_rail_actions(kind):
     line=[(x,80,0) for x in range(14,24)]
     other=(24,80,0)
@@ -267,6 +342,20 @@ def powered_rail_actions(kind):
         check("power does not cross rail types",other,other_kind,powered="false"),
         place((23,80,1),"air"),step(4),
         check("rail power clears",line[8],kind,powered="false"),
+    ]
+
+
+def rail_slope_observer_actions():
+    low,slope,high,power,sensor = (15,80,0),(16,80,0),(17,81,0),(17,81,1),(15,81,0)
+    rail="activator_rail"
+    return [
+        *floor(low,slope,high),place(low,rail,shape="east_west"),place(high,rail,shape="east_west"),
+        place(slope,rail,shape="ascending_east"),place(sensor,"observer",facing="down"),step(6),
+        check("track keeps its slope",slope,rail,shape="ascending_east"),
+        place(power,"redstone_block"),
+        check("power crosses the slope immediately",low,rail,powered="true"),
+        step(),check("observer waits for its scheduled tick",sensor,"observer",powered="false"),
+        step(),check("lower rail wakes the observer on tick two",sensor,"observer",powered="true"),
     ]
 
 
@@ -528,11 +617,17 @@ CASES.update({
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),
+    "powder_snow_fall": powder_snow_fall_actions(),
     "piston_wire_wakeup": piston_wire_wakeup_actions(),
     "piston_moving_base": piston_moving_base_actions(),
     "piston_drop_pulse": piston_drop_pulse_actions(),
+    "repeater_lock_priority": repeater_lock_priority_actions(),
+    "comparator_same_tick_dust": comparator_same_tick_dust_actions(),
+    "daylight_same_tick_dust": daylight_same_tick_dust_actions(),
+    "torch_burnout": torch_burnout_actions(),
     "powered_rail": powered_rail_actions("powered_rail"),
     "activator_rail": powered_rail_actions("activator_rail"),
+    "rail_slope_observer": rail_slope_observer_actions(),
     "cart_straight": cart_straight_actions(),
     "dispenser_chest_minecart": dispenser_vehicle_actions("chest_minecart"),
     "dispenser_oak_boat": dispenser_vehicle_actions("oak_boat"),

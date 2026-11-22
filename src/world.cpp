@@ -262,6 +262,11 @@ std::vector<BlockPos> World::occupied_cells(const std::array<double,3>& minimum,
         cells.push_back({x,y,z});
     return cells;
 }
+bool World::touches_powder_snow(const std::array<double,3>& minimum,const std::array<double,3>& maximum) const {
+    for(auto p:occupied_cells(minimum,maximum))
+        if(std::string_view(simdata::block(block(p)).name)=="powder_snow")return true;
+    return false;
+}
 double World::clip_motion(const std::array<double,3>& minimum,const std::array<double,3>& maximum,
                           int axis,double distance,bool ignore_moving_pistons) const {
     if(distance==0)return 0;

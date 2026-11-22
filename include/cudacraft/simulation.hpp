@@ -1,6 +1,7 @@
 #pragma once
 #include "cudacraft/packet.hpp"
 #include <array>
+#include <deque>
 #include <map>
 #include <optional>
 #include <set>
@@ -35,7 +36,7 @@ struct Mob {
     std::uint64_t born=0,next_attack=0,knockback_until=0,angry_until=0;
     ItemStack drop{};
     int item_ticks=0,item_age=0;
-    bool item_on_ground=false;
+    bool item_on_ground=false,item_stuck_snow=false;
     int portal_cooldown=0;
     std::optional<BlockPos> portal_entry;
     std::uint64_t last_world_tick=0;
@@ -53,6 +54,7 @@ struct Vehicle {
 struct PrimedTnt {
     double x=0,y=0,z=0,vx=0,vy=0,vz=0;
     int fuse=80;
+    bool stuck_snow=false;
 };
 class Simulation {
 public:
@@ -113,6 +115,8 @@ private:
     std::set<BlockPos> daylight_detectors_;
     std::set<BlockPos> tnt_blocks_;
     std::map<BlockPos,int> comparator_outputs_;
+    std::deque<std::pair<BlockPos,std::uint64_t>> torch_switch_offs_;
+    std::map<BlockPos,int> torch_off_counts_;
     std::map<BlockPos,std::uint64_t> playing_records_;
     std::set<BlockPos> shape_updates_;
     std::set<BlockPos> portal_checks_;
@@ -132,6 +136,7 @@ private:
     int directional_input(BlockPos position,BlockPos direction,bool wires=true) const;
     bool repeater_locked(BlockPos position,BlockPos direction) const;
     int comparator_output(BlockPos position,int state) const;
+    bool torch_input(BlockPos position,int state) const;
     std::optional<int> container_signal(BlockPos position) const;
     void schedule_directional(BlockPos position);
     void notify_analog_change(BlockPos position);
