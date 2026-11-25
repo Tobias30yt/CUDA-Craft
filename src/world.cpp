@@ -184,11 +184,11 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks,bool i
         simulation_->changed(c.p,c.before,c.after);
         for(auto* player:players)player->block_changed(c.p,c.after);
     };
-    auto notify=[&](const Change& c) {
+    auto notify=[&](const Change& c,bool update_ejectors) {
         if(c.before==c.after)return;
         queue_bulb_light(c.p,c.before,c.after);
         simulation_->update_power_receivers(c.p,c.before,c.after);
-        simulation_->update_ejectors(c.p,c.before,c.after);
+        if(update_ejectors)simulation_->update_ejectors(c.p,c.before,c.after);
         simulation_->update_rail_power(c.p,c.before,c.after);
         simulation_->update_tnt(c.p);
     };
@@ -201,13 +201,17 @@ bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks,bool i
             if(c.before==c.after)continue;
             store(c);
             publish(c);
-            notify(c);
+            notify(c,false);
             simulation_->redstone();
         }
+        // Piston placeholders refresh shapes as they are placed. Block
+        // neighbor callbacks for dispensers and droppers run after the move.
+        for(const auto& c:changes)if(c.before!=c.after)
+            simulation_->update_ejectors(c.p,c.before,c.after);
     } else {
         for(const auto& c:changes)store(c);
         for(const auto& c:changes)publish(c);
-        for(const auto& c:changes)notify(c);
+        for(const auto& c:changes)notify(c,true);
     }
     return true;
 }

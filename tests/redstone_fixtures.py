@@ -204,6 +204,21 @@ def dropper_neighbor_order_actions():
     ]
 
 
+def piston_dropper_update_actions():
+    upper, lower, piston, moved = (16,81,0), (16,80,0), (17,81,0), (17,82,0)
+    repeater, source = (18,82,0), (19,82,0)
+    return [
+        *floor(repeater),place(piston,"sticky_piston",facing="up"),place(moved,"white_concrete"),
+        place(upper,"dropper",facing="down"),place(lower,"dropper",facing="up"),
+        place(repeater,"repeater",facing="east",delay="2"),inventory_edit(upper,0,"redstone",1),step(6),
+        place(source,"redstone_block"),step(4),
+        check("the powered block starts moving",piston,"sticky_piston",extended="true"),
+        step(4),
+        dict(inventory_edit(lower,0,"air",0),check="the piston does not trigger the diagonal dropper"),
+        dict(inventory_edit(upper,0,"redstone",1),check="the upper dropper retains its item"),
+    ]
+
+
 def repeater_output_order_actions():
     signal, source, conductor = (14,80,4), (15,80,4), (16,80,4)
     east, north = (17,80,4), (16,80,3)
@@ -813,6 +828,7 @@ CASES.update({
     "dropper_transfer": dropper_transfer_actions(),
     "item_stagger": item_stagger_actions(),
     "dropper_neighbor_order": dropper_neighbor_order_actions(),
+    "piston_dropper_update": piston_dropper_update_actions(),
     "repeater_output_order": repeater_output_order_actions(),
     "rail_pulse_order": rail_pulse_order_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),

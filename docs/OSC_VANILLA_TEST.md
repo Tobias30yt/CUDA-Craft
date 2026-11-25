@@ -243,6 +243,7 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Komparator mit Lampe, Analogwert und beiden Modi | 5/5 | 5/5 |
 | Fassinventar durch Vollblock, Hopper- und Dropper-Transfer sowie sofortige Trichtersperre | 4/4 | 4/4 |
 | Auswurfreihenfolge zweier gleichzeitig versorgter Werfer | 1/1 | 1/1 |
+| Bewegter Vollblock löst den diagonal liegenden Werfer nicht aus | 1/1 | 1/1 |
 | Reihenfolge zweier Repeater am selben Ausgangsblock | 1/1 | 1/1 |
 | Observer-Reihenfolge bei der Aktivierung einer Schienenstrecke | 1/1 | 1/1 |
 | Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
