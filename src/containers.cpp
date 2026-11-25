@@ -242,8 +242,6 @@ void Simulation::update_ejectors(BlockPos changed,int before,int after) {
         if(world_.set(position,next)&&powered&&devices_.size()<65536)
             devices_.try_emplace(position,device_event(4,next));
     };
-    // Match the Vanilla neighbor order so ejectors scheduled in the same tick retain their order.
-    constexpr BlockPos adjacent[]={{-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1}};
     const std::string_view source_type=block(after).name;
     if(block(before).first==block(after).first&&property_value(before,"facing")==property_value(after,"facing")&&
        (source_type=="observer"||source_type=="repeater"||source_type=="comparator")) {
@@ -251,15 +249,15 @@ void Simulation::update_ejectors(BlockPos changed,int before,int after) {
         const auto f=facing_offset(after);
         const auto output=offset(changed,{-f.x,-f.y,-f.z});
         update(output);
-        for(auto direction:adjacent)if(direction!=f)update(offset(output,direction));
+        for(auto direction:neighbor_update_order)if(direction!=f)update(offset(output,direction));
         return;
     }
     for(const auto source:{changed,offset(changed,{0,-1,0})}) {
         update(source);
-        for(auto direction:adjacent) {
+        for(auto direction:neighbor_update_order) {
             const auto neighbor=offset(source,direction);
             update(neighbor);
-            for(auto second:adjacent)update(offset(neighbor,second));
+            for(auto second:neighbor_update_order)update(offset(neighbor,second));
         }
     }
 }

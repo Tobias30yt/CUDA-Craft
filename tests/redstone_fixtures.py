@@ -204,6 +204,23 @@ def dropper_neighbor_order_actions():
     ]
 
 
+def repeater_output_order_actions():
+    signal, source, conductor = (14,80,4), (15,80,4), (16,80,4)
+    east, north = (17,80,4), (16,80,3)
+    east_dropper, north_dropper = (18,80,4), (16,80,2)
+    return [
+        *floor(source,east,north),place(conductor,"stone"),
+        place(source,"repeater",facing="west"),place(east,"repeater",facing="west"),
+        place(north,"repeater",facing="south"),place(east_dropper,"dropper",facing="up"),
+        place(north_dropper,"dropper",facing="up"),inventory_edit(east_dropper,0,"stone",1),
+        inventory_edit(north_dropper,0,"stone",1),step(4),
+        place(signal,"redstone_block"),step(8),
+        dict(inventory_edit(east_dropper,0,"air",0),check="the east branch fired"),
+        dict(inventory_edit(north_dropper,0,"air",0),check="the north branch fired"),
+        dict(pos=(16.5,81.25,4.5),first_item_from=(2,0,0),check="the east diode gets the first notification"),
+    ]
+
+
 def jukebox_sorter_actions():
     source, jukebox, below = (15,80,0),(16,80,0),(16,79,0)
     power, lamp, comparator, wire = (15,79,0),(16,81,0),(17,80,0),(18,80,0)
@@ -767,6 +784,7 @@ CASES.update({
     "dropper_transfer": dropper_transfer_actions(),
     "item_stagger": item_stagger_actions(),
     "dropper_neighbor_order": dropper_neighbor_order_actions(),
+    "repeater_output_order": repeater_output_order_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),

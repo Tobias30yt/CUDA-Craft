@@ -179,7 +179,7 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
         }
         if(same_device&&(observer(after)||repeater(after)||comparator(after))&&
            property_value(before,"powered")!=property_value(after,"powered"))
-            wake_pistons_at_diode_output(p,after);
+            notify_diode_output(p,after);
     }
 }
 void Simulation::activate(int cx,int cz,const std::vector<std::uint32_t>& blocks) {
@@ -539,12 +539,15 @@ void Simulation::inventory_signal_changed(BlockPos position) {
     for(const auto bank:container_positions(position))notify_analog_change(bank);
 }
 
-void Simulation::wake_pistons_at_diode_output(BlockPos position,int state) {
-    const auto output=add(position,opposite(observer_face(state)));
-    for(auto offset:dirs) {
-        const auto neighbor=add(output,offset);
+void Simulation::notify_diode_output(BlockPos position,int state) {
+    const auto rear=observer_face(state);
+    const auto output=add(position,opposite(rear));
+    auto notify=[&](BlockPos neighbor) {
         if(piston(world_.block(neighbor)))piston_checks_.insert(neighbor);
-    }
+        if(circuits_.contains(neighbor))schedule_directional(neighbor);
+    };
+    notify(output);
+    for(auto offset:neighbor_update_order)if(offset!=rear)notify(add(output,offset));
 }
 
 Simulation::Event Simulation::device_event(unsigned delay,int state,int priority) {
@@ -1178,7 +1181,7 @@ void Simulation::step() {
             if(output!=(previous==comparator_outputs_.end()?0:previous->second)) {
                 redstone_updates_.insert(p);
                 if((output>0)==(simdata::property_value(current,"powered")=="true"))
-                    wake_pistons_at_diode_output(p,current);
+                    notify_diode_output(p,current);
             }
             if(output)comparator_outputs_[p]=output;
             else comparator_outputs_.erase(p);

@@ -102,6 +102,7 @@ public:
     std::size_t pending_water() const { return water_.size(); }
 private:
     friend class World;
+    static constexpr BlockPos neighbor_update_order[]={{-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1}};
     int note_block_state(BlockPos position,int state) const;
     World& world_;
     std::map<BlockPos,std::uint64_t> water_;
@@ -142,7 +143,7 @@ private:
     std::optional<int> container_signal(BlockPos position) const;
     void schedule_directional(BlockPos position);
     void notify_analog_change(BlockPos position);
-    void wake_pistons_at_diode_output(BlockPos position,int state);
+    void notify_diode_output(BlockPos position,int state);
     Event device_event(unsigned delay,int state,int priority=0);
     void tick_pistons();
     void finish_piston_motion();
