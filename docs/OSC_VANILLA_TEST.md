@@ -244,6 +244,7 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Fassinventar durch Vollblock, Hopper- und Dropper-Transfer sowie sofortige Trichtersperre | 4/4 | 4/4 |
 | Auswurfreihenfolge zweier gleichzeitig versorgter Werfer | 1/1 | 1/1 |
 | Reihenfolge zweier Repeater am selben Ausgangsblock | 1/1 | 1/1 |
+| Observer-Reihenfolge bei der Aktivierung einer Schienenstrecke | 1/1 | 1/1 |
 | Antriebs-, Aktivierungs- und Sensorschienen, Truhenlore und Dispenser | 6/6 | 6/6 |
 | TNT-Zündzeit, freie Bewegung, Explosion, Stufe, bewegter Schleimblock und Zündung durch einen Repeater-Ausgang | 5/5 | 5/5 |
 | Isolierter Mk.6.1-Rückhub mit gezündeter TNT-Entität und erhaltenem TNT-Block | 1/1 | 1/1 |

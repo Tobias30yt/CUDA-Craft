@@ -918,9 +918,11 @@ void Simulation::update_powered_rails(const std::set<BlockPos>& affected) {
     };
     auto network=affected;
     std::deque<BlockPos> queue(affected.begin(),affected.end());
+    std::vector<BlockPos> network_order;
     while(!queue.empty()) {
         const auto current=queue.front();
         queue.pop_front();
+        network_order.push_back(current);
         for(auto neighbor:linked(current))if(network.insert(neighbor).second)queue.push_back(neighbor);
     }
     std::map<BlockPos,int> powered;
@@ -928,18 +930,27 @@ void Simulation::update_powered_rails(const std::set<BlockPos>& affected) {
         powered.emplace(p,0);
         queue.push_back(p);
     }
+    std::vector<BlockPos> powered_order;
     while(!queue.empty()) {
         const auto current=queue.front();
         queue.pop_front();
+        powered_order.push_back(current);
         const int distance=powered.at(current);
         if(distance==8)continue;
         for(auto neighbor:linked(current))if(powered.emplace(neighbor,distance+1).second)queue.push_back(neighbor);
     }
-    for(auto p:network) {
+    std::vector<std::pair<BlockPos,int>> changes;
+    auto append=[&](BlockPos p,bool enabled) {
         const int state=world_.block(p);
-        const int next=with_property(state,"powered",powered.contains(p)?"true":"false");
-        if(next!=state)world_.set(p,next);
-    }
+        const int next=with_property(state,"powered",enabled?"true":"false");
+        if(next!=state)changes.emplace_back(p,next);
+    };
+    // Propagated neighbor updates finish before the initiating rail publishes
+    // its shape change to observers.
+    for(auto p=powered_order.rbegin();p!=powered_order.rend();++p)append(*p,true);
+    for(auto p=network_order.rbegin();p!=network_order.rend();++p)
+        if(!powered.contains(*p))append(*p,false);
+    if(!changes.empty())world_.set_blocks(changes);
 }
 
 void Simulation::redstone() {

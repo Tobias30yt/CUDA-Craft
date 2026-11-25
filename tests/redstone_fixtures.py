@@ -221,6 +221,22 @@ def repeater_output_order_actions():
     ]
 
 
+def rail_pulse_order_actions():
+    rails = [(x,80,4) for x in range(16,19)]
+    near, far = (16,80,5), (18,80,5)
+    near_dropper, far_dropper, signal = (16,80,6), (18,80,6), (15,80,4)
+    return [
+        *floor(*rails),*[place(rail,"activator_rail",shape="east_west") for rail in rails],
+        place(far,"observer",facing="north"),place(near,"observer",facing="north"),
+        place(far_dropper,"dropper",facing="up"),place(near_dropper,"dropper",facing="up"),
+        inventory_edit(far_dropper,0,"stone",1),inventory_edit(near_dropper,0,"stone",1),step(4),
+        place(signal,"redstone_block"),step(6),
+        dict(inventory_edit(far_dropper,0,"air",0),check="the far rail observer activated its dropper"),
+        dict(inventory_edit(near_dropper,0,"air",0),check="the near rail observer activated its dropper"),
+        dict(pos=(16.5,81.25,6.5),first_item_from=(2,0,0),check="the far observer schedules first during rail propagation"),
+    ]
+
+
 def jukebox_sorter_actions():
     source, jukebox, below = (15,80,0),(16,80,0),(16,79,0)
     power, lamp, comparator, wire = (15,79,0),(16,81,0),(17,80,0),(18,80,0)
@@ -785,6 +801,7 @@ CASES.update({
     "item_stagger": item_stagger_actions(),
     "dropper_neighbor_order": dropper_neighbor_order_actions(),
     "repeater_output_order": repeater_output_order_actions(),
+    "rail_pulse_order": rail_pulse_order_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),
