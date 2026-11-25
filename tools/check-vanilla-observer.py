@@ -147,6 +147,17 @@ def main():
                                     raise AssertionError(f"{label} {field}: expected {expected}, got {actual}")
                             print(label,flush=True)
                         continue
+                    if "first_item_from" in action:
+                        x,y,z = action["pos"]
+                        selector = f"@e[type=item,x={x},y={y},z={z},distance=..3,sort=arbitrary,limit=1]"
+                        response = command(f"data get entity {selector} Pos","has the following entity data:")
+                        raw = response.rsplit("[",1)[1].split("]",1)[0]
+                        actual = [float(value.strip().rstrip("d")) for value in raw.split(",")]
+                        expected = [p+delta for p,delta in zip(action["pos"],action["first_item_from"],strict=True)]
+                        if any(abs(a-b)>.45 for a,b in zip(actual,expected,strict=True)):
+                            raise AssertionError(f"{action['check']}: first item is at {actual}")
+                        print(action["check"],flush=True)
+                        continue
                     if "spawn_resting_item" in action:
                         command(f'summon item {position} {{Tags:["fixture_resting_item"],OnGround:1b,'
                                 'Motion:[0d,0d,0d],Item:{id:"minecraft:stone",count:1}}',"Summoned new")

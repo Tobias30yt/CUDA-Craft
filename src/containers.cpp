@@ -242,7 +242,8 @@ void Simulation::update_ejectors(BlockPos changed,int before,int after) {
         if(world_.set(position,next)&&powered&&devices_.size()<65536)
             devices_.try_emplace(position,device_event(4,next));
     };
-    constexpr BlockPos adjacent[]={{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
+    // Match the Vanilla neighbor order so ejectors scheduled in the same tick retain their order.
+    constexpr BlockPos adjacent[]={{-1,0,0},{1,0,0},{0,-1,0},{0,1,0},{0,0,-1},{0,0,1}};
     const std::string_view source_type=block(after).name;
     if(block(before).first==block(after).first&&property_value(before,"facing")==property_value(after,"facing")&&
        (source_type=="observer"||source_type=="repeater"||source_type=="comparator")) {

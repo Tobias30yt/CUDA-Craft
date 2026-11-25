@@ -108,8 +108,8 @@ int main(int argc,char** argv) {
                                          {"dimension",dimension.dimension_name()}});
                     }
                     for(const auto& [id,mob]:dimension.simulation().mobs) {
-                        (void)id;
                         if(mob.type==71)items.push_back({{"dimension",dimension.dimension_name()},
+                            {"id",id},{"tick_count",mob.item_ticks},{"on_ground",mob.item_on_ground},
                             {"item",mob.drop.item},{"count",mob.drop.count},{"position",{mob.x,mob.y,mob.z}},
                             {"velocity",{mob.vx,mob.vy,mob.vz}}});
                     }
@@ -166,6 +166,22 @@ int main(int argc,char** argv) {
                    !same(tnt->second.vx,speed[0])||!same(tnt->second.vy,speed[1])||!same(tnt->second.vz,speed[2])) {
                     ++failures;
                     std::cerr<<action.at("check").get<std::string>()<<": unexpected TNT position, motion or fuse\n";
+                }
+                continue;
+            }
+            if(action.contains("first_item_from")) {
+                const auto origin=action.at("pos").get<std::array<double,3>>();
+                const auto offset=action.at("first_item_from").get<std::array<double,3>>();
+                const auto& mobs=world.simulation().mobs;
+                const auto first=std::ranges::find_if(mobs,[&](const auto& entry) {
+                    const auto& item=entry.second;
+                    return item.type==71&&std::hypot(item.x-origin[0],item.y-origin[1],item.z-origin[2])<=3;
+                });
+                if(first==mobs.end()||std::abs(first->second.x-origin[0]-offset[0])>.45||
+                   std::abs(first->second.y-origin[1]-offset[1])>.45||
+                   std::abs(first->second.z-origin[2]-offset[2])>.45) {
+                    ++failures;
+                    std::cerr<<action.at("check").get<std::string>()<<": unexpected first item\n";
                 }
                 continue;
             }

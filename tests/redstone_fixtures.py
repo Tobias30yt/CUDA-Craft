@@ -192,6 +192,18 @@ def item_stagger_actions():
     return actions
 
 
+def dropper_neighbor_order_actions():
+    power, east, north = (16,80,4), (17,80,4), (16,80,3)
+    return [
+        place(east,"dropper",facing="up"),place(north,"dropper",facing="up"),
+        inventory_edit(east,0,"stone",1),inventory_edit(north,0,"stone",1),
+        place(power,"redstone_block"),step(4),
+        dict(inventory_edit(east,0,"air",0),check="the east dropper used its item"),
+        dict(inventory_edit(north,0,"air",0),check="the north dropper used its item"),
+        dict(pos=(16.5,81.25,4.5),first_item_from=(1,0,0),check="east dropper ejects before north dropper"),
+    ]
+
+
 def jukebox_sorter_actions():
     source, jukebox, below = (15,80,0),(16,80,0),(16,79,0)
     power, lamp, comparator, wire = (15,79,0),(16,81,0),(17,80,0),(18,80,0)
@@ -754,6 +766,7 @@ CASES.update({
     "hopper_lock": hopper_lock_actions(),
     "dropper_transfer": dropper_transfer_actions(),
     "item_stagger": item_stagger_actions(),
+    "dropper_neighbor_order": dropper_neighbor_order_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),
