@@ -252,6 +252,22 @@ def rail_pulse_order_actions():
     ]
 
 
+def observer_shape_order_actions():
+    changed = (16,80,4)
+    west, south = (15,80,4), (16,80,5)
+    west_dropper, south_dropper = (14,80,4), (16,80,6)
+    return [
+        place(changed,"white_concrete"),
+        place(west,"observer",facing="east"),place(south,"observer",facing="north"),
+        place(west_dropper,"dropper",facing="up"),place(south_dropper,"dropper",facing="up"),
+        inventory_edit(west_dropper,0,"stone",1),inventory_edit(south_dropper,0,"stone",1),step(8),
+        place(changed,"black_concrete"),step(6),
+        dict(inventory_edit(west_dropper,0,"air",0),check="the west observer fired"),
+        dict(inventory_edit(south_dropper,0,"air",0),check="the south observer fired"),
+        dict(pos=(16.5,81.25,4.5),first_item_from=(-2,0,0),check="the west observer receives its shape update first"),
+    ]
+
+
 def jukebox_sorter_actions():
     source, jukebox, below = (15,80,0),(16,80,0),(16,79,0)
     power, lamp, comparator, wire = (15,79,0),(16,81,0),(17,80,0),(18,80,0)
@@ -831,6 +847,7 @@ CASES.update({
     "piston_dropper_update": piston_dropper_update_actions(),
     "repeater_output_order": repeater_output_order_actions(),
     "rail_pulse_order": rail_pulse_order_actions(),
+    "observer_shape_order": observer_shape_order_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),

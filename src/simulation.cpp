@@ -16,6 +16,7 @@
 namespace cudacraft {
 namespace {
 constexpr BlockPos dirs[]={{0,-1,0},{0,1,0},{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
+constexpr BlockPos shape_update_order[]={{-1,0,0},{1,0,0},{0,0,-1},{0,0,1},{0,-1,0},{0,1,0}};
 constexpr BlockPos facing[]={{0,0,-1},{0,0,1},{-1,0,0},{1,0,0}};
 BlockPos add(BlockPos a,BlockPos b){return {a.x+b.x,a.y+b.y,a.z+b.z};}
 BlockPos opposite(BlockPos p){return {-p.x,-p.y,-p.z};}
@@ -143,7 +144,7 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     if(name.ends_with("_button")||name.ends_with("_pressure_plate"))circuits_.insert(p);
     if(notify_observers&&before!=after&&(!circuits_.empty()||!powered_rails_.empty()))redstone_updates_.insert(p);
     if(notify_observers && before!=after) {
-        for(auto direction:dirs) {
+        for(auto direction:shape_update_order) {
             const auto neighbor=add(p,direction);
             if(!circuits_.contains(neighbor))continue;
             const int state=world_.block(neighbor);
