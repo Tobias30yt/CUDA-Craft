@@ -70,7 +70,7 @@ bool wire_connects(int state,BlockPos side) {
 bool power_receiver(int state) {
     const std::string_view name=simdata::block(state).name;
     return simdata::copper_bulb(state)||name=="hopper"||name=="note_block"||
-           name.ends_with("_trapdoor")||name.ends_with("_fence_gate");
+           name.ends_with("_trapdoor")||name.ends_with("_fence_gate")||name.ends_with("_door");
 }
 bool inside(double x,double y,double z){return std::isfinite(x)&&std::isfinite(y)&&std::isfinite(z)&&std::abs(x)<1024&&std::abs(z)<1024&&y>=-64&&y<400;}
 ItemStack read_stack(const nlohmann::json& v) {
@@ -844,8 +844,26 @@ void Simulation::update_power_receivers(BlockPos changed,int before,int after) {
     auto update=[&](BlockPos position) {
         if(!power_receivers_.contains(position))return;
         const int state=world_.block(position);
-        const bool powered=neighbor_power(position,true)>0;
         const std::string_view name=block(state).name;
+        bool powered=neighbor_power(position,true)>0;
+        if(name.ends_with("_door")) {
+            const auto halfway=property_value(state,"half");
+            const auto other=add(position,{0,halfway=="lower"?1:-1,0});
+            const auto paired=world_.block(other);
+            const bool has_pair=block(paired).first==block(state).first&&
+                                property_value(paired,"half")!=halfway;
+            powered=powered||(has_pair&&neighbor_power(other,true)>0);
+            if(powered==(property_value(state,"powered")=="true"))return;
+            const auto value=powered?"true":"false";
+            const auto next=with_property(with_property(state,"powered",value),"open",value);
+            if(has_pair) {
+                const auto next_pair=with_property(with_property(paired,"powered",value),"open",value);
+                world_.set_blocks({{position,next},{other,next_pair}});
+            } else {
+                world_.set(position,next);
+            }
+            return;
+        }
         if(name=="hopper") {
             const int next=with_property(state,"enabled",powered?"false":"true");
             if(next!=state)world_.set(position,next);

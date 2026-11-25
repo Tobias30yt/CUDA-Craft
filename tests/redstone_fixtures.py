@@ -634,6 +634,19 @@ def powered_receiver_actions():
     ]
 
 
+def powered_door_actions():
+    lower, upper, signal = (16,80,0), (16,81,0), (17,81,0)
+    return [
+        *floor(lower),place(lower,"iron_door",half="lower"),place(upper,"iron_door",half="upper"),
+        place(signal,"redstone_block"),
+        check("the upper half opens immediately when powered",upper,"iron_door",half="upper",powered="true",open="true"),
+        check("power at the upper half also opens the lower half",lower,"iron_door",half="lower",powered="true",open="true"),
+        place(signal,"air"),
+        check("the upper half closes on signal loss",upper,"iron_door",half="upper",powered="false",open="false"),
+        check("the lower half closes with it",lower,"iron_door",half="lower",powered="false",open="false"),
+    ]
+
+
 def note_instrument_actions():
     note, below, above, watcher = (16,81,0), (16,80,0), (16,82,0), (17,81,0)
     return [
@@ -829,6 +842,7 @@ CASES.update({
     "moving_slime": moving_slime_actions(),
     "daylight_detector": daylight_actions(),
     "powered_receivers": powered_receiver_actions(),
+    "powered_door": powered_door_actions(),
     "note_instrument": note_instrument_actions(),
     "piston_note_instrument": piston_note_instrument_actions(),
     "piston_powered_observer": piston_powered_observer_actions(),
