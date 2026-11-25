@@ -267,11 +267,15 @@ def main():
                     actions = json.loads(args.fixture.read_text(encoding="utf-8"))
                     positions = [action["pos"] for action in actions if "pos" in action]
                     xs, _, zs = zip(*positions)
-                    bounds=tuple(map(math.floor,(min(xs),min(zs),max(xs),max(zs))))
+                    first_x,first_z,last_x,last_z = (math.floor(value/16) for value in
+                                                    (min(xs),min(zs),max(xs),max(zs)))
                     command("tick freeze", "frozen")
-                    command("forceload add " + " ".join(map(str,bounds)), "to be force loaded")
-                    chunks = [(x,z) for x in range(bounds[0]//16,bounds[2]//16+1)
-                              for z in range(bounds[1]//16,bounds[3]//16+1)]
+                    # Vanilla limits each command to 256 chunks.
+                    for x in range(first_x,last_x+1,16):
+                        for z in range(first_z,last_z+1,16):
+                            end_x,end_z = min(x+15,last_x),min(z+15,last_z)
+                            command(f"forceload add {x*16} {z*16} {end_x*16} {end_z*16}", "to be force loaded")
+                    chunks = [(x,z) for x in range(first_x,last_x+1) for z in range(first_z,last_z+1)]
                     deadline = time.monotonic()+60
                     while True:
                         command("save-all flush","Saved the game")

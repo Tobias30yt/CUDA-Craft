@@ -219,6 +219,29 @@ def piston_dropper_update_actions():
     ]
 
 
+def rail_dropper_pulse_actions():
+    watched, observer, output = (3,81,4), (4,81,4), (5,81,4)
+    rails = (6,81,4), (7,81,4)
+    upper, lower = (8,80,4), (8,79,4)
+    piston, conductor, repeater, power = (9,80,4), (9,81,4), (10,81,4), (11,81,4)
+    return [
+        *floor(*rails,repeater),place(repeater,"repeater",facing="east"),
+        place(piston,"sticky_piston",facing="up"),place(conductor,"white_concrete"),
+        place(output,"white_concrete"),place(observer,"observer",facing="west"),
+        *[place(rail,"activator_rail",shape="east_west") for rail in rails],
+        place(upper,"dropper",facing="down"),place(lower,"dropper",facing="up"),
+        inventory_edit(upper,0,"redstone",1),step(8),
+        place(watched,"stone"),step(2),
+        check("the observer powers the rail",rails[-1],"activator_rail",powered="true"),
+        place(power,"redstone_block"),step(2),
+        check("the repeater turns on as the rail turns off",repeater,"repeater",powered="true"),
+        check("the rail turns off",rails[-1],"activator_rail",powered="false"),
+        step(4),
+        dict(inventory_edit(upper,0,"air",0),check="the falling rail triggers the upper dropper"),
+        dict(inventory_edit(lower,0,"redstone",1),check="the lower dropper receives the item"),
+    ]
+
+
 def repeater_output_order_actions():
     signal, source, conductor = (14,80,4), (15,80,4), (16,80,4)
     east, north = (17,80,4), (16,80,3)
@@ -862,6 +885,7 @@ CASES.update({
     "item_stagger": item_stagger_actions(),
     "dropper_neighbor_order": dropper_neighbor_order_actions(),
     "piston_dropper_update": piston_dropper_update_actions(),
+    "rail_dropper_pulse": rail_dropper_pulse_actions(),
     "repeater_output_order": repeater_output_order_actions(),
     "rail_pulse_order": rail_pulse_order_actions(),
     "observer_shape_order": observer_shape_order_actions(),
