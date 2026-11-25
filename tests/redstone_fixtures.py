@@ -115,6 +115,20 @@ def comparator_inventory_actions():
     ]
 
 
+def comparator_piston_wakeup_actions():
+    piston, conductor, comparator, source = (16,80,0), (16,81,0), (17,81,0), (18,81,0)
+    return [
+        *floor(comparator),place(piston,"piston",facing="down"),place(conductor,"stone"),
+        place(comparator,"comparator",facing="east"),place(source,"barrel"),step(4),
+        check("the empty inventory leaves the piston retracted",piston,"piston",extended="false"),
+        inventory_edit(source,0,"stone",1),step(2),
+        check("the comparator notifies the piston beneath its output block",piston,"piston",extended="true"),
+        inventory_edit(source,0,"air",0),step(2),
+        check("losing comparator power begins retraction",piston,"moving_piston",facing="down"),
+        step(2),check("piston finishes retracting",piston,"piston",extended="false"),
+    ]
+
+
 def hopper_transfer_actions():
     source, hopper, target = (16,81,0),(16,80,0),(16,79,0)
     signal = (15,80,0)
@@ -604,6 +618,33 @@ def piston_note_instrument_actions():
     ]
 
 
+def piston_powered_observer_actions():
+    piston, original, moved = (16,80,0), (16,81,0), (16,82,0)
+    observed, signal = (17,81,0), (16,79,0)
+    return [
+        place(piston,"piston",facing="up"),place(original,"observer",facing="east"),step(4),
+        place(observed,"stone"),step(2),
+        check("observer is active before moving",original,"observer",powered="true"),
+        place(signal,"redstone_block"),step(3),
+        check("relocated observer clears power without a scheduled tick at the destination",moved,
+              "observer",facing="east",powered="false"),
+        step(2),check("a move begun while powered does not replay the old pulse",moved,"observer",powered="false"),
+    ]
+
+
+def piston_observer_pulse_actions():
+    piston, original, moved = (16,80,0), (16,81,0), (16,82,0)
+    signal = (16,79,0)
+    return [
+        place(piston,"piston",facing="up"),place(original,"observer",facing="east"),step(4),
+        place(signal,"redstone_block"),step(3),
+        check("the resting observer has not pulsed yet",moved,"observer",powered="false"),
+        step(),check("the moved observer waits a second tick",moved,"observer",powered="false"),
+        step(),check("moving an idle observer starts a pulse",moved,"observer",powered="true"),
+        step(2),check("its pulse clears after two ticks",moved,"observer",powered="false"),
+    ]
+
+
 def piston_actions(sticky):
     signal, piston, front, moved = [(x, 80, 0) for x in range(14, 18)]
     kind = "sticky_piston" if sticky else "piston"
@@ -708,6 +749,7 @@ CASES.update({
     "comparator_weaker_side_compare": comparator_unequal_actions("compare"),
     "comparator_weaker_side_subtract": comparator_unequal_actions("subtract"),
     "comparator_inventory": comparator_inventory_actions(),
+    "comparator_piston_wakeup": comparator_piston_wakeup_actions(),
     "hopper_transfer": hopper_transfer_actions(),
     "hopper_lock": hopper_lock_actions(),
     "dropper_transfer": dropper_transfer_actions(),
@@ -741,6 +783,8 @@ CASES.update({
     "powered_receivers": powered_receiver_actions(),
     "note_instrument": note_instrument_actions(),
     "piston_note_instrument": piston_note_instrument_actions(),
+    "piston_powered_observer": piston_powered_observer_actions(),
+    "piston_observer_pulse": piston_observer_pulse_actions(),
     "piston_push": piston_actions(False),
     "piston_animation": piston_animation_actions(),
     "sticky_piston_pull": piston_actions(True),

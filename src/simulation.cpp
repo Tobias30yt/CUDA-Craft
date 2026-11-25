@@ -36,6 +36,9 @@ bool piston(int state) {
     return name=="piston"||name=="sticky_piston";
 }
 bool observer_powered(int state) { return simdata::property_value(state,"powered")=="true"; }
+int settled_piston_state(int state) {
+    return observer(state)&&observer_powered(state)?simdata::with_property(state,"powered","false"):state;
+}
 BlockPos observer_face(int state) {
     const auto direction=simdata::property_value(state,"facing");
     for(int i=0;i<6;++i)if(direction_names[i]==direction)return dirs[i];
@@ -174,11 +177,9 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
         if(wire(before)&&wire(after)&&wire_power(before)!=wire_power(after)) {
             for(auto direction:dirs)for(auto offset:dirs)wake_piston(add(add(p,direction),offset));
         }
-        if((observer(before)&&observer(after)&&observer_powered(before)!=observer_powered(after))||
-           (repeater(before)&&repeater(after)&&property_value(before,"powered")!=property_value(after,"powered"))) {
-            const auto output=add(p,opposite(observer_face(after)));
-            for(auto offset:dirs)wake_piston(add(output,offset));
-        }
+        if(same_device&&(observer(after)||repeater(after)||comparator(after))&&
+           property_value(before,"powered")!=property_value(after,"powered"))
+            wake_pistons_at_diode_output(p,after);
     }
 }
 void Simulation::activate(int cx,int cz,const std::vector<std::uint32_t>& blocks) {
@@ -538,6 +539,14 @@ void Simulation::inventory_signal_changed(BlockPos position) {
     for(const auto bank:container_positions(position))notify_analog_change(bank);
 }
 
+void Simulation::wake_pistons_at_diode_output(BlockPos position,int state) {
+    const auto output=add(position,opposite(observer_face(state)));
+    for(auto offset:dirs) {
+        const auto neighbor=add(output,offset);
+        if(piston(world_.block(neighbor)))piston_checks_.insert(neighbor);
+    }
+}
+
 Simulation::Event Simulation::device_event(unsigned delay,int state,int priority) {
     return {tick+delay,state,priority,next_device_sequence_++};
 }
@@ -676,10 +685,9 @@ void Simulation::tick_pistons() {
         }
         if(!power&&own_head)
             changes[head]=0;
-        if(finish_extension) {
-            const int moved=block_motion->second.state;
-            changes[start]=std::string_view(block(moved).name)=="piston_head"?0:moved;
-        }
+        const int finished_block=finish_extension?block_motion->second.state:0;
+        if(finish_extension)
+            changes[start]=std::string_view(block(finished_block).name)=="piston_head"?0:settled_piston_state(finished_block);
         for(auto p:destroyed)changes[p]=0;
         for(const auto& [p,value]:moving) { (void)value; changes[p]=0; }
         for(const auto& [p,value]:moving) {
@@ -717,6 +725,7 @@ void Simulation::tick_pistons() {
             for(const auto& [p,value]:ordered){(void)value;moving_pistons_.erase(p);}
             for(const auto& [p,value]:pending)
                 moving_pistons_[p]={value,tick+2,!power&&p==position?BlockPos{}:motion};
+            if(finish_extension)schedule_moved_observer(start,finished_block);
         }
     }
     piston_checks_.insert(waiting.begin(),waiting.end());
@@ -733,6 +742,7 @@ std::optional<std::pair<int,std::array<double,3>>> Simulation::piston_collision(
 
 void Simulation::finish_piston_motion() {
     std::vector<std::pair<BlockPos,int>> complete;
+    std::vector<std::pair<BlockPos,int>> observers;
     for(auto it=moving_pistons_.begin();it!=moving_pistons_.end();) {
         auto& [position,motion]=*it;
         if(!world_.ticks_blocks(position)){++motion.completes;++it;continue;}
@@ -774,11 +784,22 @@ void Simulation::finish_piston_motion() {
             }
             ++it;continue;
         }
-        if(std::string_view(simdata::block(world_.block(position)).name)=="moving_piston")
-            complete.emplace_back(position,motion.state);
+        if(std::string_view(simdata::block(world_.block(position)).name)=="moving_piston") {
+            complete.emplace_back(position,settled_piston_state(motion.state));
+            if(observer(motion.state))observers.emplace_back(position,motion.state);
+        }
         it=moving_pistons_.erase(it);
     }
-    if(!complete.empty())world_.set_blocks(complete);
+    if(!complete.empty()&&world_.set_blocks(complete))
+        for(const auto& [position,state]:observers)schedule_moved_observer(position,state);
+}
+
+void Simulation::schedule_moved_observer(BlockPos position,int moved_state) {
+    // Settling the moved block refreshes its front neighbor even if that neighbor stayed unchanged.
+    if(!observer(moved_state)||observer_powered(moved_state)||world_.block(position)!=moved_state||
+       devices_.contains(position)||devices_.size()>=65536)return;
+    devices_.emplace(position,device_event(2,simdata::with_property(moved_state,"powered","true")));
+    world_.mark_dirty();
 }
 
 void Simulation::update_tnt(BlockPos changed) {
@@ -1154,7 +1175,11 @@ void Simulation::step() {
         } else if(comparator(s)&&comparator(current)) {
             const int output=comparator_output(p,current);
             const auto previous=comparator_outputs_.find(p);
-            if(output!=(previous==comparator_outputs_.end()?0:previous->second))redstone_updates_.insert(p);
+            if(output!=(previous==comparator_outputs_.end()?0:previous->second)) {
+                redstone_updates_.insert(p);
+                if((output>0)==(simdata::property_value(current,"powered")=="true"))
+                    wake_pistons_at_diode_output(p,current);
+            }
             if(output)comparator_outputs_[p]=output;
             else comparator_outputs_.erase(p);
             world_.set(p,simdata::with_property(current,"powered",output?"true":"false"));

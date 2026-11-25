@@ -247,6 +247,8 @@ Abweichung die erwartete Eigenschaft und den gefundenen Blockzustand.
 | Isolierter Mk.6.1-Rückhub mit gezündeter TNT-Entität und erhaltenem TNT-Block | 1/1 | 1/1 |
 | Tageslichtsensor, Notenblock, Eisenfalltür und Zauntor | 2/2 | 2/2 |
 | Instrumentwechsel durch Blöcke direkt darüber oder darunter, Kolbenbewegung und verzögerter Observer-Impuls | 2/2 | 2/2 |
+| Versetzte Observer mit aktivem und inaktivem Ausgang | 2/2 | 2/2 |
+| Komparator benachrichtigt den Kolben unter dem Ausgangsblock | 1/1 | 1/1 |
 | Kolben, klebriger Kolben, Zwischenzustände, 12/13 Blöcke, Schleim/Honig, Quasi-Connectivity und Staub während der Bewegung | 10/10 | 10/10 |
 | Kurzer Repeater-Puls bei vier Ticks Verzögerung | 1/1 | 1/1 |
 

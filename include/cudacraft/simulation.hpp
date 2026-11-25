@@ -142,9 +142,11 @@ private:
     std::optional<int> container_signal(BlockPos position) const;
     void schedule_directional(BlockPos position);
     void notify_analog_change(BlockPos position);
+    void wake_pistons_at_diode_output(BlockPos position,int state);
     Event device_event(unsigned delay,int state,int priority=0);
     void tick_pistons();
     void finish_piston_motion();
+    void schedule_moved_observer(BlockPos position,int moved_state);
     void update_powered_rails(const std::set<BlockPos>& affected);
     void update_shapes();
     void tick_furnaces();

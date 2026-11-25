@@ -1,6 +1,6 @@
 {
-  "version": "0.11.6",
-  "date": "2026-11-18",
+  "version": "0.11.7",
+  "date": "2026-11-25",
   "columns": ["ID", "Priorität", "Bereich", "Aufgabe", "Status", "Nächster Schritt", "Abnahmekriterium", "Abhängigkeit"],
   "tasks": [
     ["B001","P0","Portale","Beschädigte Portale abschalten","Erledigt","Regression bei Änderungen am Nachbarsystem erhalten","Beide Achsen: Seiten, Boden, Dach und Innenloch entfernen Portal vor Reise. Ecken bleiben optional.",""],
@@ -59,8 +59,8 @@
     ["B054","P3","Auslieferung","Portable Builds und Launcher","Teilweise","Statische VC++-Laufzeit und entpackter Pakettest vorhanden; sauberen Zweitrechner und weitere Plattformen prüfen","Neuer Windows-Rechner kann ohne lokale Entwicklerpfade bauen oder starten.",""],
     ["B055","P3","Auslieferung","Modrinth-Import und Releases","Teilweise","Paketdaten und isolierten Serverstart geprüft; echten Modrinth-App-Import samt Login und Weltstart testen","Importierte Instanz startet und aktualisiert ohne doppelte Mods oder verlorene Welten.","B004,B054"],
     ["B056","P0","OSC-Fixtures","Mk.6/MS vollständig importieren und Vanilla-Baseline aufzeichnen","Teilweise","Mk.6.1-Originalaufbau schießt auf Vanilla 1.21.11 reproduzierbar zum Ziel. Fehlende Block-Entity-Felder und MS-Import ergänzen.","Unveränderte, SHA-256-fixierte Fixture läuft reproduzierbar in Vanilla 1.21.11; Importvergleich verliert keine Zustände.","B002,B015"],
-    ["B057","P0","Redstone","Vanilla-Update-Reihenfolge und Tick-Scheduler","Teilweise","Tageslichtsensoren, Notenblöcke, Falltüren und zusätzliche Kolbenzustände geprüft. Weitere analoge Quellen und Reihenfolge der Funkstrecke vergleichen.","Observer, Comparatoren, Repeater, Kupferlampen und Kolbenmodule liefern identische geordnete Tick-Traces.","B002"],
-    ["B058","P0","TNT/Physik","Duper und Beschleuniger differentiell testen","Teilweise","Zündzeit, freie Bewegung, statische Blockformen und der Impuls bewegter Schleimblöcke geprüft. Original-Duper, Explosionsimpulse und nicht tickende Chunks ergänzen.","Originales Duper-/Beschleunigermodul liefert gleiche TNT-Anzahl, Fuses und Bewegungen wie 1.21.11.","B006,B028,B034,B050,B057"],
-    ["B059","P0","OSC-Abnahme","Vollständige Mk.6/MS-Schussfolge bestehen","Teilweise","Nordost- und Südwest-Loader bestehen. Panel, Fernsteuerung, Nuke/Stab und Serienbetrieb anhand OSC_VANILLA_TEST.md vergleichen.","Gleiche Steuerungsereignisse, TNT-Anzahl, Einschläge, Inventare und Neustartzustände; TPS/MSPT separat dokumentiert.","B056,B057,B058,B029,B030,B042"]
+    ["B057","P0","Redstone","Vanilla-Update-Reihenfolge und Tick-Scheduler","Teilweise","Notenblock-Instrumente, geordnete Kolbenbewegung und Inventartransfer im Werfertaktgeber geprüft. Fehlenden Impuls im westlichen Zielregister und die Funkstrecke weiter vergleichen.","Observer, Comparatoren, Repeater, Kupferlampen und Kolbenmodule liefern identische geordnete Tick-Traces.","B002"],
+    ["B058","P0","TNT/Physik","Duper und Beschleuniger differentiell testen","Teilweise","Der isolierte Mk.6.1-Rückhub erzeugt auf beiden Servern eine gezündete TNT-Entität und erhält den TNT-Block. Weitere Originalmodule, Explosionsimpulse und nicht tickende Chunks vergleichen.","Originales Duper-/Beschleunigermodul liefert gleiche TNT-Anzahl, Fuses und Bewegungen wie 1.21.11.","B006,B028,B034,B050,B057"],
+    ["B059","P0","OSC-Abnahme","Vollständige Mk.6/MS-Schussfolge bestehen","Teilweise","Vanilla 1.21.11 trifft 80 64 32 reproduzierbar. CUDA Craft übernimmt alle 65 Panel-Bits. Der native Schuss, dessen Einschlag und die anschließende Creative-Client-Demonstration sind offen.","Gleiche Steuerungsereignisse, TNT-Anzahl, Einschläge, Inventare und Neustartzustände; TPS/MSPT separat dokumentiert.","B056,B057,B058,B029,B030,B042"]
   ]
 }
