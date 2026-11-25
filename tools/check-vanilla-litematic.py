@@ -21,16 +21,38 @@ from litematic_anvil_ticks import chunk_tick_records, restore_ticks
 capture = import_module("capture-vanilla-biomes")
 terrain = import_module("capture-vanilla-terrain")
 ROOT = capture.ROOT
+OVERWORLD_LAYERS = (("bedrock",1),("stone",124),("dirt",2),("grass_block",1))
+
+
+def flat_settings(biome, layers):
+    return {
+        "biome": f"minecraft:{biome}", "structure_overrides": [],
+        "layers": [{"block": f"minecraft:{block}", "height": height} for block,height in layers],
+    }
+
+
+def stage_flat_nether(pack):
+    preset = pack/"data/minecraft/worldgen/world_preset/flat.json"
+    preset.parent.mkdir(parents=True, exist_ok=True)
+    preset.write_text(json.dumps({"dimensions": {
+        "minecraft:overworld": {"type": "minecraft:overworld", "generator": {
+            "type": "minecraft:flat", "settings": flat_settings("plains", OVERWORLD_LAYERS),
+        }},
+        "minecraft:the_nether": {"type": "minecraft:the_nether", "generator": {
+            "type": "minecraft:flat",
+            "settings": flat_settings("nether_wastes", (("bedrock",1),("netherrack",126),("bedrock",1))),
+        }},
+        "minecraft:the_end": {"type": "minecraft:the_end", "generator": {
+            "type": "minecraft:noise", "settings": "minecraft:end",
+            "biome_source": {"type": "minecraft:the_end"},
+        }},
+    }}), encoding="utf-8")
 
 
 @contextmanager
 def vanilla_console(java, jar, directory, *, freeze_at_boot=False, buttons=()):
     (directory / "eula.txt").write_text("eula=true\n")
-    settings = {
-        "biome":"minecraft:plains","structure_overrides":[],
-        "layers":[{"block":f"minecraft:{name}","height":height} for name,height in
-                  (("bedrock",1),("stone",124),("dirt",2),("grass_block",1))],
-    }
+    settings = flat_settings("plains", OVERWORLD_LAYERS)
     (directory / "server.properties").write_text(
         "server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nlevel-type=minecraft:flat\n"
         "view-distance=2\nsimulation-distance=2\npause-when-empty-seconds=0\nspawn-monsters=false\n"
@@ -160,13 +182,15 @@ def place_in_vanilla(java, jar, directory, placements, exact_clock, observe):
 
 
 def stage_fixture(java, jar, directory, merged, version, offset, nether=None, panel=None, *,
-                  exact_clock=False, observe=()):
+                  exact_clock=False, observe=(), flat_nether=False):
     pack = directory/"world/datapacks/fixture"
     structures = pack/"data/fixture/structure"
     structures.mkdir(parents=True)
     (pack/"pack.mcmeta").write_text(json.dumps({"pack": {
         "description":"Local fixture verification","min_format":[94,1],"max_format":[94,1],
     }}))
+    if flat_nether:
+        stage_flat_nether(pack)
     def stage_tiles(prefix, records, data_version, origin):
         blocks,block_entities,entities,_,_ = records
         tiles = []

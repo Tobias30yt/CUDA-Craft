@@ -134,7 +134,7 @@ int main(int argc,char** argv) {
                 }
                 std::cout<<json{{"states",std::move(states)},{"tnt",std::move(tnt)},
                                 {"inventories",std::move(inventories)},{"vehicles",std::move(carts)},
-                                {"items",std::move(items)}}.dump()<<'\n';
+                                {"items",std::move(items)},{"next_entity",world.next_entity}}.dump()<<'\n';
                 continue;
             }
             if(action.contains("tnt")) {

@@ -134,6 +134,12 @@ Beim durchgehend erzwungenen Laden erhielt die Kanone in den Vergleichsläufen
 kein Startsignal. Die drei Tageslichtzustände, die Statuslampe und alle
 65 Eingabebits können im Trace geprüft werden.
 
+Mit `--flat-nether` erhält die temporäre Vanilla-Referenzwelt ein stabiles
+Netherdach auf Höhe 127. Die Originalmodule liegen weiterhin oberhalb des Dachs.
+Damit können Lava-Updates aus der Geländegenerierung unter dem Aufbau keine
+Gegenstände erzeugen und dadurch die Entity-IDs und die Vier-Tick-Phase der
+Items im Aufbau verschieben. Der Schalter setzt `--nether` voraus.
+
 ```powershell
 python tools/check-mk61-startup.py ".tools/osc-research/The Orbital Strike Cannon Mk.6.1.litematic" `
   --java "C:/Program Files/Java/jdk-23/bin/java.exe" --probe build/cuda/redstone-probe.exe `

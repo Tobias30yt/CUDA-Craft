@@ -113,10 +113,11 @@ def read_nbt(path):
 
 
 def vanilla_frames(java, jar, directory, merged, version, positions, containers, registry, item_ids,
-                   event_ticks, presses, origin, nether, panel, target_positions, grid, remote, portal_only, extra_watch):
+                   event_ticks, presses, origin, nether, panel, target_positions, grid, remote, portal_only, extra_watch,
+                   *, flat_nether=False):
     directory.mkdir()
     vanilla.stage_fixture(java,jar,directory,merged,version,origin,nether,panel,
-                          exact_clock=True,observe=(*target_positions,*extra_watch))
+                          exact_clock=True,observe=(*target_positions,*extra_watch),flat_nether=flat_nether)
     world = directory/"world"
     chunks = sorted({(x//16,z//16) for x,_,z in positions})
     frames = {0:vanilla_frame(world,positions,containers,chunks,registry,item_ids)}
@@ -290,6 +291,8 @@ def main():
     parser.add_argument("--watch-inventory",type=int,nargs=3,action="append",default=[],metavar=("X","Y","Z"),
                         help="Include the inventories of an original container in each trace frame")
     parser.add_argument("--nether",type=Path,help="Install the original OSC 6 Nether counterpart")
+    parser.add_argument("--flat-nether",action="store_true",
+                        help="Use a static roof in the Vanilla Nether to prevent terrain updates outside the fixture")
     parser.add_argument("--panel",type=Path,help="Install the original OSC 6 control panel")
     parser.add_argument("--grid",type=Path,help="Replay a 5x13 JSON grid from Cubicmetre's Mk.6 fire control")
     parser.add_argument("--grid-at",type=int,default=0,metavar="TICK",help="Enter the grid after this many startup ticks")
@@ -316,6 +319,8 @@ def main():
         parser.error("--remote-at must follow --submit-at and allow the pressure plate to release before --ticks")
     if args.portal_only_at is not None and (not args.nether or not 0<args.portal_only_at<=args.ticks):
         parser.error("--portal-only-at requires --nether and a tick after fixture loading")
+    if args.flat_nether and not args.nether:
+        parser.error("--flat-nether requires --nether")
     target_positions = []
     if args.target:
         x,y,z = args.target
@@ -429,6 +434,7 @@ def main():
     cache_key = None
     if args.reference_cache:
         cache_inputs = dict(reference=vanilla.capture.SHA1,main=SHA256,nether=NETHER_SHA256 if nether else None,
+                            flat_nether=args.flat_nether,
                             panel=PANEL_SHA256 if panel else None,presses=presses,grid=grid_plan,
                             points=positions,targets=target_positions,portal_only=args.portal_only_at,
                             remote=args.remote_at,ticks=event_ticks,containers=containers)
@@ -456,7 +462,8 @@ def main():
         else:
             reference = vanilla_frames(args.java,jar,directory/"reference",merged,version,positions,
                                        containers,registry,item_ids,event_ticks,presses,origin,nether,panel,
-                                       target_positions,grid_plan,args.remote_at,args.portal_only_at,extra_watch)
+                                       target_positions,grid_plan,args.remote_at,args.portal_only_at,extra_watch,
+                                       flat_nether=args.flat_nether)
             if args.reference_cache:
                 with gzip.open(args.reference_cache,"xt",encoding="utf-8") as output:
                     json.dump(dict(key=cache_key,frames=[reference[tick] for tick in event_ticks]),output)
