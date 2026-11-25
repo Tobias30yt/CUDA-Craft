@@ -45,6 +45,8 @@ for n in ['redstone_wire','lever','redstone_torch','redstone_wall_torch','repeat
     b=next(b for b in blocks if b['name']==n)
     for key in ['minStateId','maxStateId','defaultState']:
         out.append(f'inline constexpr int {n}_{dict(minStateId="first",maxStateId="last",defaultState="state")[key]}={b[key]};')
+    if n=='redstone_wire':
+        out.append('inline constexpr int redstone_wire_cross_state=4390;')
 for n in ['bucket','water_bucket','redstone','lever','redstone_torch','repeater','redstone_lamp','redstone_block','bread','apple','cooked_beef','porkchop','rotten_flesh','pig_spawn_egg','zombie_spawn_egg','crafting_table','stick']:
     out.append(f'inline constexpr int {n}_item={byitem[n]["id"]};')
 out+=['inline bool water(int s) { return s>=86 && s<=101; }','inline bool lava(int s) { return s>=102 && s<=117; }',

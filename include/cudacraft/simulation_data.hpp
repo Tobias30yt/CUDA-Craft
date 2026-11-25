@@ -4754,6 +4754,7 @@ inline int with_property(int state,std::string_view name,std::string_view value)
 inline constexpr int redstone_wire_first=3810;
 inline constexpr int redstone_wire_last=5105;
 inline constexpr int redstone_wire_state=4970;
+inline constexpr int redstone_wire_cross_state=4390;
 inline constexpr int lever_first=6570;
 inline constexpr int lever_last=6593;
 inline constexpr int lever_state=6579;

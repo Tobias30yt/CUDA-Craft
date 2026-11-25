@@ -253,18 +253,35 @@ def rail_pulse_order_actions():
 
 
 def observer_shape_order_actions():
-    changed = (16,80,4)
-    west, south = (15,80,4), (16,80,5)
-    west_dropper, south_dropper = (14,80,4), (16,80,6)
+    changed = (20,80,4)
+    west, south = (19,80,4), (20,80,5)
+    west_dropper, south_dropper = (18,80,4), (20,80,6)
     return [
         place(changed,"white_concrete"),
         place(west,"observer",facing="east"),place(south,"observer",facing="north"),
         place(west_dropper,"dropper",facing="up"),place(south_dropper,"dropper",facing="up"),
-        inventory_edit(west_dropper,0,"stone",1),inventory_edit(south_dropper,0,"stone",1),step(8),
+        inventory_edit(west_dropper,0,"stone",1),inventory_edit(south_dropper,0,"redstone",1),step(8),
         place(changed,"black_concrete"),step(6),
         dict(inventory_edit(west_dropper,0,"air",0),check="the west observer fired"),
         dict(inventory_edit(south_dropper,0,"air",0),check="the south observer fired"),
-        dict(pos=(16.5,81.25,4.5),first_item_from=(-2,0,0),check="the west observer receives its shape update first"),
+        dict(pos=(20.5,81.25,4.5),first_item_kind="stone",check="the west observer receives its shape update first"),
+    ]
+
+
+def wire_dot_shape_actions():
+    dot, cross = (16,80,4), (20,80,4)
+    dot_signal, cross_signal = (16,81,4), (20,81,4)
+    dot_lamp, cross_lamp = (17,80,4), (21,80,4)
+    dot_sides = dict(east="none",north="none",south="none",west="none")
+    cross_sides = dict(east="side",north="side",south="side",west="side")
+    return [
+        *floor(dot,cross),place(dot_lamp,"redstone_lamp"),place(cross_lamp,"redstone_lamp"),
+        place(dot,"redstone_wire",**dot_sides),place(cross,"redstone_wire",**cross_sides),
+        place(dot_signal,"redstone_block"),place(cross_signal,"redstone_block"),step(),
+        check("powered isolated dot retains its shape",dot,"redstone_wire",power="15",**dot_sides),
+        check("powered isolated cross retains its shape",cross,"redstone_wire",power="15",**cross_sides),
+        check("dust dot does not power the side lamp",dot_lamp,"redstone_lamp",lit="false"),
+        check("dust cross powers the side lamp",cross_lamp,"redstone_lamp",lit="true"),
     ]
 
 
@@ -848,6 +865,7 @@ CASES.update({
     "repeater_output_order": repeater_output_order_actions(),
     "rail_pulse_order": rail_pulse_order_actions(),
     "observer_shape_order": observer_shape_order_actions(),
+    "wire_dot_shape": wire_dot_shape_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),

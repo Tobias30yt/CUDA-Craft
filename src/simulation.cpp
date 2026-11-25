@@ -261,7 +261,7 @@ int Simulation::placement(int item,int face,float yaw,float pitch) const {
     using namespace simdata;
     int look=(static_cast<int>(std::floor(yaw/90.0f+0.5f))%4+4)%4;
     const int toward[]={1,2,0,3};const int away[]={0,3,1,2};
-    if(item==redstone_item) return redstone_wire_state;
+    if(item==redstone_item) return redstone_wire_cross_state;
     if(item==322)return face==1?3169:face>=2?3170+face-2:0;
     if(item==lever_item) {
         int side=face==1?0:face==0?2:1;
@@ -1031,6 +1031,7 @@ void Simulation::redstone() {
     }
     for(auto [p,v]:strength) {
         if(!wire_supports(world_.block(add(p,dirs[0])))) {world_.set(p,0);continue;}
+        const int previous=world_.block(p);
         // Wire property order: east, north, power, south, west.
         const bool open_above=!redstone_conductor(world_.block(add(p,dirs[1])));
         auto connection=[&](int d) {
@@ -1044,12 +1045,15 @@ void Simulation::redstone() {
             return 2;
         };
         int n=connection(2),s=connection(3),w=connection(4),e=connection(5);
-        // A single connection renders as a line; isolated dust renders as a cross.
+        // A saved dot keeps its shape while isolated. Newly placed dust starts as a cross.
         const bool no_ns=n==2&&s==2,no_ew=e==2&&w==2;
-        if(no_ns) {if(e==2)e=1;if(w==2)w=1;}
-        if(no_ew) {if(n==2)n=1;if(s==2)s=1;}
+        const bool keep_dot=no_ns&&no_ew&&previous==redstone_wire_state+9*wire_power(previous);
+        if(!keep_dot) {
+            if(no_ns) {if(e==2)e=1;if(w==2)w=1;}
+            if(no_ew) {if(n==2)n=1;if(s==2)s=1;}
+        }
         const int state=redstone_wire_first+((((e*3+n)*16+v)*3+s)*3+w);
-        if(state!=world_.block(p)&&world_.set(p,state))collect_devices(p);
+        if(state!=previous&&world_.set(p,state))collect_devices(p);
     }
     for(auto p:nodes) {
         int state=world_.block(p),next=state,delay=0;

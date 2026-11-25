@@ -169,17 +169,23 @@ int main(int argc,char** argv) {
                 }
                 continue;
             }
-            if(action.contains("first_item_from")) {
+            if(action.contains("first_item_from")||action.contains("first_item_kind")) {
                 const auto origin=action.at("pos").get<std::array<double,3>>();
-                const auto offset=action.at("first_item_from").get<std::array<double,3>>();
                 const auto& mobs=world.simulation().mobs;
                 const auto first=std::ranges::find_if(mobs,[&](const auto& entry) {
                     const auto& item=entry.second;
                     return item.type==71&&std::hypot(item.x-origin[0],item.y-origin[1],item.z-origin[2])<=3;
                 });
-                if(first==mobs.end()||std::abs(first->second.x-origin[0]-offset[0])>.45||
-                   std::abs(first->second.y-origin[1]-offset[1])>.45||
-                   std::abs(first->second.z-origin[2]-offset[2])>.45) {
+                bool matches=first!=mobs.end();
+                if(matches&&action.contains("first_item_kind"))
+                    matches=first->second.drop.item==sd::item_id(action.at("first_item_kind").get<std::string>());
+                if(matches&&action.contains("first_item_from")) {
+                    const auto offset=action.at("first_item_from").get<std::array<double,3>>();
+                    const auto& item=first->second;
+                    matches=std::abs(item.x-origin[0]-offset[0])<=.45&&
+                        std::abs(item.y-origin[1]-offset[1])<=.45&&std::abs(item.z-origin[2]-offset[2])<=.45;
+                }
+                if(!matches) {
                     ++failures;
                     std::cerr<<action.at("check").get<std::string>()<<": unexpected first item\n";
                 }
