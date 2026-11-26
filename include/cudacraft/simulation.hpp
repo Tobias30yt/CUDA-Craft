@@ -112,6 +112,7 @@ private:
     struct PistonMotion { int state; std::uint64_t completes; BlockPos direction; };
     std::map<BlockPos,PistonMotion> moving_pistons_;
     std::set<BlockPos> hoppers_;
+    std::set<BlockPos> scaffolds_;
     std::set<BlockPos> ejectors_;
     std::set<BlockPos> powered_rails_;
     std::set<BlockPos> detector_rails_;

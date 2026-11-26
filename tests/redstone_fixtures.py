@@ -291,6 +291,23 @@ def observer_shape_order_actions():
     ]
 
 
+def scaffolding_support_observer_actions():
+    platform, scaffold, anchor = (20,80,4), (20,81,4), (21,81,4)
+    observer, power = (20,82,4), (19,80,4)
+    return [
+        *floor(anchor),place(platform,"iron_trapdoor",half="top"),
+        place(anchor,"scaffolding",distance="0",bottom="false"),
+        place(scaffold,"scaffolding",distance="0",bottom="false"),
+        place(observer,"observer",facing="down"),step(8),
+        place(power,"redstone_block"),
+        check("opening support schedules a scaffold tick",scaffold,"scaffolding",distance="0",bottom="false"),
+        step(),check("scaffolding borrows horizontal support",scaffold,"scaffolding",distance="1",bottom="true"),
+        step(2),check("observer detects the new scaffold state",observer,"observer",powered="true"),
+        step(2),place(power,"air"),step(),
+        check("closed platform restores vertical support",scaffold,"scaffolding",distance="0",bottom="false"),
+    ]
+
+
 def wire_dot_shape_actions():
     dot, cross = (16,80,4), (20,80,4)
     dot_signal, cross_signal = (16,81,4), (20,81,4)
@@ -889,6 +906,7 @@ CASES.update({
     "repeater_output_order": repeater_output_order_actions(),
     "rail_pulse_order": rail_pulse_order_actions(),
     "observer_shape_order": observer_shape_order_actions(),
+    "scaffolding_support_observer": scaffolding_support_observer_actions(),
     "wire_dot_shape": wire_dot_shape_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),

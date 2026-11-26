@@ -57,7 +57,7 @@ def build_snapshot(blocks, records, entities, block_ticks, reports, item_ids, of
     ordered_ticks = sorted(block_ticks,key=lambda record:record[1].get("SubTick",0))
     sequences = {position:index for index,(position,_) in enumerate(ordered_ticks)}
     supported_ticks = {"minecraft:comparator","minecraft:dropper","minecraft:dispenser",
-                       "minecraft:repeater","minecraft:observer","minecraft:redstone_lamp"}
+                       "minecraft:repeater","minecraft:observer","minecraft:redstone_lamp","minecraft:scaffolding"}
     for position, entry in sorted(block_ticks,key=lambda record:record[0]):
         state = blocks.get(position)
         if not state or state["Name"] != entry["Block"] or entry["Block"] not in supported_ticks:

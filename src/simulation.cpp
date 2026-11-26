@@ -23,6 +23,25 @@ BlockPos opposite(BlockPos p){return {-p.x,-p.y,-p.z};}
 constexpr std::string_view direction_names[]={"down","up","north","south","west","east"};
 bool observer(int state) { return simdata::block(state).name == std::string_view("observer"); }
 bool comparator(int state) { return std::string_view(simdata::block(state).name)=="comparator"; }
+bool scaffolding(int state) { return std::string_view(simdata::block(state).name)=="scaffolding"; }
+
+int scaffolding_support_state(const World& world,BlockPos position,int state) {
+    using namespace simdata;
+    const int below=world.block(add(position,dirs[0]));
+    const bool stacked=scaffolding(below);
+    int distance=stacked?property_value(below,"distance").front()-'0':
+        block_physics(below).sturdy(1)?0:7;
+    if(distance>1)for(auto direction:facing) {
+        const int neighbor=world.block(add(position,direction));
+        if(!scaffolding(neighbor))continue;
+        distance=std::min(distance,1+property_value(neighbor,"distance").front()-'0');
+        if(distance==1)break;
+    }
+    constexpr std::string_view digits="01234567";
+    state=with_property(state,"distance",digits.substr(distance,1));
+    return with_property(state,"bottom",distance>0&&!stacked?"true":"false");
+}
+
 bool ejector(int state) {
     const std::string_view name=simdata::block(state).name;
     return name=="dropper"||name=="dispenser";
@@ -115,6 +134,8 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     if(name!="moving_piston")moving_pistons_.erase(p);
     if(name=="hopper")hoppers_.insert(p);
     else if(std::string_view(simdata::block(before).name)=="hopper")hoppers_.erase(p);
+    if(scaffolding(after))scaffolds_.insert(p);
+    else if(scaffolding(before))scaffolds_.erase(p);
     if(ejector(after))ejectors_.insert(p);
     else if(ejector(before))ejectors_.erase(p);
     if(powered_rail(after))powered_rails_.insert(p);
@@ -144,8 +165,15 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     if(name.ends_with("_button")||name.ends_with("_pressure_plate"))circuits_.insert(p);
     if(notify_observers&&before!=after&&(!circuits_.empty()||!powered_rails_.empty()))redstone_updates_.insert(p);
     if(notify_observers && before!=after) {
+        auto schedule_scaffold=[&](BlockPos position) {
+            if(devices_.contains(position)||devices_.size()>=65536)return;
+            devices_.emplace(position,device_event(1,world_.block(position)));
+            world_.mark_dirty();
+        };
+        if(scaffolding(after)&&!scaffolding(before))schedule_scaffold(p);
         for(auto direction:shape_update_order) {
             const auto neighbor=add(p,direction);
+            if(scaffolds_.contains(neighbor))schedule_scaffold(neighbor);
             if(!circuits_.contains(neighbor))continue;
             const int state=world_.block(neighbor);
             if(observer(state)&&!observer_powered(state)&&add(neighbor,observer_face(state))==p
@@ -333,6 +361,10 @@ bool Simulation::place_block(BlockPos p,int state) {
     using namespace simdata;
     if(!World::valid(p)||p.y==-64||!valid_state(state)||!state)return false;
     if(std::string_view(block(state).name)=="note_block")state=note_block_state(p,state);
+    if(scaffolding(state)) {
+        state=scaffolding_support_state(world_,p,state);
+        if(property_value(state,"distance")=="7")return false;
+    }
     std::vector<std::pair<BlockPos,int>> changes;
     if(container_type(state)&&property_value(state,"type")=="single") {
         const auto f=state_direction(state);const BlockPos right{-f.z,0,f.x};
@@ -1207,6 +1239,13 @@ void Simulation::step() {
         const int current=world_.block(p);
         if(detector_rail(s)&&detector_rail(current)) {
             update_detector_rail(p,true);
+        } else if(scaffolding(s)&&scaffolding(current)) {
+            using namespace simdata;
+            const int next=scaffolding_support_state(world_,p,current);
+            if(property_value(next,"distance")=="7") {
+                const int replacement=property_value(current,"waterlogged")=="true"?water_state:0;
+                if(world_.set(p,replacement))spawn(71,p.x+.5,p.y+.5,p.z+.5,{block(current).drop,1,0});
+            } else if(next!=current)world_.set(p,next);
         } else if(ejector(s)&&simdata::block(s).first==simdata::block(current).first) {
             dispense_container(p,current);
         } else if(comparator(s)&&comparator(current)) {
@@ -1386,7 +1425,8 @@ void Simulation::load(std::string_view text) {
         if(!World::valid(p)||event.due>tick+1200||event.priority< -3||event.priority>3||
            event.sequence>=static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())||
            !sequences.insert(event.sequence).second||
-           (!simdata::circuit(event.state)&&!observer(event.state)&&!comparator(event.state)&&!ejector(event.state)&&!detector_rail(event.state)))
+           (!simdata::circuit(event.state)&&!observer(event.state)&&!comparator(event.state)&&!ejector(event.state)&&
+            !detector_rail(event.state)&&!scaffolding(event.state)))
             throw std::runtime_error("Invalid redstone tick");
         if(observer(event.state)) {
             const int current=world_.block(p);
