@@ -139,6 +139,9 @@ BlockPos World::spawn() const {
     return {sx,64,sz};
 }
 bool World::set(BlockPos p,int state) {
+    return set(p,state,true);
+}
+bool World::set(BlockPos p,int state,bool notify_neighbors) {
     if(!valid(p) || p.y<=min_y()||p.y>=min_y()+height() || !simdata::valid_state(state)) return false;
     const int previous=block(p);
     if(previous==state) return true;
@@ -148,13 +151,15 @@ bool World::set(BlockPos p,int state) {
     const int base=base_block(p);
     if (state==base) edits_.erase(p); else edits_[p]=state;
     dirty_=true;
-    simulation_->changed(p,previous,state);
+    simulation_->changed(p,previous,state,true,notify_neighbors);
     for(auto* player:players) player->block_changed(p,state);
     queue_bulb_light(p,previous,state);
-    simulation_->update_power_receivers(p,previous,state);
-    simulation_->update_ejectors(p,previous,state);
-    simulation_->update_rail_power(p,previous,state);
-    simulation_->update_tnt(p);
+    if(notify_neighbors) {
+        simulation_->update_power_receivers(p,previous,state);
+        simulation_->update_ejectors(p,previous,state);
+        simulation_->update_rail_power(p,previous,state);
+        simulation_->update_tnt(p);
+    }
     return true;
 }
 bool World::set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks) {

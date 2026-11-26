@@ -127,7 +127,7 @@ void Simulation::schedule_water(BlockPos p,std::uint64_t delay) {
     if(!inserted) i->second=std::min(i->second,due);
     world_.mark_dirty();
 }
-void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) {
+void Simulation::changed(BlockPos p,int before,int after,bool notify_observers,bool notify_neighbors) {
     if(std::string_view(simdata::block(after).name)=="nether_portal"&&portal_checks_.size()<65536)portal_checks_.insert(p);
     for(auto d:dirs){auto n=add(p,d);if(portal_checks_.size()<65536&&std::string_view(simdata::block(world_.block(n)).name)=="nether_portal")portal_checks_.insert(n);}
     const auto name=std::string_view(simdata::block(after).name);
@@ -187,7 +187,7 @@ void Simulation::changed(BlockPos p,int before,int after,bool notify_observers) 
     for(auto d:dirs) { auto n=add(p,d); if(World::valid(n)&&simdata::water(fluid_state(world_.block(n)))) schedule_water(n); }
     if(connects(after))shape_updates_.insert(p);
     for(auto d:dirs) {auto n=add(p,d);if(World::valid(n)&&connects(world_.block(n)))shape_updates_.insert(n);}
-    if(notify_observers&&before!=after) {
+    if(notify_observers&&notify_neighbors&&before!=after) {
         using namespace simdata;
         auto wake_piston=[&](BlockPos position) {
             if(piston(world_.block(position)))piston_checks_.insert(position);
@@ -348,7 +348,9 @@ bool Simulation::interact(BlockPos p) {
     if(name.ends_with("_door")||name.ends_with("_trapdoor")||name.ends_with("_fence_gate")) {
         if(name=="iron_door"||name=="iron_trapdoor")return true;
         const auto value=simdata::property_value(state,"open")=="true"?"false":"true";
-        std::vector<std::pair<BlockPos,int>> changes{{p,simdata::with_property(state,"open",value)}};
+        const int next=simdata::with_property(state,"open",value);
+        if(name.ends_with("_trapdoor"))return world_.set(p,next,false);
+        std::vector<std::pair<BlockPos,int>> changes{{p,next}};
         if(paired_vertical(state)) {
             auto other=add(p,{0,simdata::property_value(state,"half")=="lower"?1:-1,0});int s=world_.block(other);
             if(simdata::block(s).first==simdata::block(state).first&&simdata::property_value(s,"half")!=simdata::property_value(state,"half"))changes.emplace_back(other,simdata::with_property(s,"open",value));
@@ -478,20 +480,23 @@ int Simulation::neighbor_power(BlockPos p,bool wires) const {
     return best;
 }
 
+int Simulation::direct_power(BlockPos from,BlockPos to,bool wires) const {
+    using namespace simdata;
+    const int state=world_.block(from);
+    const std::string_view name=block(state).name;
+    const bool attached=lever(state)||name.ends_with("_button")||name.ends_with("_pressure_plate");
+    if((attached&&device_support(from,state)==to)||(torch(state)&&to.y==from.y+1)||
+       (detector_rail(state)&&to.y==from.y-1)||repeater(state)||observer(state)||comparator(state)||
+       (wires&&wire(state)))return emitted_power(from,to,wires);
+    return 0;
+}
+
 int Simulation::directional_input(BlockPos position,BlockPos direction,bool wires) const {
     using namespace simdata;
     const auto input=add(position,direction);
     int signal=emitted_power(input,position,wires);
     if(signal==15||!redstone_conductor(world_.block(input)))return signal;
-    for(auto offset:dirs) {
-        const auto source=add(input,offset);
-        const int state=world_.block(source);
-        const std::string_view name=block(state).name;
-        const bool attached=lever(state)||name.ends_with("_button")||name.ends_with("_pressure_plate");
-        if((attached&&device_support(source,state)==input)||(torch(state)&&offset.y==-1)||
-           (detector_rail(state)&&offset.y==1)||repeater(state)||observer(state)||comparator(state)||
-           (wires&&wire(state)))signal=std::max(signal,emitted_power(source,input,wires));
-    }
+    for(auto offset:dirs)signal=std::max(signal,direct_power(add(input,offset),input,wires));
     return signal;
 }
 
@@ -526,8 +531,8 @@ int Simulation::comparator_output(BlockPos position,int state) const {
     auto side_signal=[&](BlockPos source) {
         const int side_state=world_.block(source);
         if(wire(side_state))return wire_power(side_state);
-        return repeater(side_state)||comparator(side_state)||side_state==redstone_block_state?
-            emitted_power(source,position,false):0;
+        if(side_state==redstone_block_state)return 15;
+        return direct_power(source,position,false);
     };
     const int control=std::max(side_signal(add(position,side)),side_signal(add(position,opposite(side))));
     if(property_value(state,"mode")=="subtract")return std::max(0,input-control);
@@ -779,6 +784,7 @@ std::optional<std::pair<int,std::array<double,3>>> Simulation::piston_collision(
 void Simulation::finish_piston_motion() {
     std::vector<std::pair<BlockPos,int>> complete;
     std::vector<std::pair<BlockPos,int>> observers;
+    std::map<int,std::array<double,3>> tnt_piston_movement;
     for(auto it=moving_pistons_.begin();it!=moving_pistons_.end();) {
         auto& [position,motion]=*it;
         if(!world_.ticks_blocks(position)){++motion.completes;++it;continue;}
@@ -792,7 +798,6 @@ void Simulation::finish_piston_motion() {
                 const double delta=.5*direction;
                 const bool slime=std::string_view(simdata::block(state).name)=="slime_block";
                 for(auto& [id,tnt]:primed_tnt) {
-                    (void)id;
                     constexpr double height=.98f,radius=height/2;
                     const std::array minimum{tnt.x-radius,tnt.y,tnt.z-radius};
                     const std::array maximum{tnt.x+radius,tnt.y+height,tnt.z+radius};
@@ -800,8 +805,14 @@ void Simulation::finish_piston_motion() {
                     for(const auto& cube:cubes) {
                         bool overlaps=true;
                         for(int i=0;i<3;++i) {
-                            const double low=origin[i]+cube.min[i]+(i==axis?std::min(0.,delta):0.);
-                            const double high=origin[i]+cube.max[i]+(i==axis?std::max(0.,delta):0.);
+                            double low=origin[i]+cube.min[i],high=origin[i]+cube.max[i];
+                            if(i==axis) {
+                                // Only the leading face sweeps into the entity's space.
+                                if(direction>0)low=high;
+                                else high=low;
+                                low+=std::min(0.,delta);
+                                high+=std::max(0.,delta);
+                            }
                             overlaps&=low<maximum[i]&&high>minimum[i];
                         }
                         if(overlaps)shove=std::max(shove,direction>0?
@@ -809,8 +820,13 @@ void Simulation::finish_piston_motion() {
                             maximum[axis]-origin[axis]-cube.min[axis]-delta);
                     }
                     if(shove<=0)continue;
-                    const double distance=world_.clip_motion(minimum,maximum,axis,
-                        direction*(std::min(.5,shove)+.01),true);
+                    // Pistons share the per-axis movement limit for each entity in this tick.
+                    auto& applied=tnt_piston_movement[id][axis];
+                    const double limited=std::clamp(applied+direction*(std::min(.5,shove)+.01),-.51,.51);
+                    const double remaining=limited-applied;
+                    applied=limited;
+                    const double distance=std::abs(remaining)>1.e-5?
+                        world_.clip_motion(minimum,maximum,axis,remaining,true):0.;
                     double* const coordinates[]={&tnt.x,&tnt.y,&tnt.z};
                     double* const velocity[]={&tnt.vx,&tnt.vy,&tnt.vz};
                     *coordinates[axis]+=distance;
@@ -907,7 +923,8 @@ void Simulation::update_power_receivers(BlockPos changed,int before,int after) {
         if(copper_bulb(state)&&powered)next=with_property(next,"lit",property_value(state,"lit")=="true"?"false":"true");
         if(name.ends_with("_trapdoor")||name.ends_with("_fence_gate"))
             next=with_property(next,"open",powered?"true":"false");
-        world_.set(position,next);
+        // Trapdoors publish their new shape without sending a fresh neighbor signal.
+        world_.set(position,next,!name.ends_with("_trapdoor"));
     };
     update(changed);
     for(auto direction:dirs) {
@@ -1030,15 +1047,18 @@ void Simulation::redstone() {
     } else {
         for(auto p:changed)collect_devices(p);
     }
-    auto links=[&](BlockPos p) {
+    auto wire_outputs=[&](BlockPos p) {
         std::vector<BlockPos> out;
         const bool open_above=!redstone_conductor(world_.block(add(p,dirs[1])));
+        const bool conducts_below=redstone_conductor(world_.block(add(p,dirs[0])));
         for(int d=2;d<6;++d) {
-            auto n=add(p,dirs[d]);int s=world_.block(n);
-            if(wire(s))out.push_back(n);
-            if(redstone_conductor(s)) {
-                if(open_above&&wire(world_.block(add(n,dirs[1]))))out.push_back(add(n,dirs[1]));
-            } else if(wire(world_.block(add(n,dirs[0]))))out.push_back(add(n,dirs[0]));
+            const auto side=add(p,dirs[d]);
+            const int adjacent=world_.block(side);
+            if(wire(adjacent))out.push_back(side);
+            const auto upper=add(side,dirs[1]);
+            const auto lower=add(side,dirs[0]);
+            if(open_above&&wire(world_.block(upper)))out.push_back(upper);
+            if(conducts_below&&!redstone_conductor(adjacent)&&wire(world_.block(lower)))out.push_back(lower);
         }
         return out;
     };
@@ -1051,7 +1071,14 @@ void Simulation::redstone() {
     while(!queue.empty()) {
         const auto p=queue.front();
         queue.pop_front();
-        for(auto n:links(p))if(strength.emplace(n,0).second)queue.push_back(n);
+        // Visit wires on both sides of a potentially one-way step for recalculation.
+        for(auto direction:facing) {
+            auto side=add(p,direction);
+            for(int y=p.y-1;y<=p.y+1;++y) {
+                side.y=y;
+                if(wire(world_.block(side))&&strength.emplace(side,0).second)queue.push_back(side);
+            }
+        }
     }
     for(auto& [p,power]:strength) {
         power=neighbor_power(p,false);
@@ -1059,7 +1086,14 @@ void Simulation::redstone() {
     }
     while(!queue.empty()) {
         auto p=queue.front();queue.pop_front();
-        for(auto n:links(p)) if(strength.contains(n)&&strength[n]<strength[p]-1) {strength[n]=strength[p]-1;queue.push_back(n);}
+        const int power=strength.at(p)-1;
+        if(power<=0)continue;
+        for(auto n:wire_outputs(p)) {
+            auto& signal=strength.at(n);
+            if(signal>=power)continue;
+            signal=power;
+            queue.push_back(n);
+        }
     }
     for(auto [p,v]:strength) {
         if(!wire_supports(world_.block(add(p,dirs[0])))) {world_.set(p,0);continue;}

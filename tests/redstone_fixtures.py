@@ -129,6 +129,22 @@ def comparator_piston_wakeup_actions():
     ]
 
 
+def comparator_observer_side_actions():
+    device, main, output = (20,80,4), (20,80,5), (20,80,3)
+    observer, watched = (21,80,4), (22,80,4)
+    return [
+        *floor(device,output),place(main,"redstone_block"),
+        place(output,"repeater",facing="south"),
+        place(device,"comparator",facing="south",mode="subtract"),
+        place(observer,"observer",facing="east"),step(8),
+        check("comparator starts powered",device,"comparator",powered="true"),
+        place(watched,"stone"),step(2),
+        check("observer delivers a side pulse",observer,"observer",powered="true"),
+        step(2),check("comparator subtracts the observer's direct side power",device,"comparator",powered="false"),
+        step(2),check("comparator recovers after the side pulse",device,"comparator",powered="true"),
+    ]
+
+
 def hopper_transfer_actions():
     source, hopper, target = (16,81,0),(16,80,0),(16,79,0)
     signal = (15,80,0)
@@ -308,6 +324,18 @@ def scaffolding_support_observer_actions():
     ]
 
 
+def trapdoor_piston_notification_actions():
+    watched, observer, conductor = (20,83,4), (20,82,4), (20,81,4)
+    trapdoor, piston = (20,80,4), (21,80,4)
+    return [
+        place(conductor,"white_concrete"),place(trapdoor,"iron_trapdoor"),
+        place(piston,"piston",facing="up"),place(observer,"observer",facing="up"),step(6),
+        place(watched,"stone"),step(2),
+        check("observer power opens the trapdoor",trapdoor,"iron_trapdoor",open="true"),
+        check("trapdoor updates its shape without waking the QC piston",piston,"piston",extended="false"),
+    ]
+
+
 def wire_dot_shape_actions():
     dot, cross = (16,80,4), (20,80,4)
     dot_signal, cross_signal = (16,81,4), (20,81,4)
@@ -322,6 +350,20 @@ def wire_dot_shape_actions():
         check("powered isolated cross retains its shape",cross,"redstone_wire",power="15",**cross_sides),
         check("dust dot does not power the side lamp",dot_lamp,"redstone_lamp",lit="false"),
         check("dust cross powers the side lamp",cross_lamp,"redstone_lamp",lit="true"),
+    ]
+
+
+def wire_glass_step_actions():
+    lower, support, upper = (20,80,4), (21,80,4), (21,81,4)
+    lower_input, upper_input = (19,80,4), (22,81,4)
+    return [
+        *floor(lower),place(support,"glass"),
+        place(lower,"redstone_wire"),place(upper,"redstone_wire"),step(),
+        place(lower_input,"redstone_block"),step(),
+        check("wire climbs a glass step",upper,"redstone_wire",power="14"),
+        place(lower_input,"air"),place(upper_input,"redstone_block"),step(),
+        check("upper wire receives its direct signal",upper,"redstone_wire",power="15"),
+        check("wire on glass does not power the lower wire",lower,"redstone_wire",power="0"),
     ]
 
 
@@ -668,6 +710,49 @@ def tnt_slab_actions():
     ]
 
 
+def tnt_ceiling_actions():
+    position=(20.5,80,4.5)
+    hit_y=81-struct.unpack("<f",struct.pack("<f",.98))[0]
+    return [
+        place((20,81,4),"stone"),dict(tnt="charge",pos=position,velocity=(0,.2,0),fuse=80),
+        step(),dict(tnt="charge",check="ceiling collision clears TNT's upward velocity",
+                    pos=(20.5,hit_y,4.5),velocity=(0,0,0),fuse=79),
+        dict(tnt="charge",remove=True,pos=position),
+    ]
+
+
+def tnt_shared_piston_limit_actions():
+    pistons = (20,80,4), (21,80,4)
+    moved = (20,80,5), (21,80,5)
+    signals = (20,80,3), (21,80,3)
+    position=(21.01,80,5.7)
+    return [
+        *floor(*[(x,80,z) for x in (20,21) for z in range(5,8)]),
+        *[place(pos,"piston",facing="south") for pos in pistons],
+        *[place(pos,"white_concrete") for pos in moved],step(4),
+        dict(tnt="charge",pos=position,velocity=(0,0,0),fuse=80),
+        *[place(pos,"redstone_block") for pos in signals],step(),
+        dict(tnt="charge",check="both pistons share the same axis movement limit",
+             pos=(21.01,80,6.21),velocity=(0,0,0),fuse=79),
+        dict(tnt="charge",remove=True,pos=position),
+    ]
+
+
+def tnt_piston_leading_face_actions():
+    piston, signal = (20,80,4), (20,80,3)
+    position=(21.5,80,5.45)
+    return [
+        *floor((21,80,5),(21,80,6)),
+        place(piston,"piston",facing="south"),place((20,80,5),"slime_block"),
+        place((21,80,5),"white_concrete"),step(4),
+        dict(tnt="charge",pos=position,velocity=(0,0,0),fuse=80),
+        place(signal,"redstone_block"),step(),
+        dict(tnt="charge",check="the back of a moved block does not shove TNT",
+             pos=position,velocity=(0,0,0),fuse=79),
+        dict(tnt="charge",remove=True,pos=position),
+    ]
+
+
 def moving_slime_actions():
     signal,piston,slime=(14,80,0),(15,80,0),(16,80,0)
     position=(17.5,80,.5)
@@ -896,6 +981,7 @@ CASES.update({
     "comparator_weaker_side_subtract": comparator_unequal_actions("subtract"),
     "comparator_inventory": comparator_inventory_actions(),
     "comparator_piston_wakeup": comparator_piston_wakeup_actions(),
+    "comparator_observer_side": comparator_observer_side_actions(),
     "hopper_transfer": hopper_transfer_actions(),
     "hopper_lock": hopper_lock_actions(),
     "dropper_transfer": dropper_transfer_actions(),
@@ -907,7 +993,9 @@ CASES.update({
     "rail_pulse_order": rail_pulse_order_actions(),
     "observer_shape_order": observer_shape_order_actions(),
     "scaffolding_support_observer": scaffolding_support_observer_actions(),
+    "trapdoor_piston_notification": trapdoor_piston_notification_actions(),
     "wire_dot_shape": wire_dot_shape_actions(),
+    "wire_glass_step": wire_glass_step_actions(),
     "jukebox_sorter": jukebox_sorter_actions(),
     "hopper_trapdoor": hopper_trapdoor_actions(),
     "item_landing": item_landing_actions(),
@@ -932,6 +1020,9 @@ CASES.update({
     "piston_tnt_duplication": piston_tnt_duplication_actions(),
     "tnt_impulse": tnt_impulse_actions(),
     "tnt_slab": tnt_slab_actions(),
+    "tnt_ceiling": tnt_ceiling_actions(),
+    "tnt_shared_piston_limit": tnt_shared_piston_limit_actions(),
+    "tnt_piston_leading_face": tnt_piston_leading_face_actions(),
     "moving_slime": moving_slime_actions(),
     "daylight_detector": daylight_actions(),
     "powered_receivers": powered_receiver_actions(),

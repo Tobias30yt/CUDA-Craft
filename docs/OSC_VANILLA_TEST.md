@@ -159,9 +159,11 @@ Referenzprüfung bleibt ein Fehler, bis CUDA Craft TNT am selben Ziel erzeugt
 und der Vergleich der Blockänderungen besteht.
 
 Mit der Gerüst-Abstützung löst das Originalpanel auch auf CUDA Craft den
-ersten TNT-Duper aus. Im Vergleich mit `--flat-nether` entsteht der erste
-TNT-Körper auf CUDA Craft in Tick 750 und auf Vanilla in Tick 752. Die native
-Ladung bleibt im Startmodul. Die Vanilla-Referenz erreicht das Ziel.
+ersten TNT-Duper aus. Im Vergleich mit `--flat-nether` entsteht die erste
+Ladung auf beiden Servern in Tick 752. Die erste Gruppe aus 19 Ladungen
+wartet in beiden Läufen an der Chunkgrenze. In Vanilla schiebt der
+Startmechanismus die Gruppe in die Beschleuniger und erreicht das Ziel.
+Die native Gruppe bleibt am Ausgang der Sammelkammer stehen.
 
 `--reference-cache <Datei.json.gz>` zeichnet die vollständigen Referenzdaten
 auf und kann dieselben Vanilla-Frames nach einem nativen Neubau wiederverwenden.

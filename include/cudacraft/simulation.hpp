@@ -59,7 +59,7 @@ struct PrimedTnt {
 class Simulation {
 public:
     explicit Simulation(World& world):world_(world){}
-    void changed(BlockPos p,int before,int after,bool notify_observers=true);
+    void changed(BlockPos p,int before,int after,bool notify_observers=true,bool notify_neighbors=true);
     void update_power_receivers(BlockPos changed,int before,int after);
     void update_ejectors(BlockPos changed,int before,int after);
     void update_tnt(BlockPos changed);
@@ -136,6 +136,7 @@ private:
     void flow(BlockPos p);
     void redstone();
     int emitted_power(BlockPos from,BlockPos to,bool wires) const;
+    int direct_power(BlockPos from,BlockPos to,bool wires) const;
     int neighbor_power(BlockPos position,bool wires) const;
     int directional_input(BlockPos position,BlockPos direction,bool wires=true) const;
     bool repeater_locked(BlockPos position,BlockPos direction) const;

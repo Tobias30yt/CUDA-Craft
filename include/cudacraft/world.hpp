@@ -75,6 +75,7 @@ public:
     std::uint64_t seed_hash() const;
 private:
     friend class Simulation;
+    bool set(BlockPos p,int state,bool notify_neighbors);
     bool set_blocks(const std::vector<std::pair<BlockPos,int>>& blocks,bool in_order);
     bool ticks_chunk(int cx,int cz,int extra_radius) const;
     bool chunk_tickets_enabled_=false;

@@ -130,6 +130,7 @@ void Simulation::tick_tnt() {
         const double dy=clip(world_,tnt,1,move_y);
         tnt.y+=dy;
         const bool grounded=dy!=move_y&&move_y<0;
+        if(dy!=move_y)tnt.vy=0;
         auto horizontal=[&](int axis,double& coordinate,double& velocity,double distance) {
             const double moved=clip(world_,tnt,axis,distance);
             coordinate+=moved;
